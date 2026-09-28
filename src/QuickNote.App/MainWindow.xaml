@@ -1,0 +1,1379 @@
+<Window x:Class="QuickNote.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:models="clr-namespace:QuickNote.Core.Models;assembly=QuickNote.Core"
+        xmlns:vm="clr-namespace:QuickNote.App.ViewModels"
+        mc:Ignorable="d"
+        Title="QuickNote — Local-First Markdown Notes" Height="700" Width="1120"
+        MinWidth="360" MinHeight="400"
+        SizeChanged="Window_SizeChanged"
+        WindowStartupLocation="CenterScreen"
+        Icon="Resources/app.ico"
+        Background="{DynamicResource NotionCanvasBg}">
+
+    <Window.InputBindings>
+        <KeyBinding Modifiers="Control" Key="S" Command="{Binding SaveCommand}"/>
+        <KeyBinding Modifiers="Control" Key="N" Command="{Binding NewNoteCommand}"/>
+        <KeyBinding Modifiers="Control" Key="R" Command="{Binding RefreshCommand}"/>
+        <KeyBinding Modifiers="Control" Key="W" Command="{Binding CloseTabCommand}"/>
+        <KeyBinding Modifiers="Control" Key="T" Command="{Binding NewTabCommand}"/>
+        <KeyBinding Modifiers="Control" Key="Tab" Command="{Binding NextTabCommand}"/>
+        <KeyBinding Modifiers="Control+Shift" Key="Tab" Command="{Binding PrevTabCommand}"/>
+    </Window.InputBindings>
+
+    <Window.Resources>
+        <!-- Notion Dark / Light Dynamic Palette -->
+        <SolidColorBrush x:Key="NotionCanvasBg" Color="#191919"/>
+        <SolidColorBrush x:Key="NotionSidebarBg" Color="#202020"/>
+        <SolidColorBrush x:Key="NotionHeaderBg" Color="#202020"/>
+        <SolidColorBrush x:Key="NotionBorder" Color="#2C2C2C"/>
+        <SolidColorBrush x:Key="NotionItemHover" Color="#2C2C2C"/>
+        <SolidColorBrush x:Key="NotionItemSelected" Color="#333333"/>
+        <SolidColorBrush x:Key="NotionTextPrimary" Color="#E6E6E6"/>
+        <SolidColorBrush x:Key="NotionTextSecondary" Color="#8C8C8C"/>
+        <SolidColorBrush x:Key="NotionTextMuted" Color="#555555"/>
+        <SolidColorBrush x:Key="NotionSearchBg" Color="#2A2A2A"/>
+        <SolidColorBrush x:Key="NotionButtonBg" Color="#2A2A2A"/>
+        <SolidColorBrush x:Key="NotionButtonBorder" Color="#383838"/>
+        <SolidColorBrush x:Key="NotionButtonText" Color="#E0E0E0"/>
+        <SolidColorBrush x:Key="NotionStatusBarBg" Color="#1A1A1A"/>
+        <SolidColorBrush x:Key="NotionOverlayBg" Color="#242424"/>
+        <SolidColorBrush x:Key="NotionOverlayHeaderBg" Color="#1E1E1E"/>
+        <SolidColorBrush x:Key="NotionAccent" Color="#2563EB"/>
+        <SolidColorBrush x:Key="NotionScrollbarThumb" Color="#3E3E3E"/>
+        <SolidColorBrush x:Key="NotionScrollbarThumbHover" Color="#5A5A5A"/>
+
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+
+        <!-- Notion-Style Clean Minimalist Vector Geometries (16x16 coordinate space) -->
+        <StreamGeometry x:Key="IconNewNoteGeometry">M 3 1.5 C 2.17 1.5 1.5 2.17 1.5 3 L 1.5 13 C 1.5 13.83 2.17 14.5 3 14.5 L 13 14.5 C 13.83 14.5 14.5 13.83 14.5 13 L 14.5 3 C 14.5 2.17 13.83 1.5 13 1.5 L 3 1.5 Z M 8 4.5 L 8 11.5 M 4.5 8 L 11.5 8</StreamGeometry>
+        <StreamGeometry x:Key="IconFolderGeometry">M 1.5 3.5 C 1.5 2.67 2.17 2 3 2 L 6 2 C 6.5 2 6.95 2.25 7.25 2.65 L 8.1 3.75 C 8.35 4.1 8.75 4.3 9.2 4.3 L 13 4.3 C 13.83 4.3 14.5 4.97 14.5 5.8 L 14.5 12.5 C 14.5 13.33 13.83 14 13 14 L 3 14 C 2.17 14 1.5 13.33 1.5 12.5 Z</StreamGeometry>
+        <StreamGeometry x:Key="IconFileGeometry">M 3.5 1.5 C 2.67 1.5 2 2.17 2 3 L 2 13 C 2 13.83 2.67 14.5 3.5 14.5 L 12.5 14.5 C 13.33 14.5 14 13.83 14 13 L 14 5.5 L 10 1.5 L 3.5 1.5 Z M 9.5 2 L 9.5 5.5 L 13 5.5</StreamGeometry>
+        <StreamGeometry x:Key="IconSaveGeometry">M 2.5 1.5 C 1.95 1.5 1.5 1.95 1.5 2.5 L 1.5 13.5 C 1.5 14.05 1.95 14.5 2.5 14.5 L 13.5 14.5 C 14.05 14.5 14.5 14.05 14.5 13.5 L 14.5 4.5 L 11.5 1.5 L 2.5 1.5 Z M 4 2.5 L 10 2.5 L 10 5.5 L 4 5.5 Z M 3.5 8.5 L 12.5 8.5 L 12.5 13.5 L 3.5 13.5 Z</StreamGeometry>
+        <StreamGeometry x:Key="IconTrashGeometry">M 5.5 2 L 5.5 2.5 L 2 2.5 L 2 4 L 3 4 L 3 13.5 C 3 14.05 3.45 14.5 4 14.5 L 12 14.5 C 12.55 14.5 13 14.05 13 13.5 L 13 4 L 14 4 L 14 2.5 L 10.5 2.5 L 10.5 2 C 10.5 1.45 10.05 1 9.5 1 L 6.5 1 C 5.95 1 5.5 1.45 5.5 2 Z M 6 6 L 6 12.5 M 8 6 L 8 12.5 M 10 6 L 10 12.5</StreamGeometry>
+        <StreamGeometry x:Key="IconRefreshGeometry">M 13.5 8 C 13.5 11.04 11.04 13.5 8 13.5 C 4.96 13.5 2.5 11.04 2.5 8 C 2.5 5.25 4.52 2.97 7.15 2.56 L 7.15 4.12 C 5.37 4.5 4 6.09 4 8 C 4 10.21 5.79 12 8 12 C 10.21 12 12 10.21 12 8 C 12 6.89 11.55 5.89 10.83 5.17 L 9.5 6.5 L 9.5 2.5 L 13.5 2.5 L 12.1 3.9 C 12.97 4.9 13.5 6.38 13.5 8 Z</StreamGeometry>
+        <StreamGeometry x:Key="IconSunGeometry">M 8 5 A 3 3 0 1 0 8 11 A 3 3 0 1 0 8 5 M 8 1 L 8 3 M 8 13 L 8 15 M 1 8 L 3 8 M 13 8 L 15 8 M 3.05 3.05 L 4.46 4.46 M 11.54 11.54 L 12.95 12.95 M 3.05 12.95 L 4.46 11.54 M 11.54 4.46 L 12.95 3.05</StreamGeometry>
+        <StreamGeometry x:Key="IconMoonGeometry">M 13.2 10.5 C 12.5 10.8 11.7 11 10.9 11 C 7.6 11 4.9 8.3 4.9 5 C 4.9 4.1 5.1 3.3 5.5 2.6 C 3.1 3.5 1.5 5.8 1.5 8.5 C 1.5 12.1 4.4 15 8 15 C 10.4 15 12.5 13.6 13.5 11.6 C 13.4 11.2 13.3 10.8 13.2 10.5 Z</StreamGeometry>
+        <StreamGeometry x:Key="IconSearchGeometry">M 6.5 1.5 C 3.74 1.5 1.5 3.74 1.5 6.5 C 1.5 9.26 3.74 11.5 6.5 11.5 C 7.68 11.5 8.76 11.09 9.61 10.41 L 13.6 14.4 C 13.82 14.62 14.18 14.62 14.4 14.4 C 14.62 14.18 14.62 13.82 14.4 13.6 L 10.41 9.61 C 11.09 8.76 11.5 7.68 11.5 6.5 C 11.5 3.74 9.26 1.5 6.5 1.5 Z M 6.5 2.9 C 8.49 2.9 10.1 4.51 10.1 6.5 C 10.1 8.49 8.49 10.1 6.5 10.1 C 4.51 10.1 2.9 8.49 2.9 6.5 C 2.9 4.51 4.51 2.9 6.5 2.9 Z</StreamGeometry>
+        <StreamGeometry x:Key="IconCloseGeometry">M 3 3 L 13 13 M 13 3 L 3 13</StreamGeometry>
+        <StreamGeometry x:Key="IconCheckGeometry">M 2.5 8.5 L 6 12 L 13.5 4.5</StreamGeometry>
+        <StreamGeometry x:Key="IconTagGeometry">M 1.5 1.5 L 7 1.5 L 14.2 8.7 C 14.6 9.1 14.6 9.7 14.2 10.1 L 10.1 14.2 C 9.7 14.6 9.1 14.6 8.7 14.2 L 1.5 7 L 1.5 1.5 Z M 4.5 4.5 A 0.8 0.8 0 1 0 4.5 3.5 A 0.8 0.8 0 1 0 4.5 4.5 Z</StreamGeometry>
+        <StreamGeometry x:Key="IconPlusGeometry">M 8 2.5 L 8 13.5 M 2.5 8 L 13.5 8</StreamGeometry>
+        <StreamGeometry x:Key="IconEditGeometry">M 10.8 1.8 C 11.2 1.4 11.9 1.4 12.3 1.8 L 14.2 3.7 C 14.6 4.1 14.6 4.8 14.2 5.2 L 5.5 13.9 L 1.5 14.5 L 2.1 10.5 L 10.8 1.8 Z M 9.5 3.1 L 12.9 6.5</StreamGeometry>
+        <StreamGeometry x:Key="IconMoveGeometry">M 8 1.5 L 8 14.5 M 8 1.5 L 5.5 4 M 8 1.5 L 10.5 4 M 8 14.5 L 5.5 12 M 8 14.5 L 10.5 12 M 1.5 8 L 14.5 8 M 1.5 8 L 4 5.5 M 1.5 8 L 4 10.5 M 14.5 8 L 12 5.5 M 14.5 8 L 12 10.5</StreamGeometry>
+        <StreamGeometry x:Key="IconCopyGeometry">M 4.5 1.5 C 3.67 1.5 3 2.17 3 3 L 3 11 C 3 11.83 3.67 12.5 4.5 12.5 L 11.5 12.5 C 12.33 12.5 13 11.83 13 11 L 13 3 C 13 2.17 12.33 1.5 11.5 1.5 Z M 1.5 5 L 1.5 13 C 1.5 13.83 2.17 14.5 3 14.5 L 10 14.5</StreamGeometry>
+        <!-- Cloud Sync (OneDrive) -->
+        <StreamGeometry x:Key="IconCloudGeometry">M 12.5 13 C 13.88 13 15 11.88 15 10.5 C 15 9.22 14.04 8.16 12.8 8.02 C 12.43 5.72 10.42 4 8 4 C 5.86 4 4.04 5.37 3.38 7.31 C 1.99 7.6 1 8.81 1 10.25 C 1 11.77 2.23 13 3.75 13 L 12.5 13 Z</StreamGeometry>
+        <!-- Export Note (.md / .docx) -->
+        <StreamGeometry x:Key="IconExportGeometry">M 8 1.5 L 8 10.5 M 8 1.5 L 5 4.5 M 8 1.5 L 11 4.5 M 2 12.5 L 2 13.5 C 2 14.05 2.45 14.5 3 14.5 L 13 14.5 C 13.55 14.5 14 14.05 14 13.5 L 14 12.5</StreamGeometry>
+        <!-- Menu / More Options -->
+        <StreamGeometry x:Key="IconMenuGeometry">M 2.5 8 A 1.25 1.25 0 1 0 2.5 5.5 A 1.25 1.25 0 1 0 2.5 8 Z M 8 8 A 1.25 1.25 0 1 0 8 5.5 A 1.25 1.25 0 1 0 8 8 Z M 13.5 8 A 1.25 1.25 0 1 0 13.5 5.5 A 1.25 1.25 0 1 0 13.5 8 Z</StreamGeometry>
+
+        <!-- Table Manipulation Geometries (Joplin line-icon style, 16x16) -->
+        <StreamGeometry x:Key="IconTableRowAboveGeometry">M 2 4.5 C 2 3.7 2.7 3 3.5 3 L 12.5 3 C 13.3 3 14 3.7 14 4.5 L 14 13.5 C 14 14.3 13.3 15 12.5 15 L 3.5 15 C 2.7 15 2 14.3 2 13.5 Z M 2 8 L 14 8 M 8 4.2 L 8 6.8 M 6.7 5.5 L 9.3 5.5</StreamGeometry>
+        <StreamGeometry x:Key="IconTableRowBelowGeometry">M 2 2.5 C 2 1.7 2.7 1 3.5 1 L 12.5 1 C 13.3 1 14 1.7 14 2.5 L 14 11.5 C 14 12.3 13.3 13 12.5 13 L 3.5 13 C 2.7 13 2 12.3 2 11.5 Z M 2 7 L 14 7 M 8 8.7 L 8 11.3 M 6.7 10 L 9.3 10</StreamGeometry>
+        <StreamGeometry x:Key="IconTableRowDeleteGeometry">M 2 2.5 C 2 1.7 2.7 1 3.5 1 L 12.5 1 C 13.3 1 14 1.7 14 2.5 L 14 13.5 C 14 14.3 13.3 15 12.5 15 L 3.5 15 C 2.7 15 2 14.3 2 13.5 Z M 2 8 L 14 8 M 6.6 4.1 L 9.4 6.9 M 9.4 4.1 L 6.6 6.9</StreamGeometry>
+        <StreamGeometry x:Key="IconTableColLeftGeometry">M 2.5 2 C 1.7 2 1 2.7 1 3.5 L 1 12.5 C 1 13.3 1.7 14 2.5 14 L 13.5 14 C 14.3 14 15 13.3 15 12.5 L 15 3.5 C 15 2.7 14.3 2 13.5 2 Z M 8 2 L 8 14 M 4.5 6.7 L 4.5 9.3 M 3.2 8 L 5.8 8</StreamGeometry>
+        <StreamGeometry x:Key="IconTableColRightGeometry">M 2.5 2 C 1.7 2 1 2.7 1 3.5 L 1 12.5 C 1 13.3 1.7 14 2.5 14 L 13.5 14 C 14.3 14 15 13.3 15 12.5 L 15 3.5 C 15 2.7 14.3 2 13.5 2 Z M 8 2 L 8 14 M 11.5 6.7 L 11.5 9.3 M 10.2 8 L 12.8 8</StreamGeometry>
+        <StreamGeometry x:Key="IconTableColDeleteGeometry">M 2.5 2 C 1.7 2 1 2.7 1 3.5 L 1 12.5 C 1 13.3 1.7 14 2.5 14 L 13.5 14 C 14.3 14 15 13.3 15 12.5 L 15 3.5 C 15 2.7 14.3 2 13.5 2 Z M 8 2 L 8 14 M 10.1 6.6 L 12.9 9.4 M 12.9 6.6 L 10.1 9.4</StreamGeometry>
+        <StreamGeometry x:Key="IconAlignLeftGeometry">M 2 3.5 L 14 3.5 M 2 7.5 L 9 7.5 M 2 11.5 L 12 11.5</StreamGeometry>
+        <StreamGeometry x:Key="IconAlignCenterGeometry">M 2 3.5 L 14 3.5 M 4.5 7.5 L 11.5 7.5 M 3 11.5 L 13 11.5</StreamGeometry>
+        <StreamGeometry x:Key="IconAlignRightGeometry">M 2 3.5 L 14 3.5 M 7 7.5 L 14 7.5 M 4 11.5 L 14 11.5</StreamGeometry>
+        <StreamGeometry x:Key="IconTableDeleteGeometry">M 2.5 2.5 C 2 2.5 1.5 3 1.5 3.5 L 1.5 12.5 C 1.5 13 2 13.5 2.5 13.5 L 13.5 13.5 C 14 13.5 14.5 13 14.5 12.5 L 14.5 3.5 C 14.5 3 14 2.5 13.5 2.5 Z M 5 5 L 11 11 M 11 5 L 5 11</StreamGeometry>
+        <StreamGeometry x:Key="IconDividerGeometry">M 1.5 8 L 14.5 8</StreamGeometry>
+        <StreamGeometry x:Key="IconTableGeometry">M 1.5 2.5 C 1.5 1.95 1.95 1.5 2.5 1.5 L 13.5 1.5 C 14.05 1.5 14.5 1.95 14.5 2.5 L 14.5 13.5 C 14.5 14.05 14.05 14.5 13.5 14.5 L 2.5 14.5 C 1.95 14.5 1.5 14.05 1.5 13.5 Z M 1.5 6 L 14.5 6 M 1.5 10.5 L 14.5 10.5 M 6 1.5 L 6 14.5 M 10.5 1.5 L 10.5 14.5</StreamGeometry>
+        <StreamGeometry x:Key="IconSidebarGeometry">M 1.5 2.5 C 1.5 1.95 1.95 1.5 2.5 1.5 L 13.5 1.5 C 14.05 1.5 14.5 1.95 14.5 2.5 L 14.5 13.5 C 14.5 14.05 14.05 14.5 13.5 14.5 L 2.5 14.5 C 1.95 14.5 1.5 14.05 1.5 13.5 Z M 5.5 1.5 L 5.5 14.5</StreamGeometry>
+        <StreamGeometry x:Key="IconOutlineGeometry">M 1.5 2.5 C 1.5 1.95 1.95 1.5 2.5 1.5 L 13.5 1.5 C 14.05 1.5 14.5 1.95 14.5 2.5 L 14.5 13.5 C 14.5 14.05 14.05 14.5 13.5 14.5 L 2.5 14.5 C 1.95 14.5 1.5 14.05 1.5 13.5 Z M 10.5 1.5 L 10.5 14.5</StreamGeometry>
+        <StreamGeometry x:Key="IconBookGeometry">M 2 2.5 C 2 2.5 4 1.5 8 3.5 C 12 1.5 14 2.5 14 2.5 L 14 12.5 C 14 12.5 12 11.5 8 13.5 C 4 11.5 2 12.5 2 12.5 Z M 8 3.5 L 8 13.5</StreamGeometry>
+        <StreamGeometry x:Key="IconSplitGeometry">M 1.5 2.5 C 1.5 1.95 1.95 1.5 2.5 1.5 L 13.5 1.5 C 14.05 1.5 14.5 1.95 14.5 2.5 L 14.5 13.5 C 14.5 14.05 14.05 14.5 13.5 14.5 L 2.5 14.5 C 1.95 14.5 1.5 14.05 1.5 13.5 Z M 8 1.5 L 8 14.5</StreamGeometry>
+
+        <!-- Minimal Notion ScrollBar Styles -->
+        <Style x:Key="ScrollbarPageButtonStyle" TargetType="{x:Type RepeatButton}">
+            <Setter Property="IsTabStop" Value="False"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type RepeatButton}">
+                        <Border Background="Transparent"/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ScrollbarThumbStyle" TargetType="{x:Type Thumb}">
+            <Setter Property="IsTabStop" Value="False"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Thumb}">
+                        <Border x:Name="ThumbBorder"
+                                Background="{DynamicResource NotionScrollbarThumb}"
+                                CornerRadius="4"
+                                Margin="1,0"/>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ThumbBorder" Property="Background" Value="{DynamicResource NotionScrollbarThumbHover}"/>
+                            </Trigger>
+                            <Trigger Property="IsDragging" Value="True">
+                                <Setter TargetName="ThumbBorder" Property="Background" Value="{DynamicResource NotionScrollbarThumbHover}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ScrollbarThumbHorizontalStyle" TargetType="{x:Type Thumb}">
+            <Setter Property="IsTabStop" Value="False"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Thumb}">
+                        <Border x:Name="ThumbBorder"
+                                Background="{DynamicResource NotionScrollbarThumb}"
+                                CornerRadius="4"
+                                Margin="0,1"/>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ThumbBorder" Property="Background" Value="{DynamicResource NotionScrollbarThumbHover}"/>
+                            </Trigger>
+                            <Trigger Property="IsDragging" Value="True">
+                                <Setter TargetName="ThumbBorder" Property="Background" Value="{DynamicResource NotionScrollbarThumbHover}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="{x:Type ScrollBar}">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+            <Style.Triggers>
+                <Trigger Property="Orientation" Value="Vertical">
+                    <Setter Property="Width" Value="8"/>
+                    <Setter Property="MinWidth" Value="8"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="{x:Type ScrollBar}">
+                                <Grid Background="Transparent">
+                                    <Track x:Name="PART_Track" IsDirectionReversed="True">
+                                        <Track.DecreaseRepeatButton>
+                                            <RepeatButton Style="{StaticResource ScrollbarPageButtonStyle}" Command="{x:Static ScrollBar.PageUpCommand}"/>
+                                        </Track.DecreaseRepeatButton>
+                                        <Track.Thumb>
+                                            <Thumb Style="{StaticResource ScrollbarThumbStyle}"/>
+                                        </Track.Thumb>
+                                        <Track.IncreaseRepeatButton>
+                                            <RepeatButton Style="{StaticResource ScrollbarPageButtonStyle}" Command="{x:Static ScrollBar.PageDownCommand}"/>
+                                        </Track.IncreaseRepeatButton>
+                                    </Track>
+                                </Grid>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Trigger>
+                <Trigger Property="Orientation" Value="Horizontal">
+                    <Setter Property="Height" Value="8"/>
+                    <Setter Property="MinHeight" Value="8"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="{x:Type ScrollBar}">
+                                <Grid Background="Transparent">
+                                    <Track x:Name="PART_Track" IsDirectionReversed="False">
+                                        <Track.DecreaseRepeatButton>
+                                            <RepeatButton Style="{StaticResource ScrollbarPageButtonStyle}" Command="{x:Static ScrollBar.PageLeftCommand}"/>
+                                        </Track.DecreaseRepeatButton>
+                                        <Track.Thumb>
+                                            <Thumb Style="{StaticResource ScrollbarThumbHorizontalStyle}"/>
+                                        </Track.Thumb>
+                                        <Track.IncreaseRepeatButton>
+                                            <RepeatButton Style="{StaticResource ScrollbarPageButtonStyle}" Command="{x:Static ScrollBar.PageRightCommand}"/>
+                                        </Track.IncreaseRepeatButton>
+                                    </Track>
+                                </Grid>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Notion-style Action Button -->
+        <Style TargetType="Button" x:Key="NotionButtonStyle">
+            <Setter Property="Background" Value="{DynamicResource NotionButtonBg}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource NotionButtonBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Foreground" Value="{DynamicResource NotionButtonText}"/>
+            <Setter Property="Padding" Value="10,5"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="5"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource NotionItemHover}"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Primary Accent Button -->
+        <Style TargetType="Button" x:Key="NotionPrimaryButtonStyle" BasedOn="{StaticResource NotionButtonStyle}">
+            <Setter Property="Background" Value="#2563EB"/>
+            <Setter Property="BorderBrush" Value="#1D4ED8"/>
+            <Setter Property="Foreground" Value="#FFFFFF"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#1D4ED8"/>
+                    <Setter Property="BorderBrush" Value="#1E40AF"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Danger Accent Button -->
+        <Style TargetType="Button" x:Key="NotionDangerButtonStyle" BasedOn="{StaticResource NotionButtonStyle}">
+            <Setter Property="Background" Value="#DC2626"/>
+            <Setter Property="BorderBrush" Value="#B91C1C"/>
+            <Setter Property="Foreground" Value="#FFFFFF"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#B91C1C"/>
+                    <Setter Property="BorderBrush" Value="#991B1B"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Notion TreeView Expander Toggle Button -->
+        <Style x:Key="NotionExpanderToggleStyle" TargetType="ToggleButton">
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Width" Value="16"/>
+            <Setter Property="Height" Value="16"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border Background="Transparent" Width="16" Height="16">
+                            <TextBlock x:Name="Chevron" Text="›" FontSize="14" FontWeight="Bold" 
+                                       Foreground="{DynamicResource NotionTextSecondary}" 
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Margin="0,-2,0,0"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Chevron" Property="Text" Value="⌄"/>
+                                <Setter TargetName="Chevron" Property="Margin" Value="0,-4,0,0"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Chevron" Property="Foreground" Value="{DynamicResource NotionTextPrimary}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Notion ContextMenu and MenuItem styles -->
+        <Style x:Key="NotionMenuItemStyle" TargetType="MenuItem">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource NotionTextPrimary}"/>
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="MenuItem">
+                        <Grid>
+                            <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="4" Padding="{TemplateBinding Padding}" Margin="2,1">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="Icon"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <ContentPresenter x:Name="Icon" ContentSource="Icon" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                    <ContentPresenter Grid.Column="1" ContentSource="Header" RecognizesAccessKey="True" VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="SubMenuArrow" Grid.Column="2" Text="›" FontSize="14" FontWeight="Bold" Margin="12,0,0,0" VerticalAlignment="Center" Visibility="Collapsed" Foreground="{DynamicResource NotionTextSecondary}"/>
+                                </Grid>
+                            </Border>
+                            <Popup x:Name="SubMenuPopup" IsOpen="{Binding Path=IsSubmenuOpen, RelativeSource={RelativeSource TemplatedParent}}" Placement="Right" HorizontalOffset="2" VerticalOffset="-4" AllowsTransparency="True" Focusable="False">
+                                <Border Background="{DynamicResource NotionOverlayBg}" BorderBrush="{DynamicResource NotionBorder}" BorderThickness="1" CornerRadius="6" Padding="4">
+                                    <Border.Effect>
+                                        <DropShadowEffect BlurRadius="12" Opacity="0.35" ShadowDepth="4"/>
+                                    </Border.Effect>
+                                    <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle"/>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="HasItems" Value="True">
+                                <Setter TargetName="SubMenuArrow" Property="Visibility" Value="Visible"/>
+                            </Trigger>
+                            <Trigger Property="IsHighlighted" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource NotionItemHover}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="NotionContextMenuStyle" TargetType="ContextMenu">
+            <Setter Property="Background" Value="{DynamicResource NotionOverlayBg}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource NotionBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="4"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ContextMenu">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="12" Opacity="0.35" ShadowDepth="4"/>
+                            </Border.Effect>
+                            <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Notion-style TreeViewItem Style (No blue selection!) -->
+        <Style TargetType="{x:Type TreeViewItem}">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource NotionTextPrimary}"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
+            <EventSetter Event="PreviewMouseRightButtonDown" Handler="TreeViewItem_PreviewMouseRightButtonDown"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type TreeViewItem}">
+                        <Grid Margin="2,1">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <!-- Item Row Container -->
+                            <Border x:Name="ItemBorder" Grid.Row="0"
+                                    Background="Transparent"
+                                    CornerRadius="5"
+                                    Padding="4,4,6,4"
+                                    SnapsToDevicePixels="True"
+                                    Cursor="Hand">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- Expander Toggle -->
+                                    <ToggleButton x:Name="Expander" Grid.Column="0"
+                                                  Style="{StaticResource NotionExpanderToggleStyle}"
+                                                  IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                                                  ClickMode="Press"
+                                                  Margin="0,0,4,0"/>
+
+                                    <!-- Header Content -->
+                                    <ContentPresenter x:Name="PART_Header" Grid.Column="1"
+                                                      ContentSource="Header"
+                                                      HorizontalAlignment="Stretch"
+                                                      VerticalAlignment="Center"/>
+                                </Grid>
+                            </Border>
+
+                            <!-- Sub-items Container -->
+                            <ItemsPresenter x:Name="ItemsHost" Grid.Row="1" Margin="16,1,0,1"/>
+                        </Grid>
+
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="HasItems" Value="False">
+                                <Setter TargetName="Expander" Property="Visibility" Value="Hidden"/>
+                            </Trigger>
+                            <Trigger Property="IsExpanded" Value="False">
+                                <Setter TargetName="ItemsHost" Property="Visibility" Value="Collapsed"/>
+                            </Trigger>
+                            <!-- Hover state: subtle rounded highlight -->
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource NotionItemHover}"/>
+                            </Trigger>
+                            <!-- Selected state: Notion rounded pill, NO WINDOWS BLUE! -->
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource NotionItemSelected}"/>
+                            </Trigger>
+                            <!-- Multi-selected state from FolderNode.IsSelected -->
+                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource NotionItemSelected}"/>
+                            </DataTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Folder Node Hierarchical Template -->
+        <HierarchicalDataTemplate DataType="{x:Type models:FolderNode}" ItemsSource="{Binding Children}">
+            <DockPanel LastChildFill="True">
+                <Viewbox Width="14" Height="14" Margin="0,0,7,0" VerticalAlignment="Center">
+                    <Path x:Name="NodeIconPath" 
+                          Data="{StaticResource IconFolderGeometry}" 
+                          Fill="{DynamicResource NotionTextSecondary}" 
+                          Stroke="{DynamicResource NotionTextSecondary}" 
+                          StrokeThickness="0.4"
+                          StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                </Viewbox>
+                <TextBlock Text="{Binding DisplayName}" VerticalAlignment="Center" FontSize="13" 
+                           Foreground="{DynamicResource NotionTextPrimary}" TextTrimming="WordEllipsis"
+                           ToolTip="{Binding DisplayName}"/>
+            </DockPanel>
+            <HierarchicalDataTemplate.Triggers>
+                <DataTrigger Binding="{Binding IsDirectory}" Value="False">
+                    <Setter TargetName="NodeIconPath" Property="Data" Value="{StaticResource IconFileGeometry}"/>
+                    <Setter TargetName="NodeIconPath" Property="Fill" Value="Transparent"/>
+                    <Setter TargetName="NodeIconPath" Property="StrokeThickness" Value="1.1"/>
+                </DataTrigger>
+            </HierarchicalDataTemplate.Triggers>
+        </HierarchicalDataTemplate>
+
+        <!-- Heading Hierarchical Template -->
+        <HierarchicalDataTemplate DataType="{x:Type models:Heading}" ItemsSource="{Binding Children}">
+            <StackPanel Orientation="Horizontal" Margin="0,2">
+                <TextBlock Text="H" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource NotionTextSecondary}" VerticalAlignment="Center" Margin="0,0,1,0"/>
+                <TextBlock Text="{Binding Level}" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource NotionTextSecondary}" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                <TextBlock Text="{Binding Text}" FontSize="12.5" Foreground="{DynamicResource NotionTextPrimary}" VerticalAlignment="Center" TextTrimming="WordEllipsis" MaxWidth="175"
+                           ToolTip="{Binding Text}"/>
+            </StackPanel>
+        </HierarchicalDataTemplate>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="28"/>
+        </Grid.RowDefinitions>
+
+        <!-- Top Header & Search Bar -->
+        <Border Grid.Row="0" Background="{DynamicResource NotionHeaderBg}" BorderBrush="{DynamicResource NotionBorder}" BorderThickness="0,0,0,1" Padding="12,8">
+            <DockPanel LastChildFill="True">
+                <!-- App Title and Actions on Right -->
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button x:Name="ToggleReadingModeBtn" Command="{Binding ToggleReadingModeCommand}"
+                            ToolTip="Reading Mode / Lock Note (Ctrl+E)" Margin="0,0,6,0" Padding="6,4">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource NotionButtonStyle}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsReadingMode}" Value="True">
+                                        <Setter Property="Background" Value="{DynamicResource NotionItemSelected}"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                        <Viewbox Width="13" Height="13">
+                            <Path Data="{StaticResource IconBookGeometry}" Stroke="{DynamicResource NotionButtonText}" StrokeThickness="1.2" Fill="Transparent"/>
+                        </Viewbox>
+                    </Button>
+                    <Button x:Name="ToggleSplitBtn" Command="{Binding ToggleSplitModeCommand}"
+                            ToolTip="Split View Mode (Ctrl+\)" Margin="0,0,6,0" Padding="6,4">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource NotionButtonStyle}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsSplitMode}" Value="True">
+                                        <Setter Property="Background" Value="{DynamicResource NotionItemSelected}"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                        <Viewbox Width="13" Height="13">
+                            <Path Data="{StaticResource IconSplitGeometry}" Stroke="{DynamicResource NotionButtonText}" StrokeThickness="1.2" Fill="Transparent"/>
+                        </Viewbox>
+                    </Button>
+                    <Button x:Name="ToggleOutlineBtn" Style="{StaticResource NotionButtonStyle}" Click="ToggleOutlineBtn_Click" ToolTip="Toggle Outline Panel" Margin="0,0,8,0" Padding="6,4">
+                        <Viewbox Width="13" Height="13">
+                            <Path Data="{StaticResource IconOutlineGeometry}" Stroke="{DynamicResource NotionButtonText}" StrokeThickness="1.2" Fill="Transparent"/>
+                        </Viewbox>
+                    </Button>
+                    <Button Style="{StaticResource NotionPrimaryButtonStyle}" Command="{Binding NewNoteCommand}" ToolTip="Create new markdown note (Ctrl+N)" Margin="0,0,8,0">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Viewbox Width="12" Height="12" Margin="0,0,6,0">
+                                <Path Data="{StaticResource IconNewNoteGeometry}" Stroke="White" StrokeThickness="1.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                            </Viewbox>
+                            <TextBlock Text="New Note" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="MenuButton" Style="{StaticResource NotionButtonStyle}" Click="MenuButton_Click" ToolTip="More actions &amp; options">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Viewbox Width="12" Height="12" Margin="0,0,6,0">
+                                <Path Data="{StaticResource IconMenuGeometry}" Fill="{DynamicResource NotionButtonText}"/>
+                            </Viewbox>
+                            <TextBlock Text="Menu" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+
+                <!-- Left: Sidebar Toggle + Flexible Search Input Bar -->
+                <DockPanel LastChildFill="True">
+                    <Button x:Name="ToggleSidebarBtn" DockPanel.Dock="Left" Style="{StaticResource NotionButtonStyle}" Click="ToggleSidebarBtn_Click" ToolTip="Toggle Explorer Sidebar (Ctrl+B)" Margin="0,0,8,0" Padding="6,4">
+                        <Viewbox Width="13" Height="13">
+                            <Path Data="{StaticResource IconSidebarGeometry}" Stroke="{DynamicResource NotionButtonText}" StrokeThickness="1.2" Fill="Transparent"/>
+                        </Viewbox>
+                    </Button>
+
+                    <Grid HorizontalAlignment="Stretch" MaxWidth="420" MinWidth="100">
+                        <Border x:Name="SearchBoxBorder" Background="{DynamicResource NotionSearchBg}" CornerRadius="5" BorderBrush="{DynamicResource NotionButtonBorder}" BorderThickness="1">
+                            <DockPanel Margin="8,4">
+                                <Viewbox Width="13" Height="13" Margin="2,0,6,0" VerticalAlignment="Center">
+                                    <Path Data="{StaticResource IconSearchGeometry}" Stroke="{DynamicResource NotionTextSecondary}" StrokeThickness="1.2" Fill="Transparent"/>
+                                </Viewbox>
+                                <Button DockPanel.Dock="Right" Background="Transparent" BorderThickness="0" 
+                                        Command="{Binding ClearSearchCommand}" Width="20" Height="20" Cursor="Hand"
+                                        Visibility="{Binding HasSearchResults, Converter={StaticResource BoolToVis}}" ToolTip="Clear Search">
+                                    <Viewbox Width="10" Height="10">
+                                        <Path Data="{StaticResource IconCloseGeometry}" Stroke="{DynamicResource NotionTextSecondary}" StrokeThickness="1.4"/>
+                                    </Viewbox>
+                                </Button>
+                                <TextBox x:Name="SearchBox" BorderThickness="0" Background="Transparent" FontSize="13" 
+                                         VerticalAlignment="Center" Foreground="{DynamicResource NotionTextPrimary}" CaretBrush="#FFFFFF"
+                                         Text="{Binding SearchTerm, UpdateSourceTrigger=PropertyChanged}"
+                                         PreviewKeyDown="SearchBox_PreviewKeyDown"
+                                         GotFocus="SearchBox_GotFocus"/>
+                            </DockPanel>
+                        </Border>
+
+                        <!-- Search Results Dropdown Popup -->
+                        <Popup x:Name="SearchResultsPopup"
+                               PlacementTarget="{Binding ElementName=SearchBoxBorder}"
+                               Placement="Bottom"
+                               IsOpen="{Binding HasSearchResults}"
+                               StaysOpen="True"
+                               AllowsTransparency="True"
+                               Focusable="False"
+                               PopupAnimation="Fade"
+                               VerticalOffset="4">
+                            <Border Background="{DynamicResource NotionOverlayBg}"
+                                    BorderBrush="{DynamicResource NotionBorder}"
+                                    BorderThickness="1"
+                                    CornerRadius="6"
+                                    Width="{Binding ActualWidth, ElementName=SearchBoxBorder}"
+                                    MinWidth="360"
+                                    MaxWidth="500">
+                                <Border.Effect>
+                                    <DropShadowEffect BlurRadius="16" Opacity="0.45" ShadowDepth="4"/>
+                                </Border.Effect>
+                                <DockPanel>
+                                    <Border DockPanel.Dock="Top" Background="{DynamicResource NotionOverlayHeaderBg}"
+                                            Padding="12,8" BorderBrush="{DynamicResource NotionBorder}" BorderThickness="0,0,0,1"
+                                            CornerRadius="5,5,0,0">
+                                        <DockPanel LastChildFill="False">
+                                            <TextBlock Text="SEARCH RESULTS" FontWeight="Bold" FontSize="11" Foreground="{DynamicResource NotionTextSecondary}"/>
+                                            <TextBlock DockPanel.Dock="Right" Text="{Binding SearchResults.Count, StringFormat='{}{0} found'}"
+                                                       FontSize="11" Foreground="{DynamicResource NotionTextMuted}"/>
+                                        </DockPanel>
+                                    </Border>
+                                    <ListBox x:Name="SearchResultsListBox"
+                                             ItemsSource="{Binding SearchResults}"
+                                             SelectedItem="{Binding SelectedSearchResult}"
+                                             BorderThickness="0"
+                                             Background="Transparent"
+                                             MaxHeight="360"
+                                             ScrollViewer.CanContentScroll="False"
+                                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                             ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                             PreviewKeyDown="SearchResultsListBox_PreviewKeyDown"
+                                             PreviewMouseWheel="SearchResultsListBox_PreviewMouseWheel">
+                                        <ListBox.ItemContainerStyle>
+                                            <Style TargetType="ListBoxItem">
+                                                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                                <Setter Property="Padding" Value="0"/>
+                                                <Setter Property="Margin" Value="0"/>
+                                                <Setter Property="BorderThickness" Value="0"/>
+                                                <Setter Property="Background" Value="Transparent"/>
+                                                <Setter Property="Cursor" Value="Hand"/>
+                                                <Setter Property="Template">
+                                                    <Setter.Value>
+                                                        <ControlTemplate TargetType="ListBoxItem">
+                                                            <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                                                    Padding="{TemplateBinding Padding}"
+                                                                    SnapsToDevicePixels="True">
+                                                                <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                                                            </Border>
+                                                            <ControlTemplate.Triggers>
+                                                                <Trigger Property="IsMouseOver" Value="True">
+                                                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource NotionItemHover}"/>
+                                                                </Trigger>
+                                                                <Trigger Property="IsSelected" Value="True">
+                                                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource NotionItemSelected}"/>
+                                                                </Trigger>
+                                                            </ControlTemplate.Triggers>
+                                                        </ControlTemplate>
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </Style>
+                                        </ListBox.ItemContainerStyle>
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate DataType="{x:Type models:SearchResult}">
+                                                <Border Padding="10,8" BorderBrush="{DynamicResource NotionBorder}" BorderThickness="0,0,0,1">
+                                                    <StackPanel>
+                                                        <DockPanel LastChildFill="True">
+                                                            <Border DockPanel.Dock="Right" Background="#1E3A8A" CornerRadius="4" Padding="6,1" Margin="8,0,0,0" VerticalAlignment="Center">
+                                                                <TextBlock Text="{Binding Score, StringFormat='Score: {0}'}" FontSize="10" Foreground="#93C5FD"/>
+                                                            </Border>
+                                                            <TextBlock Text="{Binding NoteTitle}" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource NotionTextPrimary}" TextTrimming="CharacterEllipsis"/>
+                                                        </DockPanel>
+                                                        <TextBlock Text="{Binding RelativePath}" FontSize="11" Foreground="{DynamicResource NotionTextSecondary}" Margin="0,2,0,1" TextTrimming="CharacterEllipsis"/>
+                                                        <TextBlock Text="{Binding Snippet}" FontSize="12" Foreground="{DynamicResource NotionTextSecondary}" FontStyle="Italic" TextTrimming="CharacterEllipsis"/>
+                                                    </StackPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+                                </DockPanel>
+                            </Border>
+                        </Popup>
+                    </Grid>
+                </DockPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- Main 3-Panel Content Area -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition x:Name="LeftPanelColumn" Width="240" MinWidth="160" MaxWidth="800"/>
+                <ColumnDefinition Width="*" MinWidth="300"/>
+                <ColumnDefinition x:Name="RightPanelColumn" Width="240" MinWidth="160" MaxWidth="500"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- LEFT PANEL: Folder Tree (Full Height) -->
+            <Border x:Name="LeftPanelBorder" Grid.Column="0" Background="{DynamicResource NotionSidebarBg}" BorderBrush="{DynamicResource NotionBorder}" BorderThickness="0,0,1,0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Folders Header -->
+                    <Border Grid.Row="0" Padding="12,10" BorderBrush="{DynamicResource NotionBorder}" BorderThickness="0,0,0,1">
+                        <TextBlock Text="EXPLORER" FontWeight="Bold" FontSize="11" Foreground="{DynamicResource NotionTextSecondary}"/>
+                    </Border>
+
+                    <!-- Folder Tree -->
+                    <TreeView Grid.Row="1" x:Name="FolderTreeView" 
+                              ItemsSource="{Binding FolderNodes}" 
+                              BorderThickness="0" Background="Transparent" 
+                              SelectedItemChanged="FolderTreeView_SelectedItemChanged"
+                              TreeViewItem.Expanded="FolderTreeView_Expanded"
+                              TreeViewItem.Collapsed="FolderTreeView_Collapsed"
+                              AllowDrop="True"
+                              PreviewMouseLeftButtonDown="FolderTreeView_PreviewMouseLeftButtonDown"
+                              PreviewMouseLeftButtonUp="FolderTreeView_PreviewMouseLeftButtonUp"
+                              PreviewMouseMove="FolderTreeView_PreviewMouseMove"
+                              DragOver="FolderTreeView_DragOver"
+                              DragLeave="FolderTreeView_DragLeave"
+                              Drop="FolderTreeView_Drop"
+                              ContextMenuOpening="FolderTreeView_ContextMenuOpening"
+                              ScrollViewer.CanContentScroll="False"
+                              ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                              ScrollViewer.VerticalScrollBarVisibility="Auto"
+                              PreviewMouseWheel="FolderTreeView_PreviewMouseWheel"
+                              Margin="4"/>
+
+                    <!-- Multi-select Actions Bar (shown when >1 notes selected) -->
+                    <Border Grid.Row="2" x:Name="MultiSelectBar" Visibility="Collapsed" 
+                            Background="{DynamicResource NotionItemHover}" 
+                            BorderBrush="{DynamicResource NotionBorder}" BorderThickness="0,1,0,0"
+                            Padding="8,6">
+                        <DockPanel LastChildFill="True">
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Button x:Name="MultiMoveBtn" Click="MultiMoveBtn_Click" 
+                                        Style="{StaticResource NotionButtonStyle}" Padding="6,2" Margin="0,0,4,0" ToolTip="Move selected notes">
+                                    <TextBlock Text="Move" FontSize="11"/>
+                                </Button>
+                                <Button x:Name="MultiDeleteBtn" Click="MultiDeleteBtn_Click" 
+                                        Style="{StaticResource NotionDangerButtonStyle}" Padding="6,2" ToolTip="Delete selected notes">
+                                    <TextBlock Text="Delete" FontSize="11" FontWeight="SemiBold"/>
+                                </Button>
+                            </StackPanel>
+                            <TextBlock x:Name="MultiSelectLabel" Text="2 notes selected" 
+                                       VerticalAlignment="Center" FontSize="11" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource NotionTextSecondary}"
+                                       TextTrimming="CharacterEllipsis"/>
+                        </DockPanel>
+                    </Border>
+
+                    <!-- Trash Bin Footer -->
+                    <Border Grid.Row="3" Padding="8,6" BorderBrush="{DynamicResource NotionBorder}" BorderThickness="0,1,0,0">
+                        <Button Command="{Binding OpenTrashBinCommand}" Style="{StaticResource NotionButtonStyle}" HorizontalAlignment="Stretch" ToolTip="View deleted notes in Trash Bin">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Left">
+                                <Viewbox Width="12" Height="12" Margin="0,0,6,0">
+                                    <Path Data="{StaticResource IconTrashGeometry}" Stroke="{DynamicResource NotionButtonText}" StrokeThickness="1.2" Fill="Transparent"/>
+                                </Viewbox>
+                                <TextBlock Text="Trash Bin" VerticalAlignment="Center" FontSize="12"/>
+                            </StackPanel>
+                        </Button>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <!-- Left Resizer Splitter (Table-width style draggable border) -->
+            <GridSplitter x:Name="LeftPanelSplitter" Grid.Column="0"
+                          Width="6" HorizontalAlignment="Right" VerticalAlignment="Stretch"
+                          Background="Transparent" Cursor="SizeWE"
+                          Margin="0,0,-3,0" Panel.ZIndex="20"
+                          ShowsPreview="False"
+                          DragCompleted="LeftPanelSplitter_DragCompleted"
+                          MouseDoubleClick="LeftPanelSplitter_MouseDoubleClick"
+                          ToolTip="Drag to resize Explorer (double-click to reset)"
+                          Visibility="{Binding Visibility, ElementName=LeftPanelBorder}">
+                <GridSplitter.Template>
+                    <ControlTemplate TargetType="GridSplitter">
+                        <Border Background="Transparent" SnapsToDevicePixels="True">
+                            <Border x:Name="SplitterHighlight" Width="2" HorizontalAlignment="Center" VerticalAlignment="Stretch" Background="Transparent"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="SplitterHighlight" Property="Background" Value="#3B82F6"/>
+                            </Trigger>
+                            <Trigger Property="IsDragging" Value="True">
+                                <Setter TargetName="SplitterHighlight" Property="Background" Value="#3B82F6"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </GridSplitter.Template>
+            </GridSplitter>
+
+            <!-- CENTER PANEL: Notion Page & Editor -->
+            <Grid Grid.Column="1" Background="{DynamicResource NotionCanvasBg}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <!-- Tab Strip Row -->
+                <Border Grid.Row="0" x:Name="TabStripBorder"
+                        Background="{DynamicResource NotionHeaderBg}"
+                        BorderBrush="{DynamicResource NotionBorder}"
+                        BorderThickness="0,0,0,1">
+                    <ScrollViewer HorizontalScrollBarVisibility="Hidden"
+                                  VerticalScrollBarVisibility="Disabled"
+                                  PreviewMouseWheel="TabScrollViewer_PreviewMouseWheel"
+                                  Focusable="False">
+                        <StackPanel Orientation="Horizontal">
+                            <!-- Open Tabs -->
+                            <ItemsControl ItemsSource="{Binding OpenTabs}" VerticalAlignment="Stretch">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel Orientation="Horizontal"/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:NoteTabViewModel}">
+                                        <Border x:Name="TabBorder"
+                                                Padding="10,0,4,0"
+                                                MinWidth="80" MaxWidth="220"
+                                                BorderBrush="{DynamicResource NotionBorder}"
+                                                BorderThickness="0,0,1,0"
+                                                Cursor="Hand"
+                                                ToolTip="{Binding Title}"
+                                                MouseLeftButtonDown="Tab_MouseLeftButtonDown">
+                                            <Border.Background>
+                                                <SolidColorBrush Color="Transparent"/>
+                                            </Border.Background>
+                                            <DockPanel LastChildFill="True" Height="32">
+                                                <!-- Unsaved indicator dot -->
+                                                <TextBlock DockPanel.Dock="Left" Text="●" FontSize="8"
+                                                           VerticalAlignment="Center" Margin="0,0,4,0"
+                                                           Foreground="#3B82F6">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsModified}" Value="True">
+                                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                                <!-- Close button -->
+                                                <Button DockPanel.Dock="Right"
+                                                        CommandParameter="{Binding}"
+                                                        Click="TabCloseBtn_Click"
+                                                        Width="20" Height="20"
+                                                        Padding="0" Margin="4,0,0,0"
+                                                        Cursor="Hand"
+                                                        ToolTip="Close tab (Ctrl+W)"
+                                                        Background="Transparent" BorderThickness="0">
+                                                    <Button.Style>
+                                                        <Style TargetType="Button">
+                                                            <Setter Property="Opacity" Value="0"/>
+                                                            <Setter Property="Template">
+                                                                <Setter.Value>
+                                                                    <ControlTemplate TargetType="Button">
+                                                                        <Border Background="{TemplateBinding Background}"
+                                                                                CornerRadius="3"
+                                                                                Padding="2">
+                                                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                                        </Border>
+                                                                        <ControlTemplate.Triggers>
+                                                                            <Trigger Property="IsMouseOver" Value="True">
+                                                                                <Setter Property="Background" Value="{DynamicResource NotionItemHover}"/>
+                                                                            </Trigger>
+                                                                        </ControlTemplate.Triggers>
+                                                                    </ControlTemplate>
+                                                                </Setter.Value>
+                                                            </Setter>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                                                    <Setter Property="Opacity" Value="1"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Button.Style>
+                                                    <TextBlock Text="✕" FontSize="10" Foreground="{DynamicResource NotionTextSecondary}"
+                                                               VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                                </Button>
+                                                <!-- Tab title -->
+                                                <TextBlock Text="{Binding DisplayTitle}"
+                                                           VerticalAlignment="Center"
+                                                           FontSize="12"
+                                                           TextTrimming="WordEllipsis"
+                                                           Foreground="{DynamicResource NotionTextPrimary}">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="FontWeight" Value="Normal"/>
+                                                            <Setter Property="Opacity" Value="0.65"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                                                    <Setter Property="Opacity" Value="1"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </DockPanel>
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Background" Value="Transparent"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                                            <Setter Property="Background" Value="{DynamicResource NotionCanvasBg}"/>
+                                                        </DataTrigger>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter Property="Background" Value="{DynamicResource NotionItemHover}"/>
+                                                        </Trigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                        </Border>
+                                        <DataTemplate.Triggers>
+                                            <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                                <Setter TargetName="TabBorder" Property="BorderThickness" Value="0,0,1,0"/>
+                                            </DataTrigger>
+                                        </DataTemplate.Triggers>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <!-- New Tab (+) Button -->
+                            <Button Click="NewTabBtn_Click"
+                                    Width="32" Height="32"
+                                    Padding="0" Margin="2,0,0,0"
+                                    ToolTip="New tab (Ctrl+T)"
+                                    Cursor="Hand"
+                                    Background="Transparent" BorderThickness="0">
+                                <Button.Style>
+                                    <Style TargetType="Button">
+                                        <Setter Property="Opacity" Value="0.5"/>
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="Button">
+                                                    <Border Background="{TemplateBinding Background}" CornerRadius="4" Padding="4">
+                                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter Property="Background" Value="{DynamicResource NotionItemHover}"/>
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                        <Style.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter Property="Opacity" Value="1"/>
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                                <TextBlock Text="+" FontSize="16" FontWeight="Light"
+                                           Foreground="{DynamicResource NotionTextSecondary}"
+                                           VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                            </Button>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Border>
+
+                <!-- Editor Container (Supports Side-by-Side Split View) -->
+                <Grid Grid.Row="1">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" x:Name="PrimaryEditorCol" MinWidth="240"/>
+                        <ColumnDefinition Width="0" x:Name="SplitterCol"/>
+                        <ColumnDefinition Width="0" x:Name="SecondaryEditorCol"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Column 0: Primary Editor Pane -->
+                    <Grid Grid.Column="0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Notion Page Title Header with Placeholder -->
+                        <Grid Grid.Row="0" Margin="0" Visibility="{Binding HasCurrentNote, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Text="Untitled" 
+                                       FontSize="32" 
+                                       FontWeight="Bold" 
+                                       FontFamily="Segoe UI, -apple-system, sans-serif"
+                                       Foreground="{DynamicResource NotionTextMuted}"
+                                       Padding="20,8,20,2"
+                                       IsHitTestVisible="False">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding CurrentNoteTitle}" Value="">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <TextBox x:Name="NoteTitleBox" 
+                                     Text="{Binding CurrentNoteTitle, UpdateSourceTrigger=PropertyChanged}"
+                                     FontSize="32" 
+                                     FontWeight="Bold" 
+                                     FontFamily="Segoe UI, -apple-system, sans-serif"
+                                     Foreground="{DynamicResource NotionTextPrimary}"
+                                     CaretBrush="#FFFFFF"
+                                     BorderThickness="0" 
+                                     Background="Transparent" 
+                                     Padding="20,8,20,2"
+                                     IsReadOnly="{Binding IsReadingMode}"
+                                     PreviewKeyDown="NoteTitleBox_PreviewKeyDown"
+                                     Margin="0"/>
+                        </Grid>
+
+                        <!-- Notion Page Property Bar: Tags -->
+                        <Border Grid.Row="1" Padding="20,2,20,6" Background="Transparent" Visibility="{Binding HasCurrentNote, Converter={StaticResource BoolToVis}}">
+                            <DockPanel LastChildFill="True">
+                                <!-- Property Label -->
+                                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0" Width="90">
+                                    <Viewbox Width="12" Height="12" Margin="0,0,6,0" VerticalAlignment="Center">
+                                        <Path Data="{StaticResource IconTagGeometry}" Stroke="{DynamicResource NotionTextSecondary}" StrokeThickness="1.2" Fill="Transparent"/>
+                                    </Viewbox>
+                                    <TextBlock Text="Tags" FontSize="13" Foreground="{DynamicResource NotionTextSecondary}" VerticalAlignment="Center"/>
+                                </StackPanel>
+
+                                <!-- Tag Pills and Add Tag Button -->
+                                <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <!-- Existing Tag Pills -->
+                                    <ItemsControl ItemsSource="{Binding CurrentNoteTags}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <WrapPanel Orientation="Horizontal"/>
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Background="{DynamicResource NotionItemHover}" CornerRadius="4" Padding="7,3" Margin="0,0,6,4" VerticalAlignment="Center">
+                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding}" FontSize="12" Foreground="{DynamicResource NotionTextPrimary}" VerticalAlignment="Center"/>
+                                                        <Button Command="{Binding DataContext.RemoveTagCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                                CommandParameter="{Binding}"
+                                                                IsEnabled="{Binding DataContext.CanEdit, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                                Background="Transparent" BorderThickness="0"
+                                                                Margin="6,0,0,0" Padding="2,0" Cursor="Hand" ToolTip="Remove tag">
+                                                            <Button.Style>
+                                                                <Style TargetType="Button">
+                                                                    <Setter Property="Opacity" Value="0.6"/>
+                                                                    <Style.Triggers>
+                                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                                            <Setter Property="Opacity" Value="1.0"/>
+                                                                        </Trigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Button.Style>
+                                                            <Viewbox Width="8" Height="8">
+                                                                <Path Data="{StaticResource IconCloseGeometry}" Stroke="{DynamicResource NotionTextSecondary}" StrokeThickness="1.5"/>
+                                                            </Viewbox>
+                                                        </Button>
+                                                    </StackPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+
+                                    <!-- Add Tag Button (visible when not typing) -->
+                                    <Button Command="{Binding StartAddTagCommand}"
+                                            IsEnabled="{Binding CanEdit}"
+                                            Padding="7,3" Margin="0,0,6,4" FontSize="12"
+                                            ToolTip="Add tag to note"
+                                            Cursor="Hand">
+                                        <Button.Style>
+                                            <Style TargetType="Button" BasedOn="{StaticResource NotionButtonStyle}">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsAddingTag}" Value="True">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <Viewbox Width="10" Height="10" Margin="0,0,5,0" VerticalAlignment="Center">
+                                                <Path Data="{StaticResource IconPlusGeometry}" Stroke="{DynamicResource NotionTextSecondary}" StrokeThickness="1.4"/>
+                                            </Viewbox>
+                                            <TextBlock Text="Add tag" Foreground="{DynamicResource NotionTextSecondary}"/>
+                                        </StackPanel>
+                                    </Button>
+
+                                    <!-- Inline Tag Input (visible when adding tag) -->
+                                    <Border CornerRadius="4" BorderThickness="1" BorderBrush="{DynamicResource NotionBorder}" 
+                                            Background="{DynamicResource NotionSearchBg}" Margin="0,0,6,4" Padding="4,1">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsAddingTag}" Value="True">
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <TextBox x:Name="NewTagInputBox"
+                                                     Text="{Binding NewTagText, UpdateSourceTrigger=PropertyChanged}"
+                                                     Width="90" BorderThickness="0" Background="Transparent"
+                                                     Foreground="{DynamicResource NotionTextPrimary}"
+                                                     FontSize="12" VerticalAlignment="Center"
+                                                     PreviewKeyDown="NewTagInputBox_PreviewKeyDown"
+                                                     IsVisibleChanged="NewTagInputBox_IsVisibleChanged"/>
+                                            <Button Command="{Binding ConfirmAddTagCommand}"
+                                                     Background="Transparent" BorderThickness="0"
+                                                     Margin="3,0,2,0" Cursor="Hand" ToolTip="Confirm">
+                                                <Viewbox Width="10" Height="10">
+                                                    <Path Data="{StaticResource IconCheckGeometry}" Stroke="#10B981" StrokeThickness="1.6"/>
+                                                </Viewbox>
+                                            </Button>
+                                            <Button Command="{Binding CancelAddTagCommand}"
+                                                     Background="Transparent" BorderThickness="0"
+                                                     Margin="1,0,2,0" Cursor="Hand" ToolTip="Cancel">
+                                                <Viewbox Width="9" Height="9">
+                                                    <Path Data="{StaticResource IconCloseGeometry}" Stroke="{DynamicResource NotionTextSecondary}" StrokeThickness="1.5"/>
+                                                </Viewbox>
+                                            </Button>
+                                        </StackPanel>
+                                    </Border>
+                                </WrapPanel>
+                            </DockPanel>
+                        </Border>
+
+                        <!-- Notion-like Live Document Editor -->
+                        <Grid Grid.Row="2">
+                            <RichTextBox x:Name="NotionEditorBox"
+                                         Visibility="{Binding HasCurrentNote, Converter={StaticResource BoolToVis}}"
+                                         IsDocumentEnabled="True"
+                                         IsReadOnly="{Binding IsReadingMode}"
+                                         BorderThickness="0"
+                                         Background="{DynamicResource NotionCanvasBg}"
+                                         Foreground="{DynamicResource NotionTextPrimary}"
+                                         CaretBrush="#FFFFFF"
+                                         VerticalScrollBarVisibility="Auto"
+                                         HorizontalScrollBarVisibility="Auto"
+                                         ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                         VerticalContentAlignment="Top"
+                                         AcceptsReturn="True"
+                                         AcceptsTab="True"
+                                         Padding="20,4,20,12"
+                                         FontFamily="Segoe UI, -apple-system, sans-serif"
+                                         FontSize="15"
+                                         PreviewMouseWheel="NotionEditorBox_PreviewMouseWheel"
+                                         PreviewTextInput="NotionEditorBox_PreviewTextInput"
+                                         PreviewKeyDown="NotionEditorBox_PreviewKeyDown"
+                                         PreviewMouseLeftButtonDown="NotionEditorBox_PreviewMouseLeftButtonDown"
+                                         PreviewMouseMove="NotionEditorBox_PreviewMouseMove"
+                                         PreviewMouseLeftButtonUp="NotionEditorBox_PreviewMouseLeftButtonUp"
+                                         MouseLeave="NotionEditorBox_MouseLeave"
+                                         ContextMenuOpening="NotionEditorBox_ContextMenuOpening"
+                                         TextChanged="NotionEditorBox_TextChanged"
+                                         SelectionChanged="NotionEditorBox_SelectionChanged"
+                                         SizeChanged="NotionEditorBox_SizeChanged">
+                                <RichTextBox.ContextMenu>
+                                    <ContextMenu Style="{StaticResource NotionContextMenuStyle}"/>
+                                </RichTextBox.ContextMenu>
+                            </RichTextBox>
+
+                            <!-- Joplin-style Floating Table Toolbar (active inside table cells) -->
+                            <Border x:Name="TableToolbar" Visibility="Collapsed" HorizontalAlignment="Center" VerticalAlignment="Top" 
+                                    Margin="0,8,0,0" Background="{DynamicResource NotionOverlayBg}" BorderBrush="{DynamicResource NotionBorder}" 
+                                    BorderThickness="1" CornerRadius="6" Padding="4,2">
+                                <Border.Effect>
+                                    <DropShadowEffect BlurRadius="12" Opacity="0.4" ShadowDepth="3"/>
+                                </Border.Effect>
+                                <StackPanel Orientation="Horizontal">
+                                    <Button x:Name="BtnInsertRowAbove" ToolTip="Insert Row Above" Click="BtnInsertRowAbove_Click" Style="{StaticResource NotionButtonStyle}" Width="28" Height="26" Padding="0" Margin="1,0">
+                                        <Viewbox Width="14" Height="14">
+                                            <Path Data="{StaticResource IconTableRowAboveGeometry}" Stroke="{DynamicResource NotionTextPrimary}" StrokeThickness="1.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Fill="Transparent"/>
+                                        </Viewbox>
+                                    </Button>
+                                    <Button x:Name="BtnInsertRowBelow" ToolTip="Insert Row Below" Click="BtnInsertRowBelow_Click" Style="{StaticResource NotionButtonStyle}" Width="28" Height="26" Padding="0" Margin="1,0">
+                                        <Viewbox Width="14" Height="14">
+                                            <Path Data="{StaticResource IconTableRowBelowGeometry}" Stroke="{DynamicResource NotionTextPrimary}" StrokeThickness="1.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Fill="Transparent"/>
+                                        </Viewbox>
+                                    </Button>
+                                    <Button x:Name="BtnDeleteRow" ToolTip="Delete Current Row" Click="BtnDeleteRow_Click" Style="{StaticResource NotionButtonStyle}" Width="28" Height="26" Padding="0" Margin="1,0">
+                                        <Viewbox Width="14" Height="14">
+                                            <Path Data="{StaticResource IconTableRowDeleteGeometry}" Stroke="#EF4444" StrokeThickness="1.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Fill="Transparent"/>
+                                        </Viewbox>
+                                    </Button>
+
+                                    <Rectangle Width="1" Margin="3,3" Fill="{DynamicResource NotionBorder}"/>
+
+                                    <Button x:Name="BtnInsertColLeft" ToolTip="Insert Column Left" Click="BtnInsertColLeft_Click" Style="{StaticResource NotionButtonStyle}" Width="28" Height="26" Padding="0" Margin="1,0">
+                                        <Viewbox Width="14" Height="14">
+                                            <Path Data="{StaticResource IconTableColLeftGeometry}" Stroke="{DynamicResource NotionTextPrimary}" StrokeThickness="1.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Fill="Transparent"/>
+                                        </Viewbox>
+                                    </Button>
+                                    <Button x:Name="BtnInsertColRight" ToolTip="Insert Column Right" Click="BtnInsertColRight_Click" Style="{StaticResource NotionButtonStyle}" Width="28" Height="26" Padding="0" Margin="1,0">
+                                        <Viewbox Width="14" Height="14">
+                                            <Path Data="{StaticResource IconTableColRightGeometry}" Stroke="{DynamicResource NotionTextPrimary}" StrokeThickness="1.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Fill="Transparent"/>
+                                        </Viewbox>
+                                    </Button>
+                                    <Button x:Name="BtnDeleteCol" ToolTip="Delete Current Column" Click="BtnDeleteCol_Click" Style="{StaticResource NotionButtonStyle}" Width="28" Height="26" Padding="0" Margin="1,0">
+                                        <Viewbox Width="14" Height="14">
+                                            <Path Data="{StaticResource IconTableColDeleteGeometry}" Stroke="#EF4444" StrokeThickness="1.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Fill="Transparent"/>
+                                        </Viewbox>
+                                    </Button>
+
+                                    <Rectangle Width="1" Margin="3,3" Fill="{DynamicResource NotionBorder}"/>
+
+                                    <Button x:Name="BtnAlignLeft" ToolTip="Align Left" Click="BtnAlignLeft_Click" Style="{StaticResource NotionButtonStyle}" Width="28" Height="26" Padding="0" Margin="1,0">
+                                        <Viewbox Width="14" Height="14">
+                                            <Path Data="{StaticResource IconAlignLeftGeometry}" Stroke="{DynamicResource NotionTextPrimary}" StrokeThickness="1.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                                        </Viewbox>
+                                    </Button>
+                                    <Button x:Name="BtnAlignCenter" ToolTip="Align Center" Click="BtnAlignCenter_Click" Style="{StaticResource NotionButtonStyle}" Width="28" Height="26" Padding="0" Margin="1,0">
+                                        <Viewbox Width="14" Height="14">
+                                            <Path Data="{StaticResource IconAlignCenterGeometry}" Stroke="{DynamicResource NotionTextPrimary}" StrokeThickness="1.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                                        </Viewbox>
+                                    </Button>
+                                    <Button x:Name="BtnAlignRight" ToolTip="Align Right" Click="BtnAlignRight_Click" Style="{StaticResource NotionButtonStyle}" Width="28" Height="26" Padding="0" Margin="1,0">
+                                        <Viewbox Width="14" Height="14">
+                                            <Path Data="{StaticResource IconAlignRightGeometry}" Stroke="{DynamicResource NotionTextPrimary}" StrokeThickness="1.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                                        </Viewbox>
+                                    </Button>
+
+                                    <Rectangle Width="1" Margin="3,3" Fill="{DynamicResource NotionBorder}"/>
+
+                                    <Button x:Name="BtnDeleteTable" ToolTip="Delete Entire Table" Click="BtnDeleteTable_Click" Style="{StaticResource NotionButtonStyle}" Width="28" Height="26" Padding="0" Margin="1,0">
+                                        <Viewbox Width="14" Height="14">
+                                            <Path Data="{StaticResource IconTableDeleteGeometry}" Stroke="#EF4444" StrokeThickness="1.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Fill="Transparent"/>
+                                        </Viewbox>
+                                    </Button>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+
+                        <!-- Empty State when no note is open -->
+                        <Grid Grid.Row="0" Grid.RowSpan="3" HorizontalAlignment="Center" VerticalAlignment="Center"
+                              Visibility="{Binding HasNoCurrentNote, Converter={StaticResource BoolToVis}}">
+                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,0,0,30">
+                                <Viewbox Width="44" Height="44" HorizontalAlignment="Center" Margin="0,0,0,14" Opacity="0.35">
+                                    <Path Data="{StaticResource IconNewNoteGeometry}" Stroke="{DynamicResource NotionTextSecondary}" StrokeThickness="1.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Fill="Transparent"/>
+                                </Viewbox>
+                                <TextBlock Text="No note open" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center"
+                                           Foreground="{DynamicResource NotionTextPrimary}" Margin="0,0,0,6"/>
+                                <TextBlock Text="Select a note from the Explorer sidebar or create a new note" FontSize="13" HorizontalAlignment="Center"
+                                           Foreground="{DynamicResource NotionTextSecondary}" Margin="0,0,0,18"/>
+                                <Button Style="{StaticResource NotionPrimaryButtonStyle}" Command="{Binding NewNoteCommand}"
+                                        HorizontalAlignment="Center" Padding="14,7">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Viewbox Width="12" Height="12" Margin="0,0,6,0">
+                                            <Path Data="{StaticResource IconNewNoteGeometry}" Stroke="White" StrokeThickness="1.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                                        </Viewbox>
+                                        <TextBlock Text="New Note" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+                    </Grid>
+
+                    <!-- Column 1: GridSplitter -->
+                    <GridSplitter x:Name="SplitterBar" Grid.Column="1" Width="6"
+                                  HorizontalAlignment="Center" VerticalAlignment="Stretch"
+                                  ResizeBehavior="PreviousAndNext" ResizeDirection="Columns"
+                                  Background="Transparent" Cursor="SizeWE" Visibility="Collapsed">
+                        <GridSplitter.Template>
+                            <ControlTemplate TargetType="GridSplitter">
+                                <Border Background="Transparent">
+                                    <Border x:Name="SplitterHighlight" Width="1" Background="{DynamicResource NotionBorder}" HorizontalAlignment="Center"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="SplitterHighlight" Property="Background" Value="#3B82F6"/>
+                                    </Trigger>
+                                    <Trigger Property="IsDragging" Value="True">
+                                        <Setter TargetName="SplitterHighlight" Property="Background" Value="#3B82F6"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </GridSplitter.Template>
+                    </GridSplitter>
+
+                    <!-- Column 2: Secondary Editor Pane -->
+                    <Grid x:Name="SecondaryEditorPane" Grid.Column="2" Visibility="Collapsed" Background="{DynamicResource NotionCanvasBg}">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Secondary Header with Title & Close [X] -->
+                        <Border Grid.Row="0" Background="{DynamicResource NotionHeaderBg}" BorderBrush="{DynamicResource NotionBorder}" BorderThickness="0,0,0,1" Padding="16,8">
+                            <DockPanel LastChildFill="True">
+                                <Button DockPanel.Dock="Right" Command="{Binding CloseSplitCommand}"
+                                        Style="{StaticResource NotionButtonStyle}" ToolTip="Close Split View" Width="24" Height="24" Padding="0">
+                                    <Viewbox Width="10" Height="10">
+                                        <Path Data="{StaticResource IconCloseGeometry}" Stroke="{DynamicResource NotionTextSecondary}" StrokeThickness="1.5"/>
+                                    </Viewbox>
+                                </Button>
+                                <TextBlock Text="{Binding SecondaryNoteTitle}" FontSize="16" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource NotionTextPrimary}" VerticalAlignment="Center"
+                                           TextTrimming="CharacterEllipsis"/>
+                            </DockPanel>
+                        </Border>
+
+                        <!-- Secondary Editor -->
+                        <RichTextBox Grid.Row="1" x:Name="SecondaryEditorBox"
+                                     IsDocumentEnabled="True"
+                                     BorderThickness="0"
+                                     Background="{DynamicResource NotionCanvasBg}"
+                                     Foreground="{DynamicResource NotionTextPrimary}"
+                                     CaretBrush="#FFFFFF"
+                                     VerticalScrollBarVisibility="Auto"
+                                     HorizontalScrollBarVisibility="Auto"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                     VerticalContentAlignment="Top"
+                                     AcceptsReturn="True"
+                                     AcceptsTab="True"
+                                     Padding="20,8,20,12"
+                                     FontFamily="Segoe UI, -apple-system, sans-serif"
+                                     FontSize="15"
+                                     PreviewMouseWheel="SecondaryEditorBox_PreviewMouseWheel"
+                                     PreviewMouseLeftButtonDown="SecondaryEditorBox_PreviewMouseLeftButtonDown"
+                                     TextChanged="SecondaryEditorBox_TextChanged">
+                            <RichTextBox.ContextMenu>
+                                <ContextMenu Style="{StaticResource NotionContextMenuStyle}"/>
+                            </RichTextBox.ContextMenu>
+                        </RichTextBox>
+                    </Grid>
+                </Grid>
+            </Grid>
+
+            <!-- RIGHT PANEL: Outline -->
+            <Border x:Name="RightPanelBorder" Grid.Column="2" Background="{DynamicResource NotionSidebarBg}" BorderBrush="{DynamicResource NotionBorder}" BorderThickness="1,0,0,0">
+                <DockPanel>
+                    <Border DockPanel.Dock="Top" Padding="12,10" BorderBrush="{DynamicResource NotionBorder}" BorderThickness="0,0,0,1">
+                        <TextBlock Text="OUTLINE" FontWeight="Bold" FontSize="11" Foreground="{DynamicResource NotionTextSecondary}"/>
+                    </Border>
+                    <TreeView x:Name="OutlineTreeView" ItemsSource="{Binding OutlineHeadings}" 
+                              BorderThickness="0" Background="Transparent" Margin="4"
+                              ScrollViewer.CanContentScroll="False"
+                              ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                              ScrollViewer.VerticalScrollBarVisibility="Auto"
+                              PreviewMouseWheel="OutlineTreeView_PreviewMouseWheel"
+                              SelectedItemChanged="OutlineTreeView_SelectedItemChanged"/>
+                </DockPanel>
+            </Border>
+
+            <!-- Right Resizer Splitter (Table-width style draggable border) -->
+            <GridSplitter x:Name="RightPanelSplitter" Grid.Column="2"
+                          Width="6" HorizontalAlignment="Left" VerticalAlignment="Stretch"
+                          Background="Transparent" Cursor="SizeWE"
+                          Margin="-3,0,0,0" Panel.ZIndex="20"
+                          ShowsPreview="False"
+                          DragCompleted="RightPanelSplitter_DragCompleted"
+                          MouseDoubleClick="RightPanelSplitter_MouseDoubleClick"
+                          ToolTip="Drag to resize Outline (double-click to reset)"
+                          Visibility="{Binding Visibility, ElementName=RightPanelBorder}">
+                <GridSplitter.Template>
+                    <ControlTemplate TargetType="GridSplitter">
+                        <Border Background="Transparent" SnapsToDevicePixels="True">
+                            <Border x:Name="SplitterHighlight" Width="2" HorizontalAlignment="Center" VerticalAlignment="Stretch" Background="Transparent"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="SplitterHighlight" Property="Background" Value="#3B82F6"/>
+                            </Trigger>
+                            <Trigger Property="IsDragging" Value="True">
+                                <Setter TargetName="SplitterHighlight" Property="Background" Value="#3B82F6"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </GridSplitter.Template>
+            </GridSplitter>
+        </Grid>
+
+        <!-- BOTTOM STATUS BAR -->
+        <Border Grid.Row="2" Background="{DynamicResource NotionStatusBarBg}" BorderBrush="{DynamicResource NotionBorder}" BorderThickness="0,1,0,0" Padding="12,0">
+            <DockPanel LastChildFill="False">
+                <!-- Status Left: Save State & Cloud Sync -->
+                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource NotionTextSecondary}"/>
+                    <Border Margin="12,0,0,0" VerticalAlignment="Center" Cursor="Hand" ToolTip="{Binding SyncStatusText}">
+                        <Border.InputBindings>
+                            <MouseBinding MouseAction="LeftClick" Command="{Binding OpenSyncDialogCommand}"/>
+                        </Border.InputBindings>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Viewbox Width="12" Height="12" Margin="0,0,5,0">
+                                <Path Data="{StaticResource IconCloudGeometry}" Stroke="{DynamicResource NotionTextMuted}" StrokeThickness="1.2" Fill="Transparent"/>
+                            </Viewbox>
+                            <TextBlock Text="{Binding SyncStatusText}" FontSize="11.5" Foreground="{DynamicResource NotionTextMuted}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="180"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- Status Right: File Name and Word/Line Counts -->
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding FileNameText}" FontSize="12" Foreground="{DynamicResource NotionTextSecondary}" Margin="0,0,16,0" TextTrimming="CharacterEllipsis" MaxWidth="160"/>
+                    <TextBlock Text="{Binding WordCountText}" FontSize="12" Foreground="{DynamicResource NotionTextMuted}" Margin="0,0,12,0"/>
+                    <TextBlock Text="{Binding LineCountText}" FontSize="12" Foreground="{DynamicResource NotionTextMuted}"/>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+    </Grid>
+</Window>

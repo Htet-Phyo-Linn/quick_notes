@@ -1,0 +1,23 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:QuickNote.Avalonia.ViewModels"
+        xmlns:views="using:QuickNote.Avalonia.Views"
+        x:Class="QuickNote.Avalonia.Views.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Title="QuickNote"
+        Width="1050" Height="680"
+        MinWidth="750" MinHeight="450"
+        WindowStartupLocation="CenterScreen"
+        Background="#191919">
+
+    <Window.KeyBindings>
+        <KeyBinding Gesture="Ctrl+N" Command="{Binding NewNoteCommand}" />
+        <KeyBinding Gesture="Ctrl+Shift+N" Command="{Binding NewFolderCommand}" />
+        <KeyBinding Gesture="Ctrl+S" Command="{Binding SaveCommand}" />
+        <KeyBinding Gesture="Ctrl+W" Command="{Binding CloseActiveTabCommand}" />
+        <KeyBinding Gesture="Ctrl+E" Command="{Binding ToggleReadingCommand}" />
+        <KeyBinding Gesture="Ctrl+R" Command="{Binding RefreshCommand}" />
+    </Window.KeyBindings>
+
+    <views:MainView />
+</Window>

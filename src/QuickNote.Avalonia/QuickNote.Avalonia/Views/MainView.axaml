@@ -1,0 +1,888 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:QuickNote.Avalonia.ViewModels"
+             xmlns:views="using:QuickNote.Avalonia.Views"
+             xmlns:models="using:QuickNote.Core.Models"
+             xmlns:Edit="using:AvaloniaEdit"
+             xmlns:notion="using:QuickNote.Avalonia.Notion"
+             x:Class="QuickNote.Avalonia.Views.MainView"
+             x:DataType="vm:MainViewModel"
+             Background="#191919">
+
+    <UserControl.Resources>
+        <StreamGeometry x:Key="IconBolt">M11 21h-1l1-7H7.5c-.88 0-.33-.75-.31-.78C8.48 10.94 10.42 7.54 13 3h1l-1 7h3.5c.49 0 .56.33.47.51l-5.97 10.49z</StreamGeometry>
+        <StreamGeometry x:Key="IconPlus">M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z</StreamGeometry>
+        <StreamGeometry x:Key="IconFolder">M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z</StreamGeometry>
+        <StreamGeometry x:Key="IconDocument">M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z</StreamGeometry>
+        <StreamGeometry x:Key="IconSearch">M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z</StreamGeometry>
+        <StreamGeometry x:Key="IconRefresh">M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z</StreamGeometry>
+        <StreamGeometry x:Key="IconTrash">M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z</StreamGeometry>
+        <StreamGeometry x:Key="IconTag">M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z</StreamGeometry>
+        <StreamGeometry x:Key="IconChevronDown">M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z</StreamGeometry>
+        <StreamGeometry x:Key="IconVisualEdit">M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z</StreamGeometry>
+        <StreamGeometry x:Key="IconMarkdown">M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z</StreamGeometry>
+        <StreamGeometry x:Key="IconSplit">M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-8 16H5V5h6v14zm8 0h-6V5h6v14z</StreamGeometry>
+        <StreamGeometry x:Key="IconReading">M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z</StreamGeometry>
+        <StreamGeometry x:Key="IconCloud">M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z</StreamGeometry>
+        <StreamGeometry x:Key="IconEdit">M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z</StreamGeometry>
+        <StreamGeometry x:Key="IconCut">M9.64 7.64c.23-.5.36-1.05.36-1.64 0-2.21-1.79-4-4-4S2 3.79 2 6s1.79 4 4 4c.59 0 1.14-.13 1.64-.36L10 12l-2.36 2.36C7.14 14.13 6.59 14 6 14c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4c0-.59-.13-1.14-.36-1.64L12 14l7 7h3v-1L9.64 7.64zM6 8c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm0 12c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm6-7.5c-.28 0-.5-.22-.5-.5s.22-.5.5-.5.5.22.5.5-.22.5-.5.5zM19 3l-6 6 2 2 7-7V3h-3z</StreamGeometry>
+        <StreamGeometry x:Key="IconPaste">M19 2h-4.18C14.4.84 13.3 0 12 0c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm7 18H5V4h2v3h10V4h2v16z</StreamGeometry>
+        <StreamGeometry x:Key="IconFolderPlus">M20 6h-8l-2-2H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-1 8h-3v3h-2v-3h-3v-2h3V9h2v3h3v2z</StreamGeometry>
+        <StreamGeometry x:Key="IconSidebarLeft">M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2zm0 2v12h5V6H4zm7 0v12h9V6h-9z</StreamGeometry>
+        <StreamGeometry x:Key="IconSidebarRight">M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2zm0 2v12h9V6H4zm11 0v12h5V6h-5z</StreamGeometry>
+        <StreamGeometry x:Key="IconChevronLeft">M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z</StreamGeometry>
+        <StreamGeometry x:Key="IconChevronRight">M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z</StreamGeometry>
+    </UserControl.Resources>
+
+    <UserControl.Styles>
+        <Style Selector="Border.tab-item">
+            <Setter Property="Background" Value="#1c1c1c" />
+            <Setter Property="BorderBrush" Value="#2d2d2d" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style Selector="Border.tab-item:pointerover">
+            <Setter Property="Background" Value="#262626" />
+        </Style>
+        <Style Selector="Border.tab-active">
+            <Setter Property="Background" Value="#252525" />
+            <Setter Property="BorderBrush" Value="#3b82f6" />
+        </Style>
+        <Style Selector="TextBlock.tab-title">
+            <Setter Property="Foreground" Value="#9ca3af" />
+        </Style>
+        <Style Selector="TextBlock.tab-title-active">
+            <Setter Property="Foreground" Value="#ffffff" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+    </UserControl.Styles>
+
+    <Grid RowDefinitions="Auto,Auto,*,Auto">
+        <!-- 1. TOP TOOLBAR -->
+        <Border Grid.Row="0" Background="#202020" BorderBrush="#2d2d2d" BorderThickness="0,0,0,1" Padding="12,7">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <!-- Left: App Title / Brand & Quick Creation Actions -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" HorizontalAlignment="Left" VerticalAlignment="Center">
+                    <Button Command="{Binding ToggleLeftSidebarCommand}"
+                            Background="Transparent"
+                            Foreground="#9ca3af"
+                            CornerRadius="6"
+                            Padding="6,5"
+                            ToolTip.Tip="Toggle Left Sidebar (Ctrl+B)">
+                        <PathIcon Data="{StaticResource IconSidebarLeft}" Width="15" Height="15" />
+                    </Button>
+
+                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="0,0,4,0">
+                        <PathIcon Data="{StaticResource IconBolt}" Width="15" Height="15" Foreground="#3b82f6" VerticalAlignment="Center" />
+                        <TextBlock Text="QuickNote" FontSize="14" FontWeight="SemiBold" Foreground="#f3f4f6" VerticalAlignment="Center" />
+                    </StackPanel>
+
+                    <Button Command="{Binding NewNoteCommand}" Background="#2563eb" Foreground="White" CornerRadius="6" Padding="8,5" ToolTip.Tip="New Note (Ctrl+N)">
+                        <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                            <PathIcon Data="{StaticResource IconPlus}" Width="11" Height="11" Foreground="White" VerticalAlignment="Center" />
+                            <TextBlock Text="Note" FontSize="12" FontWeight="Medium" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                    <Button Command="{Binding NewFolderCommand}" Background="#2f333a" Foreground="#e5e7eb" CornerRadius="6" Padding="8,5" ToolTip.Tip="New Folder (Ctrl+Shift+N)">
+                        <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                            <PathIcon Data="{StaticResource IconFolder}" Width="12" Height="12" Foreground="#e5e7eb" VerticalAlignment="Center" />
+                            <TextBlock Text="Folder" FontSize="12" FontWeight="Medium" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+
+                <!-- Center: Search Bar (Responsive flex column, MaxWidth 420, never overlaps) -->
+                <Grid Grid.Column="1" HorizontalAlignment="Stretch" MaxWidth="420" MinWidth="80" Margin="10,0" VerticalAlignment="Center">
+                    <PathIcon Data="{StaticResource IconSearch}" Width="13" Height="13" Foreground="#6b7280" Margin="10,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Center" IsHitTestVisible="False" />
+                    <TextBox x:Name="SearchBox"
+                             Text="{Binding SearchQuery, Mode=TwoWay}"
+                             PlaceholderText="Search notes (#tag, :folder, text)..."
+                             Background="#2a2a2a"
+                             Foreground="#e5e7eb"
+                             BorderBrush="#374151"
+                             CornerRadius="6"
+                             Padding="30,5,28,5"
+                             MinHeight="0"
+                             Height="30"
+                             VerticalAlignment="Center"
+                             VerticalContentAlignment="Center" />
+                    <Button Content="✕"
+                            Command="{Binding ClearSearchCommand}"
+                            IsVisible="{Binding IsSearching}"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Center"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Foreground="#9ca3af"
+                            Margin="0,0,4,0"
+                            Padding="6,2" />
+                </Grid>
+
+                <!-- Right: Action Icons & Mode Dropdown Menu -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="5" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <Button Command="{Binding RefreshCommand}" Background="#2f333a" Foreground="#e5e7eb" CornerRadius="6" Padding="7,5" ToolTip.Tip="Refresh Notes">
+                        <PathIcon Data="{StaticResource IconRefresh}" Width="13" Height="13" Foreground="#9ca3af" />
+                    </Button>
+                    <Button Command="{Binding DeleteCommand}" Background="#2f333a" Foreground="#ef4444" CornerRadius="6" Padding="7,5" ToolTip.Tip="Move to Trash">
+                        <PathIcon Data="{StaticResource IconTrash}" Width="13" Height="13" Foreground="#ef4444" />
+                    </Button>
+
+                    <Rectangle Width="1" Height="16" Fill="#374151" Margin="3,0" />
+
+                    <!-- Editor Mode Dropdown Menu (No Notion Text, Clean Dropdown) -->
+                    <Button Background="#262626"
+                            Foreground="#e5e7eb"
+                            BorderBrush="#374151"
+                            BorderThickness="1"
+                            CornerRadius="6"
+                            Padding="8,5"
+                            ToolTip.Tip="Select Editor Mode">
+                        <Button.Flyout>
+                            <MenuFlyout Placement="BottomEdgeAlignedRight">
+                                <MenuItem Header="Visual Editor" Command="{Binding SetNotionModeCommand}">
+                                    <MenuItem.Icon>
+                                        <PathIcon Data="{StaticResource IconVisualEdit}" Width="13" Height="13" Foreground="#3b82f6" />
+                                    </MenuItem.Icon>
+                                </MenuItem>
+                                <MenuItem Header="Markdown Source" Command="{Binding SetEditModeCommand}">
+                                    <MenuItem.Icon>
+                                        <PathIcon Data="{StaticResource IconMarkdown}" Width="13" Height="13" Foreground="#9ca3af" />
+                                    </MenuItem.Icon>
+                                </MenuItem>
+                                <MenuItem Header="Split View" Command="{Binding SetSplitModeCommand}">
+                                    <MenuItem.Icon>
+                                        <PathIcon Data="{StaticResource IconSplit}" Width="13" Height="13" Foreground="#9ca3af" />
+                                    </MenuItem.Icon>
+                                </MenuItem>
+                                <MenuItem Header="Reading View" Command="{Binding SetPreviewModeCommand}">
+                                    <MenuItem.Icon>
+                                        <PathIcon Data="{StaticResource IconReading}" Width="13" Height="13" Foreground="#9ca3af" />
+                                    </MenuItem.Icon>
+                                </MenuItem>
+                            </MenuFlyout>
+                        </Button.Flyout>
+                        <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                            <PathIcon Data="{StaticResource IconVisualEdit}" Width="13" Height="13" Foreground="#3b82f6" IsVisible="{Binding IsNotionMode}" VerticalAlignment="Center" />
+                            <PathIcon Data="{StaticResource IconMarkdown}" Width="13" Height="13" Foreground="#9ca3af" IsVisible="{Binding !IsNotionMode}" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding CurrentModeDisplayName}" FontSize="12" FontWeight="Medium" VerticalAlignment="Center" />
+                            <PathIcon Data="{StaticResource IconChevronDown}" Width="9" Height="9" Foreground="#6b7280" Margin="2,1,0,0" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+
+                    <Rectangle Width="1" Height="16" Fill="#374151" Margin="3,0" />
+
+                    <!-- Toggle Right Sidebar (Outline) Button -->
+                    <Button Command="{Binding ToggleRightSidebarCommand}"
+                            Background="Transparent"
+                            Foreground="#9ca3af"
+                            CornerRadius="6"
+                            Padding="6,5"
+                            ToolTip.Tip="Toggle Outline Sidebar">
+                        <PathIcon Data="{StaticResource IconSidebarRight}" Width="15" Height="15" />
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- 2. TAB STRIP -->
+        <Border Grid.Row="1" Background="#1c1c1c" BorderBrush="#2d2d2d" BorderThickness="0,0,0,1" Padding="8,4,8,0">
+            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                <ItemsControl ItemsSource="{Binding OpenTabs}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" Spacing="2" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="vm:NoteTabViewModel">
+                            <Border Classes="tab-item"
+                                     Classes.tab-active="{Binding IsActive}"
+                                     BorderThickness="1,1,1,0"
+                                     CornerRadius="6,6,0,0"
+                                     Padding="10,6"
+                                     Margin="0,0,2,0"
+                                     PointerPressed="OnTabPointerPressed">
+                                <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                    <Ellipse Width="6" Height="6" Fill="#f59e0b" IsVisible="{Binding IsModified}" VerticalAlignment="Center" Margin="0,0,2,0" />
+                                    <TextBlock Text="{Binding DisplayTitle}"
+                                               Classes="tab-title"
+                                               Classes.tab-title-active="{Binding IsActive}"
+                                               FontSize="13"
+                                               VerticalAlignment="Center" />
+                                    <Button Command="{Binding CloseCommand}"
+                                            Content="✕"
+                                            Background="Transparent"
+                                            BorderThickness="0"
+                                            Foreground="#9ca3af"
+                                            FontSize="10"
+                                            Padding="4,2"
+                                            Margin="4,0,0,0"
+                                            VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Border>
+
+        <!-- 3. MAIN 3-COLUMN WORKSPACE -->
+        <Grid x:Name="MainWorkspaceGrid" Grid.Row="2" ColumnDefinitions="240,Auto,*,Auto,220">
+            <!-- COLUMN 0: SIDEBAR (Notes & Folders) -->
+            <Border x:Name="LeftSidebarBorder" Grid.Column="0" Background="#1e1e1e" BorderBrush="#2d2d2d" BorderThickness="0,0,1,0" IsVisible="{Binding IsLeftSidebarVisible}">
+                <Grid RowDefinitions="Auto,*,Auto">
+                    <!-- Sidebar Header with Quick Action Buttons -->
+                    <Border Grid.Row="0" Padding="12,8" BorderBrush="#2d2d2d" BorderThickness="0,0,0,1">
+                        <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto">
+                            <TextBlock Grid.Column="0" Text="EXPLORER" FontSize="11" FontWeight="Bold" Foreground="#9ca3af" LetterSpacing="1" VerticalAlignment="Center" />
+                            <Button Grid.Column="1" Classes="action-btn" Width="24" Height="24" Margin="2,0" Padding="4"
+                                    Background="Transparent" BorderThickness="0" CornerRadius="4"
+                                    ToolTip.Tip="New Note (Ctrl+N)" Command="{Binding NewNoteCommand}">
+                                <PathIcon Data="{StaticResource IconPlus}" Width="12" Height="12" Foreground="#9ca3af" />
+                            </Button>
+                            <Button Grid.Column="2" Classes="action-btn" Width="24" Height="24" Margin="2,0" Padding="4"
+                                    Background="Transparent" BorderThickness="0" CornerRadius="4"
+                                    ToolTip.Tip="New Root Folder" Command="{Binding NewRootFolderCommand}">
+                                <PathIcon Data="{StaticResource IconFolderPlus}" Width="12" Height="12" Foreground="#9ca3af" />
+                            </Button>
+                            <Button Grid.Column="3" Classes="action-btn" Width="24" Height="24" Margin="2,0" Padding="4"
+                                    Background="Transparent" BorderThickness="0" CornerRadius="4"
+                                    ToolTip.Tip="Refresh Explorer" Command="{Binding RefreshCommand}">
+                                <PathIcon Data="{StaticResource IconRefresh}" Width="12" Height="12" Foreground="#9ca3af" />
+                            </Button>
+                            <Button Grid.Column="4" Classes="action-btn" Width="24" Height="24" Margin="2,0" Padding="4"
+                                    Background="Transparent" BorderThickness="0" CornerRadius="4"
+                                    ToolTip.Tip="Collapse Sidebar (Ctrl+B)" Command="{Binding ToggleLeftSidebarCommand}">
+                                <PathIcon Data="{StaticResource IconChevronLeft}" Width="12" Height="12" Foreground="#9ca3af" />
+                            </Button>
+                        </Grid>
+                    </Border>
+
+                    <!-- Search Results Mode -->
+                    <ListBox Grid.Row="1"
+                             x:Name="SearchResultsListBox"
+                             ItemsSource="{Binding SearchResults}"
+                             IsVisible="{Binding IsSearching}"
+                             Background="Transparent"
+                             SelectionChanged="SearchResultsListBox_SelectionChanged">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate DataType="models:SearchResult">
+                                <StackPanel Spacing="3" Margin="0,4">
+                                    <TextBlock Text="{Binding NoteTitle}" FontWeight="SemiBold" Foreground="#f3f4f6" FontSize="13" />
+                                    <TextBlock Text="{Binding Snippet}" Foreground="#9ca3af" FontSize="11" TextTrimming="CharacterEllipsis" MaxLines="2" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <!-- Folder Tree Mode -->
+                    <TreeView Grid.Row="1"
+                              x:Name="FolderTreeView"
+                              ItemsSource="{Binding FolderNodes}"
+                              IsVisible="{Binding !IsSearching}"
+                              Background="Transparent"
+                              DragDrop.AllowDrop="True"
+                              SelectionMode="Multiple"
+                              SelectionChanged="FolderTreeView_SelectionChanged"
+                              KeyDown="FolderTreeView_KeyDown">
+                        <TreeView.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="New Note" Click="OnEmptyNewNoteClick">
+                                    <MenuItem.Icon>
+                                        <PathIcon Data="{StaticResource IconNewNote}" Width="12" Height="12" Foreground="#3b82f6" />
+                                    </MenuItem.Icon>
+                                </MenuItem>
+                                <MenuItem Header="New Root Folder" Click="OnEmptyNewFolderClick">
+                                    <MenuItem.Icon>
+                                        <PathIcon Data="{StaticResource IconFolderPlus}" Width="12" Height="12" Foreground="#9ca3af" />
+                                    </MenuItem.Icon>
+                                </MenuItem>
+                                <MenuItem Header="Paste" Click="OnEmptyPasteClick">
+                                    <MenuItem.Icon>
+                                        <PathIcon Data="{StaticResource IconPaste}" Width="12" Height="12" Foreground="#10b981" />
+                                    </MenuItem.Icon>
+                                </MenuItem>
+                                <Separator />
+                                <MenuItem Header="Delete Selected" Click="OnBulkDeleteClick">
+                                    <MenuItem.Icon>
+                                        <PathIcon Data="{StaticResource IconTrash}" Width="12" Height="12" Foreground="#ef4444" />
+                                    </MenuItem.Icon>
+                                </MenuItem>
+                                <Separator />
+                                <MenuItem Header="Refresh" Click="OnEmptyRefreshClick">
+                                    <MenuItem.Icon>
+                                        <PathIcon Data="{StaticResource IconRefresh}" Width="12" Height="12" Foreground="#9ca3af" />
+                                    </MenuItem.Icon>
+                                </MenuItem>
+                            </ContextMenu>
+                        </TreeView.ContextMenu>
+                        <TreeView.Styles>
+                            <Style Selector="TreeViewItem" x:DataType="models:FolderNode">
+                                <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
+                                <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}" />
+                                <Setter Property="DragDrop.AllowDrop" Value="True" />
+                                <Setter Property="ContextMenu">
+                                    <ContextMenu Opened="OnTreeContextMenuOpened">
+                                        <!-- Folder Only -->
+                                        <MenuItem Header="New Note Here" Click="OnTreeNewNoteClick" IsVisible="{Binding IsDirectory}">
+                                            <MenuItem.Icon>
+                                                <PathIcon Data="{StaticResource IconNewNote}" Width="12" Height="12" Foreground="#3b82f6" />
+                                            </MenuItem.Icon>
+                                        </MenuItem>
+                                        <MenuItem Header="New Subfolder" Click="OnTreeNewSubfolderClick" IsVisible="{Binding IsDirectory}">
+                                            <MenuItem.Icon>
+                                                <PathIcon Data="{StaticResource IconNewFolder}" Width="12" Height="12" Foreground="#9ca3af" />
+                                            </MenuItem.Icon>
+                                        </MenuItem>
+                                        <!-- Note Only -->
+                                        <MenuItem Header="Open Note" Click="OnTreeOpenNoteClick" IsVisible="{Binding !IsDirectory}">
+                                            <MenuItem.Icon>
+                                                <PathIcon Data="{StaticResource IconDocument}" Width="12" Height="12" Foreground="#3b82f6" />
+                                            </MenuItem.Icon>
+                                        </MenuItem>
+                                        <Separator />
+                                        <!-- Common Item Actions -->
+                                        <MenuItem Header="Rename" Click="OnTreeRenameClick">
+                                            <MenuItem.Icon>
+                                                <PathIcon Data="{StaticResource IconEdit}" Width="12" Height="12" Foreground="#eab308" />
+                                            </MenuItem.Icon>
+                                        </MenuItem>
+                                        <MenuItem Header="Move To..." Click="OnTreeMoveToClick">
+                                            <MenuItem.Icon>
+                                                <PathIcon Data="{StaticResource IconFolder}" Width="12" Height="12" Foreground="#3b82f6" />
+                                            </MenuItem.Icon>
+                                        </MenuItem>
+                                        <MenuItem Header="Cut" Click="OnTreeCutClick">
+                                            <MenuItem.Icon>
+                                                <PathIcon Data="{StaticResource IconCut}" Width="12" Height="12" Foreground="#a855f7" />
+                                            </MenuItem.Icon>
+                                        </MenuItem>
+                                        <MenuItem Header="Paste Into Folder" Click="OnTreePasteClick" IsVisible="{Binding IsDirectory}">
+                                            <MenuItem.Icon>
+                                                <PathIcon Data="{StaticResource IconPaste}" Width="12" Height="12" Foreground="#10b981" />
+                                            </MenuItem.Icon>
+                                        </MenuItem>
+                                        <Separator />
+                                        <MenuItem Header="Delete" Click="OnTreeDeleteClick">
+                                            <MenuItem.Icon>
+                                                <PathIcon Data="{StaticResource IconTrash}" Width="12" Height="12" Foreground="#ef4444" />
+                                            </MenuItem.Icon>
+                                        </MenuItem>
+                                        <MenuItem Header="Delete Selected" Click="OnBulkDeleteClick">
+                                            <MenuItem.Icon>
+                                                <PathIcon Data="{StaticResource IconTrash}" Width="12" Height="12" Foreground="#ef4444" />
+                                            </MenuItem.Icon>
+                                        </MenuItem>
+                                    </ContextMenu>
+                                </Setter>
+                            </Style>
+                        </TreeView.Styles>
+                        <TreeView.ItemTemplate>
+                            <TreeDataTemplate DataType="models:FolderNode" ItemsSource="{Binding Children}">
+                                <Grid Background="Transparent" Height="24" VerticalAlignment="Center" DoubleTapped="OnFolderNodeDoubleTapped">
+                                    <!-- Normal Display Mode -->
+                                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Height="24" IsVisible="{Binding !IsEditing}">
+                                        <PathIcon Data="{StaticResource IconFolder}" Width="13" Height="13" Foreground="#9ca3af" IsVisible="{Binding IsDirectory}" VerticalAlignment="Center" />
+                                        <PathIcon Data="{StaticResource IconDocument}" Width="13" Height="13" Foreground="#9ca3af" IsVisible="{Binding !IsDirectory}" VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding DisplayName}"
+                                                   Foreground="#e5e7eb"
+                                                   FontSize="13"
+                                                   VerticalAlignment="Center"
+                                                   DoubleTapped="OnTreeItemTextDoubleTapped"
+                                                   ToolTip.Tip="Double-click to rename" />
+                                    </StackPanel>
+
+                                    <!-- Inline Rename Mode -->
+                                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Height="24" IsVisible="{Binding IsEditing}">
+                                        <PathIcon Data="{StaticResource IconFolder}" Width="13" Height="13" Foreground="#3b82f6" IsVisible="{Binding IsDirectory}" VerticalAlignment="Center" />
+                                        <PathIcon Data="{StaticResource IconDocument}" Width="13" Height="13" Foreground="#3b82f6" IsVisible="{Binding !IsDirectory}" VerticalAlignment="Center" />
+                                        <TextBox x:Name="InlineRenameBox"
+                                                 Text="{Binding EditingText, Mode=TwoWay}"
+                                                 FontSize="13"
+                                                 MinHeight="0"
+                                                 Height="20"
+                                                 Padding="4,0"
+                                                 Margin="-2,0,0,0"
+                                                 MinWidth="100"
+                                                 MaxWidth="220"
+                                                 Background="#1c2128"
+                                                 Foreground="#f3f4f6"
+                                                 BorderBrush="#388bfd"
+                                                 BorderThickness="1"
+                                                 CornerRadius="3"
+                                                 VerticalAlignment="Center"
+                                                 VerticalContentAlignment="Center"
+                                                 KeyDown="InlineRenameBox_KeyDown"
+                                                 LostFocus="InlineRenameBox_LostFocus"
+                                                 Loaded="InlineRenameBox_Loaded">
+                                            <TextBox.Styles>
+                                                <Style Selector="TextBox">
+                                                    <Setter Property="MinHeight" Value="0" />
+                                                    <Setter Property="Padding" Value="4,0" />
+                                                    <Setter Property="VerticalContentAlignment" Value="Center" />
+                                                </Style>
+                                                <Style Selector="TextBox /template/ Border#PART_BorderElement">
+                                                    <Setter Property="MinHeight" Value="0" />
+                                                    <Setter Property="BorderThickness" Value="1" />
+                                                    <Setter Property="BorderBrush" Value="#388bfd" />
+                                                    <Setter Property="Background" Value="#1c2128" />
+                                                    <Setter Property="CornerRadius" Value="3" />
+                                                </Style>
+                                                <Style Selector="TextBox:focus /template/ Border#PART_BorderElement">
+                                                    <Setter Property="MinHeight" Value="0" />
+                                                    <Setter Property="BorderThickness" Value="1" />
+                                                    <Setter Property="BorderBrush" Value="#58a6ff" />
+                                                    <Setter Property="Background" Value="#161b22" />
+                                                    <Setter Property="CornerRadius" Value="3" />
+                                                </Style>
+                                                <Style Selector="TextBox:pointerover /template/ Border#PART_BorderElement">
+                                                    <Setter Property="MinHeight" Value="0" />
+                                                    <Setter Property="BorderThickness" Value="1" />
+                                                    <Setter Property="BorderBrush" Value="#58a6ff" />
+                                                    <Setter Property="Background" Value="#1c2128" />
+                                                    <Setter Property="CornerRadius" Value="3" />
+                                                </Style>
+                                            </TextBox.Styles>
+                                        </TextBox>
+                                    </StackPanel>
+                                </Grid>
+                            </TreeDataTemplate>
+                        </TreeView.ItemTemplate>
+                    </TreeView>
+
+                    <!-- Sidebar Footer -->
+                    <Border Grid.Row="2" Padding="12,8" BorderBrush="#2d2d2d" BorderThickness="0,1,0,0" Background="#1a1a1a">
+                        <TextBlock Text="{Binding NotesCountText}" Foreground="#6b7280" FontSize="12" />
+                    </Border>
+                </Grid>
+            </Border>
+
+            <!-- SPLITTER 1 -->
+            <GridSplitter x:Name="LeftGridSplitter" Grid.Column="1" Width="3" Background="#2d2d2d" ResizeDirection="Columns" IsVisible="{Binding IsLeftSidebarVisible}" />
+
+            <!-- COLUMN 2: CENTER EDITOR (SEAMLESS NOTION CANVAS) -->
+            <Grid Grid.Column="2" RowDefinitions="Auto,Auto,*">
+                <!-- Note Title Input -->
+                <Border Grid.Row="0" Padding="28,14,28,4" Background="#191919" BorderBrush="#2d2d2d" BorderThickness="0,0,0,0">
+                    <TextBox x:Name="TitleBox"
+                             Text="{Binding NoteTitle, Mode=TwoWay}"
+                             PlaceholderText="Untitled Note"
+                             FontSize="24"
+                             FontWeight="Bold"
+                             Background="Transparent"
+                             Foreground="#f9fafb"
+                             BorderThickness="0"
+                             Padding="0,4"
+                             KeyDown="TitleBox_KeyDown">
+                        <TextBox.Styles>
+                            <Style Selector="TextBox">
+                                <Setter Property="Background" Value="Transparent" />
+                                <Setter Property="BorderBrush" Value="Transparent" />
+                                <Setter Property="BorderThickness" Value="0" />
+                            </Style>
+                            <Style Selector="TextBox:focus /template/ Border#PART_BorderElement">
+                                <Setter Property="Background" Value="Transparent" />
+                                <Setter Property="BorderBrush" Value="Transparent" />
+                                <Setter Property="BorderThickness" Value="0" />
+                            </Style>
+                            <Style Selector="TextBox:pointerover /template/ Border#PART_BorderElement">
+                                <Setter Property="Background" Value="Transparent" />
+                                <Setter Property="BorderBrush" Value="Transparent" />
+                                <Setter Property="BorderThickness" Value="0" />
+                            </Style>
+                        </TextBox.Styles>
+                    </TextBox>
+                </Border>
+
+                <!-- Tags Row (Modern Notion/GitHub Pill Chips) -->
+                <Border Grid.Row="1" Padding="28,4,28,10" Background="#191919" BorderBrush="#262626" BorderThickness="0,0,0,1" IsVisible="{Binding HasCurrentNote}">
+                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center" Margin="0,0,2,0">
+                            <PathIcon Data="{StaticResource IconTag}" Width="12" Height="12" Foreground="#6b7280" VerticalAlignment="Center" />
+                            <TextBlock Text="Tags" Foreground="#6b7280" FontSize="12" VerticalAlignment="Center" />
+                        </StackPanel>
+                        <ItemsControl ItemsSource="{Binding CurrentNoteTags}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal" Spacing="6" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="vm:TagItemViewModel">
+                                    <Panel VerticalAlignment="Center">
+                                        <!-- 1. STATIC BADGE (when NOT editing) -->
+                                        <Border Background="#21262d"
+                                                BorderBrush="#30363d"
+                                                BorderThickness="1"
+                                                CornerRadius="12"
+                                                Height="24"
+                                                Padding="8,0"
+                                                Cursor="Hand"
+                                                IsVisible="{Binding !IsEditing}"
+                                                DoubleTapped="OnTagDoubleTapped"
+                                                ToolTip.Tip="Double-click to edit tag"
+                                                VerticalAlignment="Center">
+                                            <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                                <TextBlock Text="#" Foreground="#58a6ff" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                                <TextBlock Text="{Binding Name}" Foreground="#c9d1d9" FontSize="11" VerticalAlignment="Center" />
+                                                <Button Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).RemoveTagItemCommand}"
+                                                        CommandParameter="{Binding}"
+                                                        Content="✕"
+                                                        Background="Transparent"
+                                                        BorderThickness="0"
+                                                        Foreground="#6e7681"
+                                                        FontSize="9"
+                                                        Height="18"
+                                                        Padding="2,0"
+                                                        Margin="2,0,-2,0"
+                                                        VerticalAlignment="Center"
+                                                        VerticalContentAlignment="Center"
+                                                        ToolTip.Tip="Remove tag" />
+                                            </StackPanel>
+                                        </Border>
+
+                                        <!-- 2. INLINE EDITING PILL (replaces badge in-place when editing) -->
+                                        <Border Background="#161b22"
+                                                BorderBrush="#388bfd"
+                                                BorderThickness="1"
+                                                CornerRadius="12"
+                                                Height="24"
+                                                Padding="6,0,4,0"
+                                                IsVisible="{Binding IsEditing}"
+                                                VerticalAlignment="Center">
+                                            <StackPanel Orientation="Horizontal" Spacing="3" VerticalAlignment="Center">
+                                                <TextBlock Text="#" Foreground="#58a6ff" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" Margin="2,0,0,0" />
+                                                <TextBox Text="{Binding EditText, Mode=TwoWay}"
+                                                         PlaceholderText="tag..."
+                                                         FontSize="11"
+                                                         MinHeight="0"
+                                                         Height="20"
+                                                         Padding="2,0"
+                                                         Background="Transparent"
+                                                         Foreground="#f0f6fc"
+                                                         BorderThickness="0"
+                                                         MinWidth="50"
+                                                         MaxWidth="160"
+                                                         KeyDown="TagItemEditBox_KeyDown"
+                                                         LostFocus="TagItemEditBox_LostFocus"
+                                                         AttachedToVisualTree="TagItemEditBox_AttachedToVisualTree"
+                                                         VerticalAlignment="Center"
+                                                         VerticalContentAlignment="Center">
+                                                    <TextBox.Styles>
+                                                        <Style Selector="TextBox">
+                                                            <Setter Property="MinHeight" Value="0" />
+                                                            <Setter Property="Padding" Value="2,0" />
+                                                            <Setter Property="VerticalContentAlignment" Value="Center" />
+                                                        </Style>
+                                                        <Style Selector="TextBox /template/ Border#PART_BorderElement">
+                                                            <Setter Property="MinHeight" Value="0" />
+                                                            <Setter Property="BorderThickness" Value="0" />
+                                                            <Setter Property="Background" Value="Transparent" />
+                                                        </Style>
+                                                        <Style Selector="TextBox:focus /template/ Border#PART_BorderElement">
+                                                            <Setter Property="MinHeight" Value="0" />
+                                                            <Setter Property="BorderThickness" Value="0" />
+                                                            <Setter Property="Background" Value="Transparent" />
+                                                        </Style>
+                                                        <Style Selector="TextBox:pointerover /template/ Border#PART_BorderElement">
+                                                            <Setter Property="MinHeight" Value="0" />
+                                                            <Setter Property="BorderThickness" Value="0" />
+                                                            <Setter Property="Background" Value="Transparent" />
+                                                        </Style>
+                                                    </TextBox.Styles>
+                                                </TextBox>
+                                                <Button Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).ConfirmEditTagItemCommand}"
+                                                        CommandParameter="{Binding}"
+                                                        Content="✓"
+                                                        Background="Transparent"
+                                                        BorderThickness="0"
+                                                        Foreground="#3fb950"
+                                                        FontSize="11"
+                                                        Height="18"
+                                                        Padding="2,0"
+                                                        VerticalAlignment="Center"
+                                                        VerticalContentAlignment="Center"
+                                                        ToolTip.Tip="Save tag (Enter)" />
+                                                <Button Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).CancelEditTagItemCommand}"
+                                                        CommandParameter="{Binding}"
+                                                        Content="✕"
+                                                        Background="Transparent"
+                                                        BorderThickness="0"
+                                                        Foreground="#8b949e"
+                                                        FontSize="9"
+                                                        Height="18"
+                                                        Padding="2,0"
+                                                        VerticalAlignment="Center"
+                                                        VerticalContentAlignment="Center"
+                                                        ToolTip.Tip="Cancel (Esc)" />
+                                            </StackPanel>
+                                        </Border>
+                                    </Panel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!-- Add Tag Button -->
+                        <Button x:Name="AddTagButton"
+                                Command="{Binding StartAddTagCommand}"
+                                Click="AddTagButton_Click"
+                                IsVisible="{Binding !IsAddingTag}"
+                                Content="+ Add tag"
+                                Background="Transparent"
+                                BorderBrush="#30363d"
+                                BorderThickness="1"
+                                CornerRadius="12"
+                                Height="24"
+                                Foreground="#8b949e"
+                                FontSize="11"
+                                Padding="8,0"
+                                VerticalAlignment="Center"
+                                VerticalContentAlignment="Center"
+                                Cursor="Hand" />
+
+                        <!-- Inline Pill Input for Adding a NEW Tag -->
+                        <Border Background="#161b22"
+                                BorderBrush="#388bfd"
+                                BorderThickness="1"
+                                CornerRadius="12"
+                                Height="24"
+                                Padding="6,0,4,0"
+                                IsVisible="{Binding IsAddingTag}"
+                                VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" Spacing="3" VerticalAlignment="Center">
+                                <TextBlock Text="#" Foreground="#58a6ff" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" Margin="2,0,0,0" />
+                                <TextBox x:Name="TagInputBox"
+                                         Text="{Binding NewTagText, Mode=TwoWay}"
+                                         PlaceholderText="tag..."
+                                         FontSize="11"
+                                         MinHeight="0"
+                                         Height="20"
+                                         Padding="2,0"
+                                         Background="Transparent"
+                                         Foreground="#f0f6fc"
+                                         BorderThickness="0"
+                                         MinWidth="60"
+                                         MaxWidth="160"
+                                         KeyDown="TagInputBox_KeyDown"
+                                         LostFocus="TagInputBox_LostFocus"
+                                         VerticalAlignment="Center"
+                                         VerticalContentAlignment="Center">
+                                    <TextBox.Styles>
+                                        <Style Selector="TextBox">
+                                            <Setter Property="MinHeight" Value="0" />
+                                            <Setter Property="Padding" Value="2,0" />
+                                            <Setter Property="VerticalContentAlignment" Value="Center" />
+                                        </Style>
+                                        <Style Selector="TextBox /template/ Border#PART_BorderElement">
+                                            <Setter Property="MinHeight" Value="0" />
+                                            <Setter Property="BorderThickness" Value="0" />
+                                            <Setter Property="Background" Value="Transparent" />
+                                        </Style>
+                                        <Style Selector="TextBox:focus /template/ Border#PART_BorderElement">
+                                            <Setter Property="MinHeight" Value="0" />
+                                            <Setter Property="BorderThickness" Value="0" />
+                                            <Setter Property="Background" Value="Transparent" />
+                                        </Style>
+                                        <Style Selector="TextBox:pointerover /template/ Border#PART_BorderElement">
+                                            <Setter Property="MinHeight" Value="0" />
+                                            <Setter Property="BorderThickness" Value="0" />
+                                            <Setter Property="Background" Value="Transparent" />
+                                        </Style>
+                                    </TextBox.Styles>
+                                </TextBox>
+                                <Button Command="{Binding ConfirmAddTagCommand}"
+                                        Content="✓"
+                                        Background="Transparent"
+                                        BorderThickness="0"
+                                        Foreground="#3fb950"
+                                        FontSize="11"
+                                        Height="18"
+                                        Padding="2,0"
+                                        VerticalAlignment="Center"
+                                        VerticalContentAlignment="Center"
+                                        ToolTip.Tip="Save tag (Enter)" />
+                                <Button Command="{Binding CancelAddTagCommand}"
+                                        Content="✕"
+                                        Background="Transparent"
+                                        BorderThickness="0"
+                                        Foreground="#8b949e"
+                                        FontSize="9"
+                                        Height="18"
+                                        Padding="2,0"
+                                        VerticalAlignment="Center"
+                                        VerticalContentAlignment="Center"
+                                        ToolTip.Tip="Cancel (Esc)" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Border>
+
+                <!-- WORKSPACE AREA: Notion Mode OR Raw Markdown Mode -->
+                <Grid Grid.Row="2">
+                    <!-- 1. SEAMLESS NOTION CANVAS (Default!) -->
+                    <notion:NotionEditorControl x:Name="NotionEditor"
+                                                IsVisible="{Binding IsNotionEditorActive}"
+                                                HorizontalAlignment="Stretch"
+                                                VerticalAlignment="Stretch" />
+
+                    <!-- 2. RAW MARKDOWN & SPLIT VIEW MODES -->
+                    <Grid x:Name="EditorWorkspaceGrid" IsVisible="{Binding !IsNotionMode}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Markdown Source Editor (AvaloniaEdit) -->
+                        <Edit:TextEditor x:Name="TextEditor"
+                                         Grid.Column="0"
+                                         ShowLineNumbers="True"
+                                         WordWrap="True"
+                                         FontFamily="Cascadia Code, Consolas, Courier New, monospace"
+                                         FontSize="14"
+                                         Background="#191919"
+                                         Foreground="#e5e7eb"
+                                         HorizontalScrollBarVisibility="Auto"
+                                         VerticalScrollBarVisibility="Visible"
+                                         Padding="12,8" />
+
+                        <!-- Splitter between Editor and Preview -->
+                        <GridSplitter x:Name="EditorSplitter"
+                                      Grid.Column="1"
+                                      Width="3"
+                                      Background="#2d2d2d"
+                                      ResizeDirection="Columns" />
+
+                        <!-- Native Markdig Live Preview -->
+                        <ScrollViewer x:Name="PreviewScrollViewer"
+                                      Grid.Column="2"
+                                      Background="#1e1e1e"
+                                      HorizontalScrollBarVisibility="Disabled"
+                                      VerticalScrollBarVisibility="Auto">
+                            <Border x:Name="PreviewContainer"
+                                    Padding="28,20,28,40"
+                                    MaxWidth="880"
+                                    HorizontalAlignment="Stretch" />
+                        </ScrollViewer>
+                    </Grid>
+                </Grid>
+            </Grid>
+
+            <!-- SPLITTER 2 -->
+            <GridSplitter x:Name="RightGridSplitter" Grid.Column="3" Width="3" Background="#2d2d2d" ResizeDirection="Columns" IsVisible="{Binding IsRightSidebarVisible}" />
+
+            <!-- COLUMN 4: DOCUMENT OUTLINE (TABLE OF CONTENTS) -->
+            <Border x:Name="RightSidebarBorder" Grid.Column="4" Background="#1e1e1e" BorderBrush="#2d2d2d" BorderThickness="1,0,0,0" IsVisible="{Binding IsRightSidebarVisible}">
+                <Grid RowDefinitions="Auto,*">
+                    <!-- Outline Header -->
+                    <Border Grid.Row="0" Padding="12,8" BorderBrush="#2d2d2d" BorderThickness="0,0,0,1">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Text="OUTLINE" FontSize="11" FontWeight="Bold" Foreground="#9ca3af" LetterSpacing="1" VerticalAlignment="Center" />
+                            <Button Grid.Column="1" Classes="action-btn" Width="24" Height="24" Margin="2,0" Padding="4"
+                                    Background="Transparent" BorderThickness="0" CornerRadius="4"
+                                    ToolTip.Tip="Collapse Outline" Command="{Binding ToggleRightSidebarCommand}">
+                                <PathIcon Data="{StaticResource IconChevronRight}" Width="12" Height="12" Foreground="#9ca3af" />
+                            </Button>
+                        </Grid>
+                    </Border>
+
+                    <!-- Hierarchical Headings Tree -->
+                    <TreeView Grid.Row="1"
+                              x:Name="OutlineTreeView"
+                              ItemsSource="{Binding OutlineHeadings}"
+                              Background="Transparent"
+                              SelectionChanged="OutlineTreeView_SelectionChanged">
+                        <TreeView.Styles>
+                            <Style Selector="TreeViewItem" x:DataType="models:Heading">
+                                <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
+                            </Style>
+                        </TreeView.Styles>
+                        <TreeView.ItemTemplate>
+                            <TreeDataTemplate DataType="models:Heading" ItemsSource="{Binding Children}">
+                                <Border Padding="2,3" Cursor="Hand" PointerPressed="OnOutlineItemPointerPressed">
+                                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                        <Border CornerRadius="3" Padding="4,1" Background="#2d333b">
+                                            <TextBlock Text="{Binding Level, StringFormat='H{0}'}"
+                                                       FontSize="10"
+                                                       FontWeight="Bold"
+                                                       Foreground="#60a5fa" />
+                                        </Border>
+                                        <TextBlock Text="{Binding Text}"
+                                                   Foreground="#d1d5db"
+                                                   FontSize="12"
+                                                   VerticalAlignment="Center"
+                                                   TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                </Border>
+                            </TreeDataTemplate>
+                        </TreeView.ItemTemplate>
+                    </TreeView>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- 4. BOTTOM STATUS BAR -->
+        <Border Grid.Row="3" Background="#181818" BorderBrush="#2d2d2d" BorderThickness="0,1,0,0" Padding="16,6">
+            <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+                <TextBlock Grid.Column="0" Text="{Binding StatusText}" Foreground="#9ca3af" FontSize="12" VerticalAlignment="Center" />
+
+                <!-- Center/Right: OneDrive Cloud Sync Status Badge -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,24,0" ToolTip.Tip="{Binding CloudSyncTooltip}">
+                    <PathIcon Data="{StaticResource IconCloud}" Width="13" Height="13" Foreground="#3b82f6" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding CloudSyncStatusText}" Foreground="#9ca3af" FontSize="12" VerticalAlignment="Center" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding WordCountText}" Foreground="#6b7280" FontSize="12" />
+                    <TextBlock Text="{Binding LineCountText}" Foreground="#6b7280" FontSize="12" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- 5. MODAL DIALOG OVERLAYS -->
+        <!-- Rename Dialog -->
+        <Grid Grid.Row="0" Grid.RowSpan="4" Background="#80000000" IsVisible="{Binding IsRenameDialogVisible}">
+            <Border Width="380" Background="#242424" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="8" Padding="20" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <StackPanel Spacing="14">
+                    <TextBlock Text="{Binding RenameDialogTitle}" FontWeight="SemiBold" FontSize="15" Foreground="#f3f4f6" />
+                    <TextBox x:Name="RenameInputBox" Text="{Binding RenameDialogInput, Mode=TwoWay}"
+                             KeyDown="RenameInputBox_KeyDown"
+                             Background="#1a1a1a" Foreground="#f3f4f6" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="4" Padding="8,6" FontSize="14" />
+                    <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+                        <Button Content="Cancel" Command="{Binding CancelRenameCommand}"
+                                Background="Transparent" Foreground="#9ca3af" BorderThickness="0" Padding="12,6" Cursor="Hand" />
+                        <Button Content="Rename" Command="{Binding ConfirmRenameCommand}"
+                                Background="#2563eb" Foreground="White" BorderThickness="0" CornerRadius="4" Padding="16,6" FontWeight="SemiBold" Cursor="Hand" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- Move To Folder Dialog -->
+        <Grid Grid.Row="0" Grid.RowSpan="4" Background="#80000000" IsVisible="{Binding IsMoveDialogVisible}">
+            <Border Width="420" MaxHeight="450" Background="#242424" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="8" Padding="20" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <Grid RowDefinitions="Auto,*,Auto">
+                    <TextBlock Grid.Row="0" Text="{Binding MoveDialogTitle}" FontWeight="SemiBold" FontSize="15" Foreground="#f3f4f6" Margin="0,0,0,12" />
+                    <Border Grid.Row="1" Background="#1a1a1a" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="4" MaxHeight="260" Margin="0,0,0,14">
+                        <ListBox ItemsSource="{Binding AvailableFolders}" SelectedItem="{Binding SelectedDestinationFolder, Mode=TwoWay}"
+                                 Background="Transparent">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate DataType="vm:FolderDestinationItem">
+                                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="4,4">
+                                        <PathIcon Data="{StaticResource IconFolder}" Width="13" Height="13" Foreground="#3b82f6" VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding Name}" Foreground="#e5e7eb" FontSize="13" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </Border>
+                    <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+                        <Button Content="Cancel" Command="{Binding CancelMoveCommand}"
+                                Background="Transparent" Foreground="#9ca3af" BorderThickness="0" Padding="12,6" Cursor="Hand" />
+                        <Button Content="Move Here" Command="{Binding ConfirmMoveCommand}"
+                                Background="#2563eb" Foreground="White" BorderThickness="0" CornerRadius="4" Padding="16,6" FontWeight="SemiBold" Cursor="Hand" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>
