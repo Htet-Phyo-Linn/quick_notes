@@ -235,6 +235,44 @@ server.listen(9876, async () => {
             });
             console.log('Unfold Heading 1 result:', JSON.stringify(foldRes2.result?.result?.value || foldRes2));
 
+            console.log('--- TEST 7: Enter at offset 0 of Heading inserts line above ---');
+            await send('Runtime.evaluate', {
+                expression: `window.setMarkdown("# My Title\\n\\nSome body text")`,
+                returnByValue: true
+            });
+            await new Promise(r => setTimeout(r, 400));
+
+            const enterTest = await send('Runtime.evaluate', {
+                expression: `(() => {
+                    const view = window.getEditorView();
+                    // Place cursor at pos 1 (offset 0 in heading)
+                    const sel = view.state.selection.constructor.near(view.state.doc.resolve(1));
+                    view.dispatch(view.state.tr.setSelection(sel));
+
+                    // Dispatch Enter keydown
+                    const enterEvt = new KeyboardEvent('keydown', {
+                        key: 'Enter',
+                        bubbles: true,
+                        cancelable: true
+                    });
+                    window.dispatchEvent(enterEvt);
+
+                    const doc = view.state.doc.toJSON();
+                    const firstBlock = doc.content[0];
+                    const secondBlock = doc.content[1];
+
+                    return {
+                        firstBlockType: firstBlock ? firstBlock.type : null,
+                        secondBlockType: secondBlock ? secondBlock.type : null,
+                        secondBlockText: (secondBlock && secondBlock.content) ? secondBlock.content[0].text : null,
+                        markdown: window.getMarkdown()
+                    };
+                })()`,
+                returnByValue: true
+            });
+
+            console.log('Enter at heading start result:', JSON.stringify(enterTest.result?.result?.value || enterTest));
+
             console.log('ALL TESTS PASSED SUCCESSFULLY!');
             cleanup();
         };

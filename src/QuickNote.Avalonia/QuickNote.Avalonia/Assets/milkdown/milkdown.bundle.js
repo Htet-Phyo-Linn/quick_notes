@@ -136506,7 +136506,38 @@ Expected function or array of functions, received type ${typeof value}.`
         }
         return false;
       }
+      function handleWordStyleEnter(view) {
+        if (!view || !view.state) return false;
+        const { state, dispatch } = view;
+        const { selection: selection2 } = state;
+        if (!selection2 || !selection2.empty) return false;
+        const { $from } = selection2;
+        if ($from.parent && $from.parent.type.name === "heading") {
+          if ($from.parentOffset === 0) {
+            const pType = state.schema.nodes.paragraph;
+            if (!pType) return false;
+            const headingPos = $from.before();
+            const emptyParagraph = pType.create();
+            const tr = state.tr.insert(headingPos, emptyParagraph);
+            const newPos = headingPos + emptyParagraph.nodeSize + 1;
+            const sel = Selection.near(tr.doc.resolve(newPos));
+            tr.setSelection(sel).scrollIntoView();
+            dispatch(tr);
+            return true;
+          }
+        }
+        return false;
+      }
       window.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey) {
+          const view = getEditorView();
+          if (view && handleWordStyleEnter(view)) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            return;
+          }
+        }
         if (e.key === "Backspace" && !e.ctrlKey && !e.altKey && !e.metaKey) {
           const view = getEditorView();
           if (view && handleWordStyleBackspace(view)) {
