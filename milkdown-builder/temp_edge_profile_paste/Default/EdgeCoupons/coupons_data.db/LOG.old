@@ -1,0 +1,6 @@
+2026/09/28-15:59:05.543 2f40 Reusing MANIFEST D:\CODE\quick_notes\milkdown-builder\temp_edge_profile_paste\Default\EdgeCoupons/coupons_data.db/MANIFEST-000001
+2026/09/28-15:59:05.549 2f40 Recovering log #4
+2026/09/28-15:59:05.549 2f40 Reusing old log D:\CODE\quick_notes\milkdown-builder\temp_edge_profile_paste\Default\EdgeCoupons/coupons_data.db/000004.log 
+2026/09/28-15:59:05.753 2d10 Level-0 table #8: started
+2026/09/28-15:59:05.757 2d10 Level-0 table #8: 683444 bytes OK
+2026/09/28-15:59:05.760 2d10 Delete type=0 #4

@@ -136202,6 +136202,108 @@ Expected function or array of functions, received type ${typeof value}.`
           }
         });
       });
+      var autoInlineCodePlugin = $prose(() => new Plugin({
+        key: new PluginKey("autoInlineCodePlugin"),
+        props: {
+          handlePaste(view, event, slice2) {
+            if (!view || !view.state) return false;
+            const { state, dispatch } = view;
+            const { from: from4, to, empty: empty4 } = getEffectiveSelection(view);
+            const items = event.clipboardData ? event.clipboardData.items : null;
+            if (items && items.length > 0) {
+              for (let i4 = 0; i4 < items.length; i4++) {
+                const item = items[i4];
+                if (item.type && item.type.indexOf("image") !== -1) {
+                  const file = item.getAsFile();
+                  if (file) {
+                    uploadAndInsertImage(file);
+                    return true;
+                  }
+                }
+              }
+            }
+            const rawText3 = event.clipboardData ? event.clipboardData.getData("text/plain") : "";
+            if (!rawText3) return false;
+            const trimmed = rawText3.trim();
+            const isUrl2 = /^https?:\/\/\S+$/i.test(trimmed) || /^www\.\S+\.\S+$/i.test(trimmed);
+            if (isUrl2 && !empty4) {
+              let cleanUrl = trimmed;
+              if (!cleanUrl.includes("://") && !cleanUrl.startsWith("mailto:") && !cleanUrl.startsWith("#")) {
+                cleanUrl = "https://" + cleanUrl;
+              }
+              const linkType = state.schema.marks.link;
+              if (linkType) {
+                const mark = linkType.create({ href: cleanUrl });
+                const selectedText = state.doc.textBetween(from4, to);
+                const tr = state.tr.replaceWith(from4, to, state.schema.text(selectedText, [mark]));
+                dispatch(tr.scrollIntoView());
+                return true;
+              }
+            }
+            const codeMarkType = state.schema.marks.inlineCode || state.schema.marks.code_inline;
+            if (codeMarkType) {
+              const $from = state.doc.resolve(from4);
+              const $to = state.doc.resolve(to);
+              if ($from.parent && $from.parent.isTextblock && !($from.parent.type.name.includes("code_block") || $from.parent.type.name.includes("code_bracket"))) {
+                const textBefore = $from.parent.textBetween(0, $from.parentOffset);
+                const textAfter = $to.parent.textBetween($to.parentOffset, $to.parent.content.size);
+                if (textBefore.endsWith("`") && textAfter.startsWith("`")) {
+                  let codeText2 = rawText3;
+                  if (codeText2.startsWith("`") && codeText2.endsWith("`") && codeText2.length >= 2) {
+                    codeText2 = codeText2.slice(1, -1);
+                  }
+                  const mark = codeMarkType.create();
+                  const replaceFrom = from4 - 1;
+                  const replaceTo = to + 1;
+                  const tr = state.tr.replaceWith(replaceFrom, replaceTo, state.schema.text(codeText2, [mark]));
+                  dispatch(tr.scrollIntoView());
+                  return true;
+                }
+                if (trimmed.startsWith("`") && trimmed.endsWith("`") && !trimmed.startsWith("```") && trimmed.length >= 2 && !trimmed.includes("\n")) {
+                  const codeText2 = trimmed.slice(1, -1);
+                  const mark = codeMarkType.create();
+                  const tr = state.tr.replaceWith(from4, to, state.schema.text(codeText2, [mark]));
+                  dispatch(tr.scrollIntoView());
+                  return true;
+                }
+              }
+            }
+            return false;
+          }
+        },
+        appendTransaction(transactions, oldState, newState) {
+          if (isUpdatingFromHost) return null;
+          const docChanged = transactions.some((tr2) => tr2.docChanged);
+          if (!docChanged) return null;
+          const codeMarkType = newState.schema.marks.inlineCode || newState.schema.marks.code_inline;
+          if (!codeMarkType) return null;
+          const matches2 = [];
+          newState.doc.descendants((node2, pos, parent) => {
+            if (!node2.isText) return;
+            if (parent && (parent.type.name.includes("code_block") || parent.type.name.includes("code_bracket") || parent.type.spec?.code)) return;
+            if (node2.marks && node2.marks.some((m) => m.type === codeMarkType || m.type.name === "inlineCode" || m.type.name === "code_inline")) return;
+            const text11 = node2.text;
+            if (!text11 || !text11.includes("`")) return;
+            const regex = /`([^`\r\n]+)`/g;
+            let match2;
+            while ((match2 = regex.exec(text11)) !== null) {
+              matches2.push({
+                from: pos + match2.index,
+                to: pos + match2.index + match2[0].length,
+                code: match2[1]
+              });
+            }
+          });
+          if (matches2.length === 0) return null;
+          const tr = newState.tr;
+          for (let i4 = matches2.length - 1; i4 >= 0; i4--) {
+            const m = matches2[i4];
+            const mark = codeMarkType.create();
+            tr.replaceWith(m.from, m.to, newState.schema.text(m.code, [mark]));
+          }
+          return tr.docChanged ? tr : null;
+        }
+      }));
       var crepeInstance = null;
       var editorView2 = null;
       var isUpdatingFromHost = false;
@@ -136338,7 +136440,7 @@ Expected function or array of functions, received type ${typeof value}.`
           if (view && view.state) {
             const { from: from4, to, empty: empty4 } = getEffectiveSelection(view);
             if (!empty4) {
-              const codeMarkType = view.state.schema.marks.code_inline;
+              const codeMarkType = view.state.schema.marks.inlineCode || view.state.schema.marks.code_inline;
               if (codeMarkType) {
                 e.preventDefault();
                 e.stopPropagation();
@@ -136382,6 +136484,7 @@ Expected function or array of functions, received type ${typeof value}.`
         });
         try {
           crepeInstance.editor.use(remarkFixImageNodes);
+          crepeInstance.editor.use(autoInlineCodePlugin);
           await crepeInstance.create();
           crepeInstance.editor.action((ctx) => {
             editorView2 = ctx.get(editorViewCtx);
@@ -136648,9 +136751,12 @@ Expected function or array of functions, received type ${typeof value}.`
         const view = crepeInstance.editor.ctx.get(editorViewCtx);
         if (!view) return;
         const { state, dispatch } = view;
-        const { from: from4, to, empty: empty4 } = state.selection;
+        const { from: from4, to, empty: empty4 } = getEffectiveSelection(view);
         if (empty4) return;
         let markType = state.schema.marks[markName];
+        if (!markType && (markName === "code_inline" || markName === "inline-code")) markType = state.schema.marks.inlineCode;
+        if (!markType && markName === "inlineCode") markType = state.schema.marks.code_inline;
+        if (!markType && markName === "em") markType = state.schema.marks.emphasis;
         if (!markType && schemaHelper) {
           try {
             markType = schemaHelper.type(crepeInstance.editor.ctx);
@@ -136958,7 +137064,7 @@ Expected function or array of functions, received type ${typeof value}.`
       function autoFormatInlineCode(view) {
         if (!view || !view.state) return false;
         const { state, dispatch } = view;
-        const codeMarkType = state.schema.marks.code_inline;
+        const codeMarkType = state.schema.marks.inlineCode || state.schema.marks.code_inline;
         if (!codeMarkType) return false;
         const { $from } = state.selection;
         if (!$from || !$from.parent || !$from.parent.isTextblock) return false;
@@ -136967,7 +137073,7 @@ Expected function or array of functions, received type ${typeof value}.`
         const blockStart = $from.start();
         const matches2 = [];
         blockNode.forEach((child, childOffset) => {
-          if (child.isText && !child.marks.some((m) => m.type === codeMarkType)) {
+          if (child.isText && !child.marks.some((m) => m.type === codeMarkType || m.type.name === "inlineCode" || m.type.name === "code_inline")) {
             const text11 = child.text;
             const regex = /`([^`\r\n]+)`/g;
             let match2;
@@ -137230,7 +137336,7 @@ Expected function or array of functions, received type ${typeof value}.`
             return;
           }
         }
-        const codeMarkType = state.schema.marks.code_inline;
+        const codeMarkType = state.schema.marks.inlineCode || state.schema.marks.code_inline;
         if (codeMarkType) {
           const $from = state.doc.resolve(from4);
           const $to = state.doc.resolve(to);
@@ -137240,6 +137346,7 @@ Expected function or array of functions, received type ${typeof value}.`
             if (textBefore.endsWith("`") && textAfter.startsWith("`")) {
               e.preventDefault();
               e.stopPropagation();
+              e.stopImmediatePropagation();
               let codeText2 = rawText3;
               if (codeText2.startsWith("`") && codeText2.endsWith("`") && codeText2.length >= 2) {
                 codeText2 = codeText2.slice(1, -1);
@@ -137255,6 +137362,7 @@ Expected function or array of functions, received type ${typeof value}.`
           if (trimmed.startsWith("`") && trimmed.endsWith("`") && !trimmed.startsWith("```") && trimmed.length >= 2 && !trimmed.includes("\n")) {
             e.preventDefault();
             e.stopPropagation();
+            e.stopImmediatePropagation();
             const codeText2 = trimmed.slice(1, -1);
             const mark = codeMarkType.create();
             const tr = state.tr.replaceWith(from4, to, state.schema.text(codeText2, [mark]));

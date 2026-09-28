@@ -1,5 +1,5 @@
 import { Crepe } from '@milkdown/crepe';
-import { replaceAll, $remark } from '@milkdown/kit/utils';
+import { replaceAll, $remark, $prose } from '@milkdown/kit/utils';
 import { visit } from 'unist-util-visit';
 import { editorViewCtx, commandsCtx } from '@milkdown/kit/core';
 
@@ -26,9 +26,131 @@ const remarkFixImageNodes = $remark('remarkFixImageNodes', () => () => (ast) => 
     }
   });
 });
+
+const autoInlineCodePlugin = $prose(() => new Plugin({
+  key: new PluginKey('autoInlineCodePlugin'),
+  props: {
+    handlePaste(view, event, slice) {
+      if (!view || !view.state) return false;
+      const { state, dispatch } = view;
+      const { from, to, empty } = getEffectiveSelection(view);
+
+      const items = event.clipboardData ? event.clipboardData.items : null;
+      if (items && items.length > 0) {
+        for (let i = 0; i < items.length; i++) {
+          const item = items[i];
+          if (item.type && item.type.indexOf('image') !== -1) {
+            const file = item.getAsFile();
+            if (file) {
+              uploadAndInsertImage(file);
+              return true;
+            }
+          }
+        }
+      }
+
+      const rawText = event.clipboardData ? event.clipboardData.getData('text/plain') : '';
+      if (!rawText) return false;
+
+      const trimmed = rawText.trim();
+
+      // 1. URL pasted on non-empty selection -> convert to markdown link [selection](url)
+      const isUrl = /^https?:\/\/\S+$/i.test(trimmed) || /^www\.\S+\.\S+$/i.test(trimmed);
+      if (isUrl && !empty) {
+        let cleanUrl = trimmed;
+        if (!cleanUrl.includes('://') && !cleanUrl.startsWith('mailto:') && !cleanUrl.startsWith('#')) {
+          cleanUrl = 'https://' + cleanUrl;
+        }
+        const linkType = state.schema.marks.link;
+        if (linkType) {
+          const mark = linkType.create({ href: cleanUrl });
+          const selectedText = state.doc.textBetween(from, to);
+          const tr = state.tr.replaceWith(from, to, state.schema.text(selectedText, [mark]));
+          dispatch(tr.scrollIntoView());
+          return true;
+        }
+      }
+
+      // 2. Cursor placed between backticks: `|` -> replace `|` with `codeText`
+      const codeMarkType = state.schema.marks.inlineCode || state.schema.marks.code_inline;
+      if (codeMarkType) {
+        const $from = state.doc.resolve(from);
+        const $to = state.doc.resolve(to);
+        if ($from.parent && $from.parent.isTextblock && !($from.parent.type.name.includes('code_block') || $from.parent.type.name.includes('code_bracket'))) {
+          const textBefore = $from.parent.textBetween(0, $from.parentOffset);
+          const textAfter = $to.parent.textBetween($to.parentOffset, $to.parent.content.size);
+
+          if (textBefore.endsWith('`') && textAfter.startsWith('`')) {
+            let codeText = rawText;
+            if (codeText.startsWith('`') && codeText.endsWith('`') && codeText.length >= 2) {
+              codeText = codeText.slice(1, -1);
+            }
+            const mark = codeMarkType.create();
+            const replaceFrom = from - 1;
+            const replaceTo = to + 1;
+            const tr = state.tr.replaceWith(replaceFrom, replaceTo, state.schema.text(codeText, [mark]));
+            dispatch(tr.scrollIntoView());
+            return true;
+          }
+
+          // Pasted text itself is enclosed in single backticks: `hello world`
+          if (trimmed.startsWith('`') && trimmed.endsWith('`') && !trimmed.startsWith('```') && trimmed.length >= 2 && !trimmed.includes('\n')) {
+            const codeText = trimmed.slice(1, -1);
+            const mark = codeMarkType.create();
+            const tr = state.tr.replaceWith(from, to, state.schema.text(codeText, [mark]));
+            dispatch(tr.scrollIntoView());
+            return true;
+          }
+        }
+      }
+
+      return false;
+    }
+  },
+  appendTransaction(transactions, oldState, newState) {
+    if (isUpdatingFromHost) return null;
+    const docChanged = transactions.some(tr => tr.docChanged);
+    if (!docChanged) return null;
+
+    const codeMarkType = newState.schema.marks.inlineCode || newState.schema.marks.code_inline;
+    if (!codeMarkType) return null;
+
+    const matches = [];
+    newState.doc.descendants((node, pos, parent) => {
+      if (!node.isText) return;
+      if (parent && (parent.type.name.includes('code_block') || parent.type.name.includes('code_bracket') || parent.type.spec?.code)) return;
+      if (node.marks && node.marks.some(m => m.type === codeMarkType || m.type.name === 'inlineCode' || m.type.name === 'code_inline')) return;
+
+      const text = node.text;
+      if (!text || !text.includes('`')) return;
+
+      const regex = /`([^`\r\n]+)`/g;
+      let match;
+      while ((match = regex.exec(text)) !== null) {
+        matches.push({
+          from: pos + match.index,
+          to: pos + match.index + match[0].length,
+          code: match[1]
+        });
+      }
+    });
+
+    if (matches.length === 0) return null;
+
+    const tr = newState.tr;
+    for (let i = matches.length - 1; i >= 0; i--) {
+      const m = matches[i];
+      const mark = codeMarkType.create();
+      tr.replaceWith(m.from, m.to, newState.schema.text(m.code, [mark]));
+    }
+
+    return tr.docChanged ? tr : null;
+  }
+}));
+
 import { createTable, strikethroughSchema } from '@milkdown/kit/preset/gfm';
 import { clearTextInCurrentBlockCommand, addBlockTypeCommand, selectTextNearPosCommand, codeBlockSchema, hrSchema, setBlockTypeCommand, linkSchema, strongSchema, emphasisSchema, inlineCodeSchema } from '@milkdown/kit/preset/commonmark';
-import { Selection } from '@milkdown/kit/prose/state';
+import { Selection, Plugin, PluginKey } from '@milkdown/kit/prose/state';
 import { liftListItem } from '@milkdown/kit/prose/schema-list';
 import { lift } from '@milkdown/kit/prose/commands';
 import { liftTarget } from '@milkdown/kit/prose/transform';
@@ -192,7 +314,7 @@ window.addEventListener('keydown', (e) => {
     if (view && view.state) {
       const { from, to, empty } = getEffectiveSelection(view);
       if (!empty) {
-        const codeMarkType = view.state.schema.marks.code_inline;
+        const codeMarkType = view.state.schema.marks.inlineCode || view.state.schema.marks.code_inline;
         if (codeMarkType) {
           e.preventDefault();
           e.stopPropagation();
@@ -242,6 +364,7 @@ async function init() {
 
   try {
     crepeInstance.editor.use(remarkFixImageNodes);
+    crepeInstance.editor.use(autoInlineCodePlugin);
     await crepeInstance.create();
     crepeInstance.editor.action((ctx) => {
       editorView = ctx.get(editorViewCtx);
@@ -544,10 +667,13 @@ function toggleMark(markName, schemaHelper) {
   const view = crepeInstance.editor.ctx.get(editorViewCtx);
   if (!view) return;
   const { state, dispatch } = view;
-  const { from, to, empty } = state.selection;
+  const { from, to, empty } = getEffectiveSelection(view);
   if (empty) return;
 
   let markType = state.schema.marks[markName];
+  if (!markType && (markName === 'code_inline' || markName === 'inline-code')) markType = state.schema.marks.inlineCode;
+  if (!markType && markName === 'inlineCode') markType = state.schema.marks.code_inline;
+  if (!markType && markName === 'em') markType = state.schema.marks.emphasis;
   if (!markType && schemaHelper) {
     try {
       markType = schemaHelper.type(crepeInstance.editor.ctx);
@@ -917,7 +1043,7 @@ window.addEventListener('auxclick', (e) => {
 function autoFormatInlineCode(view) {
   if (!view || !view.state) return false;
   const { state, dispatch } = view;
-  const codeMarkType = state.schema.marks.code_inline;
+  const codeMarkType = state.schema.marks.inlineCode || state.schema.marks.code_inline;
   if (!codeMarkType) return false;
 
   const { $from } = state.selection;
@@ -930,7 +1056,7 @@ function autoFormatInlineCode(view) {
   const matches = [];
 
   blockNode.forEach((child, childOffset) => {
-    if (child.isText && !child.marks.some(m => m.type === codeMarkType)) {
+    if (child.isText && !child.marks.some(m => m.type === codeMarkType || m.type.name === 'inlineCode' || m.type.name === 'code_inline')) {
       const text = child.text;
       const regex = /`([^`\r\n]+)`/g;
       let match;
@@ -1237,7 +1363,7 @@ function handlePaste(e) {
   }
 
   // 2. Inline Code Paste Scenarios:
-  const codeMarkType = state.schema.marks.code_inline;
+  const codeMarkType = state.schema.marks.inlineCode || state.schema.marks.code_inline;
   if (codeMarkType) {
     // Scenario A: Cursor / selection is placed between existing literal backticks (e.g. `|` or `selected`)
     const $from = state.doc.resolve(from);
@@ -1251,6 +1377,7 @@ function handlePaste(e) {
         // User pasted text between existing backticks `[cursor]` -> replace `[text]` with inline_code
         e.preventDefault();
         e.stopPropagation();
+        e.stopImmediatePropagation();
 
         let codeText = rawText;
         if (codeText.startsWith('`') && codeText.endsWith('`') && codeText.length >= 2) {
@@ -1270,6 +1397,7 @@ function handlePaste(e) {
     if (trimmed.startsWith('`') && trimmed.endsWith('`') && !trimmed.startsWith('```') && trimmed.length >= 2 && !trimmed.includes('\n')) {
       e.preventDefault();
       e.stopPropagation();
+      e.stopImmediatePropagation();
       const codeText = trimmed.slice(1, -1);
       const mark = codeMarkType.create();
       const tr = state.tr.replaceWith(from, to, state.schema.text(codeText, [mark]));
