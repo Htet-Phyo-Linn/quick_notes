@@ -136171,6 +136171,7 @@ Expected function or array of functions, received type ${typeof value}.`
       init_utils();
       init_unist_util_visit();
       init_core();
+      init_view2();
       init_gfm();
       init_commonmark();
       init_state2();
@@ -136304,6 +136305,128 @@ Expected function or array of functions, received type ${typeof value}.`
           return tr.docChanged ? tr : null;
         }
       }));
+      var headingFoldPlugin = $prose(() => {
+        const key6 = new PluginKey("headingFoldPlugin");
+        return new Plugin({
+          key: key6,
+          state: {
+            init() {
+              return { folded: /* @__PURE__ */ new Set() };
+            },
+            apply(tr, value, oldState, newState) {
+              const meta2 = tr.getMeta(key6);
+              if (meta2 && meta2.togglePos !== void 0) {
+                const newFolded = new Set(value.folded);
+                if (newFolded.has(meta2.togglePos)) {
+                  newFolded.delete(meta2.togglePos);
+                } else {
+                  newFolded.add(meta2.togglePos);
+                }
+                return { folded: newFolded };
+              }
+              if (tr.docChanged) {
+                const newFolded = /* @__PURE__ */ new Set();
+                for (const pos of value.folded) {
+                  const mapped = tr.mapping.map(pos);
+                  if (mapped < newState.doc.content.size) {
+                    const node2 = newState.doc.nodeAt(mapped);
+                    if (node2 && node2.type.name === "heading") {
+                      newFolded.add(mapped);
+                    }
+                  }
+                }
+                return { folded: newFolded };
+              }
+              return value;
+            }
+          },
+          props: {
+            decorations(state) {
+              const { folded } = this.getState(state);
+              const decos = [];
+              const headings = [];
+              state.doc.descendants((node2, pos) => {
+                if (node2.type.name === "heading") {
+                  headings.push({ pos, level: node2.attrs.level || 1, node: node2, size: node2.nodeSize });
+                }
+              });
+              headings.forEach((h2, idx2) => {
+                if (!h2.node || h2.node.textContent.trim().length === 0) return;
+                const isFolded = folded.has(h2.pos);
+                const btn = document.createElement("span");
+                btn.className = "heading-fold-btn" + (isFolded ? " is-folded" : "");
+                btn.contentEditable = "false";
+                btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg>';
+                btn.title = isFolded ? "Click to expand section" : "Click to collapse section";
+                btn.dataset.headingPos = String(h2.pos);
+                const toggleAction = (e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const view = getEditorView();
+                  if (view) {
+                    view.dispatch(view.state.tr.setMeta(key6, { togglePos: h2.pos }));
+                  }
+                };
+                btn.addEventListener("pointerdown", toggleAction);
+                btn.addEventListener("click", toggleAction);
+                decos.push(Decoration2.widget(h2.pos + 1, btn, {
+                  side: -1,
+                  ignoreSelection: true,
+                  stopEvent: () => true,
+                  key: "fold_btn_" + h2.pos
+                }));
+                if (isFolded) {
+                  decos.push(Decoration2.node(h2.pos, h2.pos + h2.size, { class: "is-folded" }));
+                  const badge = document.createElement("span");
+                  badge.className = "heading-fold-badge";
+                  badge.contentEditable = "false";
+                  badge.textContent = "\xB7\xB7\xB7";
+                  badge.title = "Click to expand section";
+                  badge.dataset.headingPos = String(h2.pos);
+                  badge.addEventListener("pointerdown", toggleAction);
+                  badge.addEventListener("click", toggleAction);
+                  decos.push(Decoration2.widget(h2.pos + h2.size - 1, badge, {
+                    side: 1,
+                    ignoreSelection: true,
+                    stopEvent: () => true,
+                    key: "fold_badge_" + h2.pos
+                  }));
+                  let foldEnd = state.doc.content.size;
+                  for (let j = idx2 + 1; j < headings.length; j++) {
+                    if (headings[j].level <= h2.level) {
+                      foldEnd = headings[j].pos;
+                      break;
+                    }
+                  }
+                  const foldStart = h2.pos + h2.size;
+                  if (foldEnd > foldStart) {
+                    state.doc.nodesBetween(foldStart, foldEnd, (childNode, childPos) => {
+                      if (childPos >= foldStart && childPos < foldEnd && childNode.isBlock) {
+                        decos.push(Decoration2.node(childPos, childPos + childNode.nodeSize, { class: "heading-folded-hidden" }));
+                      }
+                    });
+                  }
+                }
+              });
+              return DecorationSet.create(state.doc, decos);
+            },
+            handleClick(view, pos, event) {
+              const foldBtn = event.target.closest(".heading-fold-btn, .heading-fold-badge");
+              if (foldBtn) {
+                event.preventDefault();
+                event.stopPropagation();
+                const hPosStr = foldBtn.dataset.headingPos;
+                if (hPosStr != null) {
+                  const hPos = parseInt(hPosStr, 10);
+                  view.dispatch(view.state.tr.setMeta(key6, { togglePos: hPos }));
+                  return true;
+                }
+              }
+              return false;
+            }
+          }
+        });
+      });
       var crepeInstance = null;
       var editorView2 = null;
       var isUpdatingFromHost = false;
@@ -136485,6 +136608,7 @@ Expected function or array of functions, received type ${typeof value}.`
         try {
           crepeInstance.editor.use(remarkFixImageNodes);
           crepeInstance.editor.use(autoInlineCodePlugin);
+          crepeInstance.editor.use(headingFoldPlugin);
           await crepeInstance.create();
           crepeInstance.editor.action((ctx) => {
             editorView2 = ctx.get(editorViewCtx);
@@ -136519,6 +136643,9 @@ Expected function or array of functions, received type ${typeof value}.`
           try {
             crepeInstance.editor.action(replaceAll(cleanMd));
             setTimeout(resolveAllImagesInDOM, 60);
+            setTimeout(() => {
+              if (window.updateHeadingFolds) window.updateHeadingFolds();
+            }, 30);
           } catch (e) {
             console.error("[setMarkdown] Failed to replace markdown:", e);
           } finally {

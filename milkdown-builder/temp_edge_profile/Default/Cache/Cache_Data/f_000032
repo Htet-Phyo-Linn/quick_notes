@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QuickNote Editor</title>
+  <link rel="stylesheet" href="milkdown.bundle.css?v=20260928_1">
+  <style>
+    :root {
+      color-scheme: dark;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      background-color: #191919;
+      color: #e5e7eb;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+      overflow: hidden;
+      user-select: text;
+      -webkit-user-select: text;
+    }
+    #editor-container {
+      width: 100%;
+      height: 100%;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 10px 28px 120px 28px;
+      scrollbar-width: thin;
+      scrollbar-color: #374151 transparent;
+      box-sizing: border-box;
+    }
+    #editor-container::-webkit-scrollbar {
+      width: 8px;
+    }
+    #editor-container::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    #editor-container::-webkit-scrollbar-thumb {
+      background-color: #374151;
+      border-radius: 4px;
+    }
+    #editor-container::-webkit-scrollbar-thumb:hover {
+      background-color: #4b5563;
+    }
+    .milkdown {
+      width: 100%;
+      max-width: 100%;
+      margin: 0;
+      background: transparent;
+      box-sizing: border-box;
+    }
+    .milkdown .ProseMirror {
+      outline: none;
+      min-height: calc(100vh - 160px);
+      font-size: 15px;
+      line-height: 1.65;
+      color: #e5e7eb;
+      padding: 0;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .milkdown pre {
+      background-color: #141414 !important;
+      border: 1px solid #2d2d2d !important;
+      border-radius: 6px !important;
+    }
+    .milkdown code:not(pre code) {
+      background-color: #27272a !important;
+      color: #f43f5e !important;
+      padding: 2px 6px !important;
+      border-radius: 4px !important;
+      font-family: "Cascadia Code", "Fira Code", Consolas, monospace !important;
+      font-size: 0.88em !important;
+      border: 1px solid #3f3f46 !important;
+    }
+    .milkdown table {
+      border-collapse: collapse;
+      margin: 1em 0;
+      width: 100%;
+    }
+    .milkdown th, .milkdown td {
+      border: 1px solid #374151;
+      padding: 8px 12px;
+    }
+    .milkdown th {
+      background-color: #262626;
+      font-weight: 600;
+    }
+    .milkdown blockquote {
+      border-left: 3px solid #3b82f6;
+      padding-left: 14px;
+      color: #9ca3af;
+      margin: 1em 0;
+    }
+    .milkdown input[type="checkbox"] {
+      cursor: pointer;
+      accent-color: #3b82f6;
+    }
+    .milkdown .milkdown-block-handle,
+    .crepe-block-handle,
+    [data-crepe-block-handle] {
+      display: none !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+      visibility: hidden !important;
+    }
+    /* Obsidian & Word Heading Folding Styles */
+    .milkdown .ProseMirror h1,
+    .milkdown .ProseMirror h2,
+    .milkdown .ProseMirror h3,
+    .milkdown .ProseMirror h4,
+    .milkdown .ProseMirror h5,
+    .milkdown .ProseMirror h6 {
+      position: relative;
+    }
+    .heading-fold-btn {
+      position: absolute;
+      left: -24px;
+      top: 50%;
+      transform: translateY(-50%);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+      opacity: 0;
+      transition: opacity 0.15s ease, transform 0.2s ease, color 0.15s ease;
+      border-radius: 4px;
+      color: #9ca3af;
+      pointer-events: auto;
+    }
+    .milkdown .ProseMirror h1:hover .heading-fold-btn,
+    .milkdown .ProseMirror h2:hover .heading-fold-btn,
+    .milkdown .ProseMirror h3:hover .heading-fold-btn,
+    .milkdown .ProseMirror h4:hover .heading-fold-btn,
+    .milkdown .ProseMirror h5:hover .heading-fold-btn,
+    .milkdown .ProseMirror h6:hover .heading-fold-btn,
+    .heading-fold-btn:hover {
+      opacity: 0.85;
+      background: rgba(255, 255, 255, 0.08);
+      color: #60a5fa;
+    }
+    .is-folded .heading-fold-btn {
+      transform: translateY(-50%) rotate(-90deg);
+      opacity: 0.95;
+      color: #3b82f6;
+    }
+    .heading-fold-badge {
+      display: inline-block;
+      margin-left: 8px;
+      padding: 1px 8px;
+      font-size: 11px;
+      font-weight: 500;
+      border-radius: 4px;
+      background: rgba(59, 130, 246, 0.2);
+      color: #60a5fa;
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+      vertical-align: middle;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+    .heading-fold-badge:hover {
+      background: rgba(59, 130, 246, 0.35);
+      color: #93c5fd;
+    }
+    .heading-folded-hidden {
+      display: none !important;
+    }
+    .format-menu {
+      position: fixed;
+      z-index: 9999;
+      background: #202020;
+      border: 1px solid #333333;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.3);
+      border-radius: 8px;
+      padding: 6px;
+      width: 220px;
+      max-height: 420px;
+      overflow-y: auto;
+      font-size: 13px;
+      color: #e5e7eb;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .format-menu::-webkit-scrollbar {
+      width: 6px;
+    }
+    .format-menu::-webkit-scrollbar-thumb {
+      background-color: #3f3f46;
+      border-radius: 3px;
+    }
+    .menu-section-title {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #9ca3af;
+      padding: 6px 8px 4px 8px;
+    }
+    .menu-item {
+      display: flex;
+      align-items: center;
+      width: 100%;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: #e5e7eb;
+      padding: 6px 8px;
+      border-radius: 5px;
+      cursor: pointer;
+      text-align: left;
+      font-size: 13px;
+      transition: background-color 0.15s;
+    }
+    .menu-item:hover {
+      background-color: #2f2f2f;
+    }
+    .menu-item .icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      margin-right: 10px;
+      color: #9ca3af;
+      font-size: 12px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .menu-item .icon svg {
+      width: 16px;
+      height: 16px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .menu-divider {
+      height: 1px;
+      background-color: #333333;
+      margin: 5px 0;
+    }
+    .inline-format-row {
+      display: flex;
+      gap: 4px;
+      padding: 4px 6px;
+    }
+    .inline-btn {
+      flex: 1;
+      height: 28px;
+      background: #2a2a2a;
+      border: 1px solid #374151;
+      border-radius: 4px;
+      color: #e5e7eb;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      transition: background-color 0.15s;
+    }
+    .inline-btn:hover {
+      background: #3b82f6;
+      border-color: #3b82f6;
+      color: #ffffff;
+    }
+
+    /* Hyperlink styling */
+    .milkdown a,
+    .milkdown .ProseMirror a {
+      color: #38bdf8 !important;
+      text-decoration: underline !important;
+      text-underline-offset: 3px !important;
+      text-decoration-color: rgba(56, 189, 248, 0.5) !important;
+      cursor: pointer !important;
+      transition: color 0.15s ease, text-decoration-color 0.15s ease;
+    }
+    .milkdown a:hover,
+    .milkdown .ProseMirror a:hover {
+      color: #7dd3fc !important;
+      text-decoration-color: #7dd3fc !important;
+    }
+    .milkdown-link-preview a.link-display,
+    .link-preview a.link-display {
+      color: #38bdf8 !important;
+      cursor: pointer !important;
+      text-decoration: underline !important;
+    }
+
+    /* Link Dialog */
+    .link-dialog {
+      position: fixed;
+      z-index: 10000;
+      background: #202020;
+      border: 1px solid #333333;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.3);
+      border-radius: 8px;
+      padding: 16px;
+      width: 320px;
+      font-size: 13px;
+      color: #e5e7eb;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .link-dialog-title {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: #f3f4f6;
+    }
+    .link-dialog-field {
+      margin-bottom: 12px;
+    }
+    .link-dialog-field label {
+      display: block;
+      font-size: 11px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #9ca3af;
+      margin-bottom: 5px;
+    }
+    .link-dialog-field input {
+      width: 100%;
+      height: 32px;
+      background: #161616;
+      border: 1px solid #374151;
+      border-radius: 6px;
+      padding: 0 10px;
+      font-size: 13px;
+      color: #f3f4f6;
+      outline: none;
+      box-sizing: border-box;
+      transition: border-color 0.15s;
+    }
+    .link-dialog-field input:focus {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 1px #3b82f6;
+    }
+    .link-dialog-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 14px;
+    }
+    .link-dialog-actions button {
+      height: 30px;
+      padding: 0 14px;
+      border-radius: 5px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      outline: none;
+      transition: background-color 0.15s;
+    }
+    .link-btn-cancel {
+      background: #2a2a2a;
+      color: #9ca3af;
+      border: 1px solid #374151 !important;
+    }
+    .link-btn-cancel:hover {
+      background: #374151;
+      color: #e5e7eb;
+    }
+    .link-btn-apply {
+      background: #3b82f6;
+      color: #ffffff;
+    }
+    .link-btn-apply:hover {
+      background: #2563eb;
+    }
+    .link-btn-remove {
+      background: rgba(239, 68, 68, 0.15);
+      color: #ef4444;
+      border: 1px solid rgba(239, 68, 68, 0.3) !important;
+    }
+    .link-btn-remove:hover {
+      background: rgba(239, 68, 68, 0.3);
+    }
+    @media print {
+      html, body {
+        background-color: #ffffff !important;
+        color: #111827 !important;
+        overflow: visible !important;
+        height: auto !important;
+      }
+      #editor-container {
+        padding: 0 !important;
+        overflow: visible !important;
+        height: auto !important;
+      }
+      .milkdown .ProseMirror {
+        min-height: auto !important;
+        color: #111827 !important;
+      }
+      .milkdown pre {
+        background-color: #f3f4f6 !important;
+        color: #1f2937 !important;
+        border: 1px solid #e5e7eb !important;
+        page-break-inside: avoid;
+      }
+      .milkdown table {
+        page-break-inside: avoid;
+      }
+      .milkdown th, .milkdown td {
+        border: 1px solid #d1d5db !important;
+        color: #111827 !important;
+      }
+      .milkdown th {
+        background-color: #f3f4f6 !important;
+      }
+      .milkdown blockquote {
+        border-left: 3px solid #3b82f6 !important;
+        color: #4b5563 !important;
+      }
+      .milkdown a {
+        color: #0284c7 !important;
+        text-decoration: underline !important;
+      }
+      .slash-menu,
+      .bubble-menu,
+      .link-dialog-backdrop,
+      .milkdown-block-handle,
+      .crepe-block-handle,
+      .heading-fold-btn {
+        display: none !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="editor-container">
+    <div id="editor"></div>
+  </div>
+
+  <div id="format-menu" class="format-menu" style="display: none;">
+    <div class="menu-section-title">Insert / Convert</div>
+    <button type="button" class="menu-item" data-action="h1">
+      <span class="icon">H1</span>
+      <span class="label">Heading 1</span>
+    </button>
+    <button type="button" class="menu-item" data-action="h2">
+      <span class="icon">H2</span>
+      <span class="label">Heading 2</span>
+    </button>
+    <button type="button" class="menu-item" data-action="h3">
+      <span class="icon">H3</span>
+      <span class="label">Heading 3</span>
+    </button>
+    <button type="button" class="menu-item" data-action="h4">
+      <span class="icon">H4</span>
+      <span class="label">Heading 4</span>
+    </button>
+    <button type="button" class="menu-item" data-action="h5">
+      <span class="icon">H5</span>
+      <span class="label">Heading 5</span>
+    </button>
+    <button type="button" class="menu-item" data-action="h6">
+      <span class="icon">H6</span>
+      <span class="label">Heading 6</span>
+    </button>
+    <div class="menu-divider"></div>
+    <button type="button" class="menu-item" data-action="todo">
+      <span class="icon">
+        <svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      </span>
+      <span class="label">To-do list</span>
+    </button>
+    <button type="button" class="menu-item" data-action="bullet">
+      <span class="icon">
+        <svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+      </span>
+      <span class="label">Bulleted list</span>
+    </button>
+    <button type="button" class="menu-item" data-action="number">
+      <span class="icon">
+        <svg viewBox="0 0 24 24"><line x1="10" y1="6" x2="21" y2="6"/><line x1="10" y1="12" x2="21" y2="12"/><line x1="10" y1="18" x2="21" y2="18"/><path d="M4 6h2v4"/><path d="M4 10h4"/></svg>
+      </span>
+      <span class="label">Numbered list</span>
+    </button>
+    <button type="button" class="menu-item" data-action="quote">
+      <span class="icon">
+        <svg viewBox="0 0 24 24"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"/><path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"/></svg>
+      </span>
+      <span class="label">Quote</span>
+    </button>
+    <button type="button" class="menu-item" data-action="code">
+      <span class="icon">
+        <svg viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+      </span>
+      <span class="label">Code block</span>
+    </button>
+    <button type="button" class="menu-item" data-action="table">
+      <span class="icon">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+      </span>
+      <span class="label">Table</span>
+    </button>
+    <button type="button" class="menu-item" data-action="link">
+      <span class="icon">
+        <svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+      </span>
+      <span class="label">Link</span>
+    </button>
+    <button type="button" class="menu-item" data-action="divider">
+      <span class="icon">
+        <svg viewBox="0 0 24 24"><line x1="3" y1="12" x2="21" y2="12" stroke-dasharray="3 3"/></svg>
+      </span>
+      <span class="label">Divider</span>
+    </button>
+    <div class="menu-divider"></div>
+    <div class="menu-section-title">Format text</div>
+    <div class="inline-format-row">
+      <button type="button" class="inline-btn" data-action="bold" title="Bold"><b>B</b></button>
+      <button type="button" class="inline-btn" data-action="italic" title="Italic"><i>I</i></button>
+      <button type="button" class="inline-btn" data-action="strike" title="Strikethrough"><s>S</s></button>
+      <button type="button" class="inline-btn" data-action="inline-code" title="Inline code"><code>&lt;/&gt;</code></button>
+    </div>
+  </div>
+
+  <div id="link-dialog" class="link-dialog" style="display: none;">
+    <div class="link-dialog-title" id="link-dialog-title">Insert Link</div>
+    <div class="link-dialog-field">
+      <label for="link-text-input">Display Text</label>
+      <input type="text" id="link-text-input" placeholder="e.g. Google" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="link-dialog-field">
+      <label for="link-url-input">Link URL</label>
+      <input type="text" id="link-url-input" placeholder="e.g. https://google.com" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="link-dialog-actions">
+      <button type="button" class="link-btn-remove" id="link-dialog-remove" style="display: none;">Remove Link</button>
+      <div style="flex: 1;"></div>
+      <button type="button" class="link-btn-cancel" id="link-dialog-cancel">Cancel</button>
+      <button type="button" class="link-btn-apply" id="link-dialog-apply">Insert</button>
+    </div>
+  </div>
+
+  <script>
+    function notifyHostFocus() {
+      try {
+        if (window.chrome && window.chrome.webview) {
+          window.chrome.webview.postMessage(JSON.stringify({ type: 'editorFocused' }));
+        }
+      } catch (e) {}
+    }
+    window.addEventListener('focus', notifyHostFocus, true);
+    window.addEventListener('pointerdown', notifyHostFocus, true);
+  </script>
+  <script src="milkdown.bundle.js?v=20260928_1"></script>
+</body>
+</html>

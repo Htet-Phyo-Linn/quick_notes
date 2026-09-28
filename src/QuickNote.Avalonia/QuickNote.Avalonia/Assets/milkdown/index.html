@@ -119,43 +119,61 @@
       position: relative;
     }
     .heading-fold-btn {
+      position: absolute;
+      left: -24px;
+      top: 50%;
+      transform: translateY(-50%);
       display: inline-flex;
       align-items: center;
       justify-content: center;
       width: 18px;
       height: 18px;
-      margin-right: 6px;
       cursor: pointer;
       user-select: none;
       -webkit-user-select: none;
-      opacity: 0.35;
-      transition: opacity 0.15s ease, transform 0.2s ease;
-      vertical-align: middle;
+      opacity: 0;
+      transition: opacity 0.15s ease, transform 0.2s ease, color 0.15s ease;
       border-radius: 4px;
       color: #9ca3af;
+      pointer-events: auto;
     }
+    .milkdown .ProseMirror h1:hover .heading-fold-btn,
+    .milkdown .ProseMirror h2:hover .heading-fold-btn,
+    .milkdown .ProseMirror h3:hover .heading-fold-btn,
+    .milkdown .ProseMirror h4:hover .heading-fold-btn,
+    .milkdown .ProseMirror h5:hover .heading-fold-btn,
+    .milkdown .ProseMirror h6:hover .heading-fold-btn,
     .heading-fold-btn:hover {
-      opacity: 1;
-      background: rgba(255, 255, 255, 0.1);
+      opacity: 0.85;
+      background: rgba(255, 255, 255, 0.08);
       color: #60a5fa;
     }
     .is-folded .heading-fold-btn {
-      transform: rotate(-90deg);
+      transform: translateY(-50%) rotate(-90deg);
       opacity: 0.95;
       color: #3b82f6;
     }
-    .is-folded::after {
-      content: ' ···';
+    .heading-fold-badge {
       display: inline-block;
       margin-left: 8px;
-      padding: 1px 6px;
+      padding: 1px 8px;
       font-size: 11px;
-      font-weight: normal;
+      font-weight: 500;
       border-radius: 4px;
       background: rgba(59, 130, 246, 0.2);
       color: #60a5fa;
       cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
       vertical-align: middle;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+    .heading-fold-badge:hover {
+      background: rgba(59, 130, 246, 0.35);
+      color: #93c5fd;
+    }
+    .heading-folded-hidden {
+      display: none !important;
     }
     .format-menu {
       position: fixed;

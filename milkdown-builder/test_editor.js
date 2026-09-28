@@ -184,6 +184,57 @@ server.listen(9876, async () => {
             });
             console.log('Rendered base64 image count:', renderedImgs.result.result.value);
 
+            console.log('--- TEST 6: Test Collapsible Headings like Word ---');
+            const mdFolding = "# Heading 1\n\nBody paragraph 1\n\n## Heading 1.1\n\nSub-body 1.1\n\n# Heading 2\n\nBody paragraph 2";
+            await send('Runtime.evaluate', {
+                expression: `window.setMarkdown(${JSON.stringify(mdFolding)})`,
+                returnByValue: true
+            });
+            await new Promise(r => setTimeout(r, 400));
+
+            const foldRes1 = await send('Runtime.evaluate', {
+                expression: `(() => {
+                    const h1 = document.querySelectorAll('.ProseMirror h1')[0];
+                    const btn = h1.querySelector('.heading-fold-btn');
+                    btn.click();
+
+                    const h2 = document.querySelector('.ProseMirror h2');
+                    const isH2Hidden = h2.classList.contains('heading-folded-hidden');
+                    const h1_2 = document.querySelectorAll('.ProseMirror h1')[1];
+                    const isH1_2Hidden = h1_2.classList.contains('heading-folded-hidden');
+                    const badgeText = (h1.querySelector('.heading-fold-badge') || {}).textContent;
+
+                    return {
+                        isH1Folded: h1.classList.contains('is-folded'),
+                        isH2Hidden,
+                        isH1_2Hidden,
+                        badgeText,
+                        fullMarkdown: window.getMarkdown()
+                    };
+                })()`,
+                returnByValue: true
+            });
+            console.log('Fold Heading 1 result:', JSON.stringify(foldRes1.result?.result?.value || foldRes1));
+
+            const foldRes2 = await send('Runtime.evaluate', {
+                expression: `(() => {
+                    const h1 = document.querySelectorAll('.ProseMirror h1')[0];
+                    const btn = h1.querySelector('.heading-fold-btn');
+                    btn.click(); // Unfold
+
+                    const h2 = document.querySelector('.ProseMirror h2');
+                    const isH2Hidden = h2.classList.contains('heading-folded-hidden');
+
+                    return {
+                        isH1Folded: h1.classList.contains('is-folded'),
+                        isH2Hidden,
+                        hasBadge: !!h1.querySelector('.heading-fold-badge')
+                    };
+                })()`,
+                returnByValue: true
+            });
+            console.log('Unfold Heading 1 result:', JSON.stringify(foldRes2.result?.result?.value || foldRes2));
+
             console.log('ALL TESTS PASSED SUCCESSFULLY!');
             cleanup();
         };

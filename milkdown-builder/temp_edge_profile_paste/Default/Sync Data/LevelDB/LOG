@@ -1,3 +1,2 @@
-2026/09/28-15:59:20.070 5818 Reusing MANIFEST D:\CODE\quick_notes\milkdown-builder\temp_edge_profile_paste\Default\Sync Data\LevelDB/MANIFEST-000001
-2026/09/28-15:59:20.070 5818 Recovering log #3
-2026/09/28-15:59:20.071 5818 Reusing old log D:\CODE\quick_notes\milkdown-builder\temp_edge_profile_paste\Default\Sync Data\LevelDB/000003.log 
+2026/09/28-16:20:28.784 32d4 Creating DB D:\CODE\quick_notes\milkdown-builder\temp_edge_profile_paste\Default\Sync Data\LevelDB since it was missing.
+2026/09/28-16:20:28.794 32d4 Reusing MANIFEST D:\CODE\quick_notes\milkdown-builder\temp_edge_profile_paste\Default\Sync Data\LevelDB/MANIFEST-000001

@@ -148,6 +148,144 @@ const autoInlineCodePlugin = $prose(() => new Plugin({
   }
 }));
 
+import { Decoration, DecorationSet } from '@milkdown/kit/prose/view';
+
+const headingFoldPlugin = $prose(() => {
+  const key = new PluginKey('headingFoldPlugin');
+
+  return new Plugin({
+    key,
+    state: {
+      init() {
+        return { folded: new Set() };
+      },
+      apply(tr, value, oldState, newState) {
+        const meta = tr.getMeta(key);
+        if (meta && meta.togglePos !== undefined) {
+          const newFolded = new Set(value.folded);
+          if (newFolded.has(meta.togglePos)) {
+            newFolded.delete(meta.togglePos);
+          } else {
+            newFolded.add(meta.togglePos);
+          }
+          return { folded: newFolded };
+        }
+        if (tr.docChanged) {
+          const newFolded = new Set();
+          for (const pos of value.folded) {
+            const mapped = tr.mapping.map(pos);
+            if (mapped < newState.doc.content.size) {
+              const node = newState.doc.nodeAt(mapped);
+              if (node && node.type.name === 'heading') {
+                newFolded.add(mapped);
+              }
+            }
+          }
+          return { folded: newFolded };
+        }
+        return value;
+      }
+    },
+    props: {
+      decorations(state) {
+        const { folded } = this.getState(state);
+        const decos = [];
+        const headings = [];
+
+        state.doc.descendants((node, pos) => {
+          if (node.type.name === 'heading') {
+            headings.push({ pos, level: node.attrs.level || 1, node, size: node.nodeSize });
+          }
+        });
+
+        headings.forEach((h, idx) => {
+          if (!h.node || h.node.textContent.trim().length === 0) return;
+
+          const isFolded = folded.has(h.pos);
+          const btn = document.createElement('span');
+          btn.className = 'heading-fold-btn' + (isFolded ? ' is-folded' : '');
+          btn.contentEditable = 'false';
+          btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg>';
+          btn.title = isFolded ? 'Click to expand section' : 'Click to collapse section';
+          btn.dataset.headingPos = String(h.pos);
+
+          const toggleAction = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const view = getEditorView();
+            if (view) {
+              view.dispatch(view.state.tr.setMeta(key, { togglePos: h.pos }));
+            }
+          };
+
+          btn.addEventListener('pointerdown', toggleAction);
+          btn.addEventListener('click', toggleAction);
+
+          decos.push(Decoration.widget(h.pos + 1, btn, {
+            side: -1,
+            ignoreSelection: true,
+            stopEvent: () => true,
+            key: 'fold_btn_' + h.pos
+          }));
+
+          if (isFolded) {
+            decos.push(Decoration.node(h.pos, h.pos + h.size, { class: 'is-folded' }));
+
+            const badge = document.createElement('span');
+            badge.className = 'heading-fold-badge';
+            badge.contentEditable = 'false';
+            badge.textContent = '···';
+            badge.title = 'Click to expand section';
+            badge.dataset.headingPos = String(h.pos);
+            badge.addEventListener('pointerdown', toggleAction);
+            badge.addEventListener('click', toggleAction);
+
+            decos.push(Decoration.widget(h.pos + h.size - 1, badge, {
+              side: 1,
+              ignoreSelection: true,
+              stopEvent: () => true,
+              key: 'fold_badge_' + h.pos
+            }));
+
+            let foldEnd = state.doc.content.size;
+            for (let j = idx + 1; j < headings.length; j++) {
+              if (headings[j].level <= h.level) {
+                foldEnd = headings[j].pos;
+                break;
+              }
+            }
+
+            const foldStart = h.pos + h.size;
+            if (foldEnd > foldStart) {
+              state.doc.nodesBetween(foldStart, foldEnd, (childNode, childPos) => {
+                if (childPos >= foldStart && childPos < foldEnd && childNode.isBlock) {
+                  decos.push(Decoration.node(childPos, childPos + childNode.nodeSize, { class: 'heading-folded-hidden' }));
+                }
+              });
+            }
+          }
+        });
+
+        return DecorationSet.create(state.doc, decos);
+      },
+      handleClick(view, pos, event) {
+        const foldBtn = event.target.closest('.heading-fold-btn, .heading-fold-badge');
+        if (foldBtn) {
+          event.preventDefault();
+          event.stopPropagation();
+          const hPosStr = foldBtn.dataset.headingPos;
+          if (hPosStr != null) {
+            const hPos = parseInt(hPosStr, 10);
+            view.dispatch(view.state.tr.setMeta(key, { togglePos: hPos }));
+            return true;
+          }
+        }
+        return false;
+      }
+    }
+  });
+});
+
 import { createTable, strikethroughSchema } from '@milkdown/kit/preset/gfm';
 import { clearTextInCurrentBlockCommand, addBlockTypeCommand, selectTextNearPosCommand, codeBlockSchema, hrSchema, setBlockTypeCommand, linkSchema, strongSchema, emphasisSchema, inlineCodeSchema } from '@milkdown/kit/preset/commonmark';
 import { Selection, Plugin, PluginKey } from '@milkdown/kit/prose/state';
@@ -365,6 +503,7 @@ async function init() {
   try {
     crepeInstance.editor.use(remarkFixImageNodes);
     crepeInstance.editor.use(autoInlineCodePlugin);
+    crepeInstance.editor.use(headingFoldPlugin);
     await crepeInstance.create();
     crepeInstance.editor.action((ctx) => {
       editorView = ctx.get(editorViewCtx);
@@ -378,9 +517,6 @@ async function init() {
 
   // Setup inline link insert & edit dialog
   setupLinkDialog();
-
-  // Setup Obsidian & Word style heading folding
-  // setupHeadingFolding();
 
   // Global methods accessible by host C# InvokeScript
   window.setMarkdown = (markdown) => {
@@ -412,6 +548,9 @@ async function init() {
     try {
       crepeInstance.editor.action(replaceAll(cleanMd));
       setTimeout(resolveAllImagesInDOM, 60);
+      setTimeout(() => {
+        if (window.updateHeadingFolds) window.updateHeadingFolds();
+      }, 30);
     } catch (e) {
       console.error('[setMarkdown] Failed to replace markdown:', e);
     } finally {
