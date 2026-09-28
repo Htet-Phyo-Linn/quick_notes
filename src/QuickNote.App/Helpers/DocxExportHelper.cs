@@ -728,7 +728,7 @@ namespace QuickNote.App.Helpers
             };
         }
 
-        private static string? ResolveImagePath(string src, string? noteFolderPath, string? notesRoot)
+        public static string? ResolveImagePath(string src, string? noteFolderPath, string? notesRoot)
         {
             if (string.IsNullOrWhiteSpace(src)) return null;
 

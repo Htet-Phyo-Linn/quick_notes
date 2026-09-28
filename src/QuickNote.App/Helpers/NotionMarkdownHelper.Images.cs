@@ -16,39 +16,42 @@ namespace QuickNote.App.Helpers
 
             try
             {
-                var imagePath = src;
-                if (!Path.IsPathRooted(imagePath) && !string.IsNullOrWhiteSpace(notesRoot))
-                {
-                    imagePath = Path.Combine(notesRoot, imagePath);
-                }
-
-                if (!File.Exists(imagePath) && !string.IsNullOrWhiteSpace(notesRoot))
-                {
-                    if (src.StartsWith("assets/", StringComparison.OrdinalIgnoreCase) || src.StartsWith("assets\\", StringComparison.OrdinalIgnoreCase))
-                    {
-                        var altPath = Path.Combine(notesRoot, ".assets", src.Substring(7));
-                        if (File.Exists(altPath)) imagePath = altPath;
-                    }
-                    else if (src.StartsWith(".assets/", StringComparison.OrdinalIgnoreCase) || src.StartsWith(".assets\\", StringComparison.OrdinalIgnoreCase))
-                    {
-                        var altPath = Path.Combine(notesRoot, "assets", src.Substring(8));
-                        if (File.Exists(altPath)) imagePath = altPath;
-                    }
-                }
-
                 BitmapImage? bitmap = null;
-                if (Uri.TryCreate(imagePath, UriKind.Absolute, out var uri) && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
+
+                if (src.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase))
                 {
-                    bitmap = new BitmapImage(uri);
+                    var headerEnd = src.IndexOf(";base64,", StringComparison.OrdinalIgnoreCase);
+                    if (headerEnd > 0)
+                    {
+                        var cleanB64 = src.Substring(headerEnd + 8);
+                        var bytes = Convert.FromBase64String(cleanB64);
+                        using var ms = new MemoryStream(bytes);
+                        bitmap = new BitmapImage();
+                        bitmap.BeginInit();
+                        bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                        bitmap.StreamSource = ms;
+                        bitmap.EndInit();
+                        bitmap.Freeze();
+                    }
                 }
-                else if (File.Exists(imagePath))
+                else
                 {
-                    bitmap = new BitmapImage();
-                    bitmap.BeginInit();
-                    bitmap.CacheOption = BitmapCacheOption.OnLoad;
-                    bitmap.UriSource = new Uri(imagePath, UriKind.Absolute);
-                    bitmap.EndInit();
-                    bitmap.Freeze();
+                    var imagePath = DocxExportHelper.ResolveImagePath(src, null, notesRoot);
+                    if (string.IsNullOrWhiteSpace(imagePath)) imagePath = src;
+
+                    if (Uri.TryCreate(imagePath, UriKind.Absolute, out var uri) && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
+                    {
+                        bitmap = new BitmapImage(uri);
+                    }
+                    else if (File.Exists(imagePath))
+                    {
+                        bitmap = new BitmapImage();
+                        bitmap.BeginInit();
+                        bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                        bitmap.UriSource = new Uri(imagePath, UriKind.Absolute);
+                        bitmap.EndInit();
+                        bitmap.Freeze();
+                    }
                 }
 
                 if (bitmap != null)

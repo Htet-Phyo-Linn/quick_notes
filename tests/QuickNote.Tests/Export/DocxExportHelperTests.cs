@@ -87,5 +87,22 @@ namespace QuickNote.Tests.Export
             using var zip = ZipFile.OpenRead(targetDocx);
             Assert.NotNull(zip.GetEntry("word/media/image_1.png"));
         }
+
+        [Fact]
+        public void ResolveImagePath_WithUrlEncodedAndSubfolder_ResolvesCorrectly()
+        {
+            var noteDir = Path.Combine(_testDir, "Cortex", "SMEDB");
+            var assetsDir = Path.Combine(_testDir, "assets");
+            Directory.CreateDirectory(noteDir);
+            Directory.CreateDirectory(assetsDir);
+
+            var sampleFile = Path.Combine(assetsDir, "SMEDB Old 31 Broker VM info_image.png");
+            File.WriteAllText(sampleFile, "dummy");
+
+            var resolved = DocxExportHelper.ResolveImagePath("assets/SMEDB%20Old%2031%20Broker%20VM%20info_image.png", noteDir, _testDir);
+            Assert.NotNull(resolved);
+            Assert.True(File.Exists(resolved));
+            Assert.Equal(sampleFile, resolved);
+        }
     }
 }

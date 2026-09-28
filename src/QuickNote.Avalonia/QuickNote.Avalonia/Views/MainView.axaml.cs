@@ -158,6 +158,10 @@ namespace QuickNote.Avalonia.Views
                 e.PropertyName == nameof(MainViewModel.IsNotionMode))
             {
                 UpdateLayoutModes();
+                if (_viewModel?.IsReadingMode == true || _viewModel?.IsSplitMode == true)
+                {
+                    UpdatePreview(_viewModel.EditorContent ?? _viewModel.CurrentNote?.Content ?? string.Empty);
+                }
             }
             else if (e.PropertyName == nameof(MainViewModel.IsLeftSidebarVisible)  ||
                      e.PropertyName == nameof(MainViewModel.IsRightSidebarVisible))

@@ -37,7 +37,7 @@ namespace QuickNote.Avalonia.Helpers
         private static readonly IBrush QuoteBg = new SolidColorBrush(Color.FromArgb(20, 37, 99, 235));
         private static readonly IBrush RuleBrush = new SolidColorBrush(Color.FromRgb(48, 48, 48));
 
-        public static Control Render(string markdown)
+        public static Control Render(string markdown, string? noteFolderPath = null, string? notesRoot = null)
         {
             var panel = new StackPanel
             {
@@ -55,7 +55,7 @@ namespace QuickNote.Avalonia.Helpers
                 var doc = Markdown.Parse(markdown, Pipeline);
                 foreach (var block in doc)
                 {
-                    var control = RenderBlock(block);
+                    var control = RenderBlock(block, noteFolderPath, notesRoot);
                     if (control != null)
                     {
                         panel.Children.Add(control);
@@ -75,18 +75,18 @@ namespace QuickNote.Avalonia.Helpers
             return panel;
         }
 
-        private static Control? RenderBlock(Block block)
+        private static Control? RenderBlock(Block block, string? noteFolderPath, string? notesRoot)
         {
             switch (block)
             {
                 case HeadingBlock heading:
-                    return RenderHeading(heading);
+                    return RenderHeading(heading, noteFolderPath, notesRoot);
 
                 case ParagraphBlock paragraph:
-                    return RenderParagraph(paragraph);
+                    return RenderParagraph(paragraph, noteFolderPath, notesRoot);
 
                 case ListBlock list:
-                    return RenderList(list);
+                    return RenderList(list, noteFolderPath, notesRoot);
 
                 case FencedCodeBlock codeBlock:
                     return RenderCodeBlock(codeBlock);
@@ -95,7 +95,7 @@ namespace QuickNote.Avalonia.Helpers
                     return RenderCodeBlock(codeBlock);
 
                 case QuoteBlock quote:
-                    return RenderQuote(quote);
+                    return RenderQuote(quote, noteFolderPath, notesRoot);
 
                 case ThematicBreakBlock:
                     return new Border
@@ -107,14 +107,14 @@ namespace QuickNote.Avalonia.Helpers
                     };
 
                 case Table table:
-                    return RenderTable(table);
+                    return RenderTable(table, noteFolderPath, notesRoot);
 
                 default:
                     return null;
             }
         }
 
-        private static Control RenderHeading(HeadingBlock heading)
+        private static Control RenderHeading(HeadingBlock heading, string? noteFolderPath, string? notesRoot)
         {
             double fontSize = heading.Level switch
             {
@@ -142,12 +142,23 @@ namespace QuickNote.Avalonia.Helpers
                 TextWrapping = TextWrapping.Wrap
             };
 
-            AppendInlines(tb, heading.Inline);
+            AppendInlines(tb, heading.Inline, noteFolderPath, notesRoot);
             return tb;
         }
 
-        private static Control RenderParagraph(ParagraphBlock paragraph)
+        private static Control RenderParagraph(ParagraphBlock paragraph, string? noteFolderPath, string? notesRoot)
         {
+            // If the paragraph is only an image, render directly as a block control for optimal sizing and quality
+            if (paragraph.Inline?.FirstChild is LinkInline link && link.IsImage && link.NextSibling == null)
+            {
+                var alt = link.FirstChild is LiteralInline altLit ? altLit.Content.ToString() : string.Empty;
+                var imgCtrl = CreateImageControl(link.Url, alt, noteFolderPath, notesRoot);
+                if (imgCtrl != null)
+                {
+                    return imgCtrl;
+                }
+            }
+
             var tb = new SelectableTextBlock
             {
                 FontSize = 14.5,
@@ -157,11 +168,11 @@ namespace QuickNote.Avalonia.Helpers
                 TextWrapping = TextWrapping.Wrap
             };
 
-            AppendInlines(tb, paragraph.Inline);
+            AppendInlines(tb, paragraph.Inline, noteFolderPath, notesRoot);
             return tb;
         }
 
-        private static Control RenderList(ListBlock list)
+        private static Control RenderList(ListBlock list, string? noteFolderPath, string? notesRoot)
         {
             var stack = new StackPanel
             {
@@ -203,7 +214,7 @@ namespace QuickNote.Avalonia.Helpers
                         var contentStack = new StackPanel { Spacing = 2 };
                         foreach (var subBlock in listItem)
                         {
-                            var rendered = RenderBlock(subBlock);
+                            var rendered = RenderBlock(subBlock, noteFolderPath, notesRoot);
                             if (rendered != null) contentStack.Children.Add(rendered);
                         }
                         Grid.SetColumn(contentStack, 1);
@@ -228,7 +239,7 @@ namespace QuickNote.Avalonia.Helpers
                         var contentStack = new StackPanel { Spacing = 2 };
                         foreach (var subBlock in listItem)
                         {
-                            var rendered = RenderBlock(subBlock);
+                            var rendered = RenderBlock(subBlock, noteFolderPath, notesRoot);
                             if (rendered != null) contentStack.Children.Add(rendered);
                         }
                         Grid.SetColumn(contentStack, 1);
@@ -253,7 +264,7 @@ namespace QuickNote.Avalonia.Helpers
                         var contentStack = new StackPanel { Spacing = 2 };
                         foreach (var subBlock in listItem)
                         {
-                            var rendered = RenderBlock(subBlock);
+                            var rendered = RenderBlock(subBlock, noteFolderPath, notesRoot);
                             if (rendered != null) contentStack.Children.Add(rendered);
                         }
                         Grid.SetColumn(contentStack, 1);
@@ -336,7 +347,7 @@ namespace QuickNote.Avalonia.Helpers
             return border;
         }
 
-        private static Control RenderQuote(QuoteBlock quote)
+        private static Control RenderQuote(QuoteBlock quote, string? noteFolderPath, string? notesRoot)
         {
             var border = new Border
             {
@@ -351,7 +362,7 @@ namespace QuickNote.Avalonia.Helpers
             var stack = new StackPanel { Spacing = 4 };
             foreach (var child in quote)
             {
-                var rendered = RenderBlock(child);
+                var rendered = RenderBlock(child, noteFolderPath, notesRoot);
                 if (rendered != null) stack.Children.Add(rendered);
             }
 
@@ -359,7 +370,7 @@ namespace QuickNote.Avalonia.Helpers
             return border;
         }
 
-        private static Control RenderTable(Table table)
+        private static Control RenderTable(Table table, string? noteFolderPath, string? notesRoot)
         {
             var grid = new Grid
             {
@@ -394,7 +405,7 @@ namespace QuickNote.Avalonia.Helpers
                             var cellContent = new StackPanel();
                             foreach (var b in cell)
                             {
-                                var rendered = RenderBlock(b);
+                                var rendered = RenderBlock(b, noteFolderPath, notesRoot);
                                 if (rendered != null) cellContent.Children.Add(rendered);
                             }
 
@@ -420,17 +431,17 @@ namespace QuickNote.Avalonia.Helpers
             return scroll;
         }
 
-        private static void AppendInlines(SelectableTextBlock tb, ContainerInline? container)
+        private static void AppendInlines(SelectableTextBlock tb, ContainerInline? container, string? noteFolderPath, string? notesRoot)
         {
             if (container == null) return;
 
             foreach (var inline in container)
             {
-                AppendInline(tb, inline);
+                AppendInline(tb, inline, noteFolderPath, notesRoot);
             }
         }
 
-        private static void AppendInline(SelectableTextBlock tb, MdInline inline)
+        private static void AppendInline(SelectableTextBlock tb, MdInline inline, string? noteFolderPath, string? notesRoot)
         {
             switch (inline)
             {
@@ -468,7 +479,7 @@ namespace QuickNote.Avalonia.Helpers
                 case LinkInline link:
                     if (link.IsImage)
                     {
-                        var imageCtrl = CreateImageControl(link.Url, link.FirstChild is LiteralInline altLit ? altLit.Content.ToString() : string.Empty);
+                        var imageCtrl = CreateImageControl(link.Url, link.FirstChild is LiteralInline altLit ? altLit.Content.ToString() : string.Empty, noteFolderPath, notesRoot);
                         if (imageCtrl != null)
                         {
                             tb.Inlines?.Add(new InlineUIContainer(imageCtrl));
@@ -503,7 +514,7 @@ namespace QuickNote.Avalonia.Helpers
                 case ContainerInline container:
                     foreach (var child in container)
                     {
-                        AppendInline(tb, child);
+                        AppendInline(tb, child, noteFolderPath, notesRoot);
                     }
                     break;
 
@@ -532,7 +543,7 @@ namespace QuickNote.Avalonia.Helpers
             }
         }
 
-        private static Control? CreateImageControl(string? src, string alt)
+        private static Control? CreateImageControl(string? src, string alt, string? noteFolderPath, string? notesRoot)
         {
             if (string.IsNullOrWhiteSpace(src)) return null;
 
@@ -551,9 +562,17 @@ namespace QuickNote.Avalonia.Helpers
                         bitmap = new global::Avalonia.Media.Imaging.Bitmap(ms);
                     }
                 }
-                else if (File.Exists(src))
+                else
                 {
-                    bitmap = new global::Avalonia.Media.Imaging.Bitmap(src);
+                    var resolvedPath = QuickNote.Avalonia.Notion.NotionEditorControl.ResolveImageFilePath(src, noteFolderPath, notesRoot);
+                    if (!string.IsNullOrWhiteSpace(resolvedPath) && File.Exists(resolvedPath))
+                    {
+                        bitmap = new global::Avalonia.Media.Imaging.Bitmap(resolvedPath);
+                    }
+                    else if (File.Exists(src))
+                    {
+                        bitmap = new global::Avalonia.Media.Imaging.Bitmap(src);
+                    }
                 }
 
                 if (bitmap != null)
@@ -562,8 +581,8 @@ namespace QuickNote.Avalonia.Helpers
                     {
                         Source = bitmap,
                         Stretch = Stretch.Uniform,
-                        MaxWidth = 700,
-                        MaxHeight = 500,
+                        MaxWidth = 850,
+                        HorizontalAlignment = HorizontalAlignment.Left,
                         Margin = new Thickness(0, 8, 0, 8)
                     };
                     if (!string.IsNullOrWhiteSpace(alt))

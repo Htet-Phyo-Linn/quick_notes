@@ -66,7 +66,10 @@ namespace QuickNote.Avalonia.Views
         private void UpdatePreview(string markdown)
         {
             if (PreviewContainer != null)
-                PreviewContainer.Child = MarkdigAvaloniaRenderer.Render(markdown);
+                PreviewContainer.Child = MarkdigAvaloniaRenderer.Render(
+                    markdown,
+                    _viewModel?.CurrentNote?.FolderPath,
+                    _viewModel?.NotesRoot);
         }
 
         // ── Heading / outline navigation ────────────────────────────
