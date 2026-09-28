@@ -3,14 +3,17 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using QuickNote.Avalonia.Helpers;
 using QuickNote.Avalonia.ViewModels;
 using QuickNote.Core.Models;
+using QuickNote.Core.Utilities;
 
 namespace QuickNote.Avalonia.Views
 {
@@ -34,6 +37,7 @@ namespace QuickNote.Avalonia.Views
                 _viewModel.ScrollToLineRequested    -= OnScrollToLineRequested;
                 _viewModel.HeadingNavigationRequested -= OnHeadingNavigationRequested;
                 _viewModel.MarkdownRenderRequested   -= OnMarkdownRenderRequested;
+                _viewModel.ExportRequested           -= OnExportRequested;
                 _viewModel.PropertyChanged           -= OnViewModelPropertyChanged;
             }
 
@@ -44,7 +48,14 @@ namespace QuickNote.Avalonia.Views
                 _viewModel.ScrollToLineRequested    += OnScrollToLineRequested;
                 _viewModel.HeadingNavigationRequested += OnHeadingNavigationRequested;
                 _viewModel.MarkdownRenderRequested   += OnMarkdownRenderRequested;
+                _viewModel.ExportRequested           += OnExportRequested;
                 _viewModel.PropertyChanged           += OnViewModelPropertyChanged;
+
+                if (NotionEditor != null)
+                {
+                    NotionEditor.NotesRoot = _viewModel.NotesRoot;
+                    NotionEditor.CurrentNoteFolderPath = _viewModel.CurrentNote?.FolderPath;
+                }
 
                 if (_viewModel.EditorContent != null)
                 {
@@ -70,6 +81,11 @@ namespace QuickNote.Avalonia.Views
 
             if (NotionEditor != null)
             {
+                if (_viewModel != null)
+                {
+                    NotionEditor.NotesRoot = _viewModel.NotesRoot;
+                    NotionEditor.CurrentNoteFolderPath = _viewModel.CurrentNote?.FolderPath;
+                }
                 NotionEditor.MarkdownChanged      += NotionEditor_MarkdownChanged;
                 NotionEditor.ShortcutTriggered    += OnEditorShortcutTriggered;
                 NotionEditor.EditorFocused        += OnNotionEditorFocused;
@@ -263,6 +279,134 @@ namespace QuickNote.Avalonia.Views
             {
                 _viewModel?.ToggleLeftSidebar();
                 e.Handled = true;
+            }
+        }
+
+        // ── Export handlers ──────────────────────────────────────────
+        private async void OnExportRequested(string format)
+        {
+            try
+            {
+                switch (format?.ToLowerInvariant())
+                {
+                    case "md":
+                        await ExportMarkdownAsync();
+                        break;
+                    case "docx":
+                        await ExportDocxAsync();
+                        break;
+                    case "pdf":
+                        await ExportPdfAsync();
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                if (_viewModel != null)
+                {
+                    _viewModel.StatusText = $"Export error: {ex.Message}";
+                }
+            }
+        }
+
+        private async Task ExportMarkdownAsync()
+        {
+            if (_viewModel?.CurrentNote == null && string.IsNullOrWhiteSpace(_viewModel?.EditorContent))
+            {
+                if (_viewModel != null) _viewModel.StatusText = "No note is currently open to export.";
+                return;
+            }
+
+            var topLevel = TopLevel.GetTopLevel(this);
+            if (topLevel == null) return;
+
+            var noteTitle = !string.IsNullOrWhiteSpace(_viewModel?.NoteTitle)
+                ? _viewModel.NoteTitle
+                : (_viewModel?.CurrentNote?.Title ?? "Untitled");
+
+            var sanitizedTitle = FileNameSanitizer.Sanitize(noteTitle);
+            if (string.IsNullOrWhiteSpace(sanitizedTitle)) sanitizedTitle = "Note";
+
+            var file = await topLevel.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+            {
+                Title = "Export Note as Markdown",
+                SuggestedFileName = sanitizedTitle + ".md",
+                DefaultExtension = "md",
+                FileTypeChoices = new[]
+                {
+                    new FilePickerFileType("Markdown Files (*.md)") { Patterns = new[] { "*.md" } },
+                    new FilePickerFileType("All Files (*.*)") { Patterns = new[] { "*.*" } }
+                }
+            });
+
+            if (file != null)
+            {
+                var localPath = file.Path.LocalPath;
+                var content = _viewModel?.EditorContent ?? _viewModel?.CurrentNote?.Content ?? string.Empty;
+                await File.WriteAllTextAsync(localPath, content, System.Text.Encoding.UTF8);
+                if (_viewModel != null) _viewModel.StatusText = $"Successfully exported Markdown to: {Path.GetFileName(localPath)}";
+            }
+        }
+
+        private async Task ExportDocxAsync()
+        {
+            if (_viewModel?.CurrentNote == null && string.IsNullOrWhiteSpace(_viewModel?.EditorContent))
+            {
+                if (_viewModel != null) _viewModel.StatusText = "No note is currently open to export.";
+                return;
+            }
+
+            var topLevel = TopLevel.GetTopLevel(this);
+            if (topLevel == null) return;
+
+            var noteTitle = !string.IsNullOrWhiteSpace(_viewModel?.NoteTitle)
+                ? _viewModel.NoteTitle
+                : (_viewModel?.CurrentNote?.Title ?? "Untitled");
+
+            var sanitizedTitle = FileNameSanitizer.Sanitize(noteTitle);
+            if (string.IsNullOrWhiteSpace(sanitizedTitle)) sanitizedTitle = "Note";
+
+            var file = await topLevel.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+            {
+                Title = "Export Note as Microsoft Word Document",
+                SuggestedFileName = sanitizedTitle + ".docx",
+                DefaultExtension = "docx",
+                FileTypeChoices = new[]
+                {
+                    new FilePickerFileType("Word Document (*.docx)") { Patterns = new[] { "*.docx" } },
+                    new FilePickerFileType("All Files (*.*)") { Patterns = new[] { "*.*" } }
+                }
+            });
+
+            if (file != null)
+            {
+                var localPath = file.Path.LocalPath;
+                var tempNote = new NoteDocument
+                {
+                    Title = noteTitle,
+                    Content = _viewModel?.EditorContent ?? _viewModel?.CurrentNote?.Content ?? string.Empty,
+                    FolderPath = _viewModel?.CurrentNote?.FolderPath ?? string.Empty
+                };
+                await DocxExportHelper.ExportToDocxAsync(tempNote, localPath, _viewModel?.NotesRoot);
+                if (_viewModel != null) _viewModel.StatusText = $"Successfully exported Word document to: {Path.GetFileName(localPath)}";
+            }
+        }
+
+        private async Task ExportPdfAsync()
+        {
+            if (_viewModel?.CurrentNote == null && string.IsNullOrWhiteSpace(_viewModel?.EditorContent))
+            {
+                if (_viewModel != null) _viewModel.StatusText = "No note is currently open to export.";
+                return;
+            }
+
+            if (NotionEditor != null)
+            {
+                var content = _viewModel?.EditorContent ?? _viewModel?.CurrentNote?.Content ?? string.Empty;
+                NotionEditor.LoadMarkdown(content, force: true);
+                await Task.Delay(150);
+                await NotionEditor.PrintOrExportPdfAsync();
+                if (_viewModel != null) _viewModel.StatusText = "Opened PDF Export / Print dialog.";
             }
         }
     }

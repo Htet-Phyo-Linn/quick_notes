@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>QuickNote Editor</title>
-  <link rel="stylesheet" href="milkdown.bundle.css?v=20260927_2">
+  <link rel="stylesheet" href="milkdown.bundle.css?v=20260928_1">
   <style>
     :root {
       color-scheme: dark;
@@ -68,6 +68,15 @@
       background-color: #141414 !important;
       border: 1px solid #2d2d2d !important;
       border-radius: 6px !important;
+    }
+    .milkdown code:not(pre code) {
+      background-color: #27272a !important;
+      color: #f43f5e !important;
+      padding: 2px 6px !important;
+      border-radius: 4px !important;
+      font-family: "Cascadia Code", "Fira Code", Consolas, monospace !important;
+      font-size: 0.88em !important;
+      border: 1px solid #3f3f46 !important;
     }
     .milkdown table {
       border-collapse: collapse;
@@ -361,6 +370,55 @@
     .link-btn-remove:hover {
       background: rgba(239, 68, 68, 0.3);
     }
+    @media print {
+      html, body {
+        background-color: #ffffff !important;
+        color: #111827 !important;
+        overflow: visible !important;
+        height: auto !important;
+      }
+      #editor-container {
+        padding: 0 !important;
+        overflow: visible !important;
+        height: auto !important;
+      }
+      .milkdown .ProseMirror {
+        min-height: auto !important;
+        color: #111827 !important;
+      }
+      .milkdown pre {
+        background-color: #f3f4f6 !important;
+        color: #1f2937 !important;
+        border: 1px solid #e5e7eb !important;
+        page-break-inside: avoid;
+      }
+      .milkdown table {
+        page-break-inside: avoid;
+      }
+      .milkdown th, .milkdown td {
+        border: 1px solid #d1d5db !important;
+        color: #111827 !important;
+      }
+      .milkdown th {
+        background-color: #f3f4f6 !important;
+      }
+      .milkdown blockquote {
+        border-left: 3px solid #3b82f6 !important;
+        color: #4b5563 !important;
+      }
+      .milkdown a {
+        color: #0284c7 !important;
+        text-decoration: underline !important;
+      }
+      .slash-menu,
+      .bubble-menu,
+      .link-dialog-backdrop,
+      .milkdown-block-handle,
+      .crepe-block-handle,
+      .heading-fold-btn {
+        display: none !important;
+      }
+    }
   </style>
 </head>
 <body>
@@ -482,6 +540,6 @@
     window.addEventListener('focus', notifyHostFocus, true);
     window.addEventListener('pointerdown', notifyHostFocus, true);
   </script>
-  <script src="milkdown.bundle.js?v=20260927_2"></script>
+  <script src="milkdown.bundle.js?v=20260928_1"></script>
 </body>
 </html>

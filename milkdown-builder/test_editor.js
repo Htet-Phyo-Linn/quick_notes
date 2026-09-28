@@ -3,9 +3,10 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
-const assetsDir = path.resolve('src/QuickNote.Avalonia/QuickNote.Avalonia/Assets/milkdown');
+const assetsDir = path.resolve(__dirname, '../src/QuickNote.Avalonia/QuickNote.Avalonia/Assets/milkdown');
 const server = http.createServer((req, res) => {
-    let filePath = path.join(assetsDir, req.url === '/' ? 'index.html' : req.url);
+    let reqUrl = req.url.split('?')[0];
+    let filePath = path.join(assetsDir, reqUrl === '/' ? 'index.html' : reqUrl);
     if (fs.existsSync(filePath)) {
         if (filePath.endsWith('.html')) res.setHeader('Content-Type', 'text/html');
         else if (filePath.endsWith('.js')) res.setHeader('Content-Type', 'application/javascript');
@@ -57,18 +58,18 @@ server.listen(9876, async () => {
         ws.onopen = async () => {
             await send('Runtime.enable');
             await send('Console.enable');
+            await send('Page.enable');
 
-        ws.addEventListener('message', (event) => {
-            const data = JSON.parse(event.data);
-            if (data.method === 'Runtime.consoleAPICalled') {
-                console.log('[Console]', data.params.type, data.params.args.map(a => a.value));
-            } else if (data.method === 'Runtime.exceptionThrown') {
-                console.log('[Exception]', data.params.exceptionDetails.text, data.params.exceptionDetails.exception?.description);
-            } else if (data.id) {
-                console.log('[Response id=' + data.id + ']', JSON.stringify(data).slice(0, 150));
-            }
-        });
+            ws.addEventListener('message', (event) => {
+                const data = JSON.parse(event.data);
+                if (data.method === 'Runtime.consoleAPICalled') {
+                    console.log('[Console]', data.params.type, data.params.args.map(a => a.value));
+                } else if (data.method === 'Runtime.exceptionThrown') {
+                    console.log('[Exception]', data.params.exceptionDetails.text, data.params.exceptionDetails.exception?.description);
+                }
+            });
 
+            await send('Page.reload');
             await new Promise(r => setTimeout(r, 2000));
 
             // Check content BEFORE setMarkdown
@@ -142,12 +143,46 @@ server.listen(9876, async () => {
             const text3 = after3.result.result.value || '';
             console.log('Test 3 contains "Folder copy":', text3.includes('Folder copy'));
 
-            console.log('--- TEST 4: Scroll to heading ---');
+            console.log('--- TEST 5: Load SMEDB note with all 7 images ---');
+            const smedbContent = `![](.assets/image_20260917_103204_380.png)\n![](.assets/image_20260917_103220_292.png)\n![](.assets/image_20260917_103234_712.png)\n![](.assets/image_20260917_103256_286.png)\n![](.assets/image_20260917_103312_635.png)\n![](.assets/image_20260917_103959_881.png)\n![](.assets/image_20260917_104025_428.png)`;
             await send('Runtime.evaluate', {
-                expression: `window.scrollToHeading("Powershell bypass", 3)`,
+                expression: `window.setMarkdown(${JSON.stringify(smedbContent)})`,
                 returnByValue: true
             });
-            console.log('Scroll to heading executed without errors.');
+            await new Promise(r => setTimeout(r, 500));
+
+            const docJson = await send('Runtime.evaluate', {
+                expression: `JSON.stringify(window.getEditorView() ? window.getEditorView().state.doc.toJSON() : null)`,
+                returnByValue: true
+            });
+            const parsedDoc = JSON.parse(docJson.result.result.value || '{}');
+            const imgBlocks = (parsedDoc.content || []).filter(c => c.type === 'image-block');
+            console.log('Number of image-block nodes in document:', imgBlocks.length);
+
+            // Simulate loading all 7 images
+            const testBase64 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+            const images = [
+                ".assets/image_20260917_103204_380.png",
+                ".assets/image_20260917_103220_292.png",
+                ".assets/image_20260917_103234_712.png",
+                ".assets/image_20260917_103256_286.png",
+                ".assets/image_20260917_103312_635.png",
+                ".assets/image_20260917_103959_881.png",
+                ".assets/image_20260917_104025_428.png"
+            ];
+            for (const img of images) {
+                await send('Runtime.evaluate', {
+                    expression: `window.onImageLoaded(${JSON.stringify(img)}, ${JSON.stringify(testBase64)})`,
+                    returnByValue: true
+                });
+            }
+            await new Promise(r => setTimeout(r, 500));
+
+            const renderedImgs = await send('Runtime.evaluate', {
+                expression: `Array.from(document.querySelectorAll('.milkdown-image-block img')).filter(i => i.src.startsWith('data:')).length`,
+                returnByValue: true
+            });
+            console.log('Rendered base64 image count:', renderedImgs.result.result.value);
 
             console.log('ALL TESTS PASSED SUCCESSFULLY!');
             cleanup();

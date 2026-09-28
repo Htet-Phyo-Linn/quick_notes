@@ -81,6 +81,9 @@ namespace QuickNote.Avalonia.Notion
             }
         }
 
+        public string? NotesRoot { get; set; }
+        public string? CurrentNoteFolderPath { get; set; }
+
         private void OnWebMessageReceived(object? sender, WebMessageReceivedEventArgs e)
         {
             if (string.IsNullOrEmpty(e.Body)) return;
@@ -146,12 +149,238 @@ namespace QuickNote.Avalonia.Notion
                             }
                         }
                     }
+                    else if (msgType == "saveImage")
+                    {
+                        var reqId = root.TryGetProperty("reqId", out var rProp) ? rProp.GetString() ?? string.Empty : string.Empty;
+                        var base64 = root.TryGetProperty("base64", out var bProp) ? bProp.GetString() ?? string.Empty : string.Empty;
+                        var suggestedName = root.TryGetProperty("name", out var nProp) ? nProp.GetString() : null;
+                        var altText = root.TryGetProperty("alt", out var aProp) ? aProp.GetString() : "image";
+                        Dispatcher.UIThread.Post(() => SaveAndRespondImage(reqId, base64, suggestedName, altText));
+                    }
+                    else if (msgType == "loadImage")
+                    {
+                        if (root.TryGetProperty("src", out var srcProp))
+                        {
+                            var src = srcProp.GetString() ?? string.Empty;
+                            Dispatcher.UIThread.Post(() => LoadAndRespondImage(src));
+                        }
+                    }
                 }
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"[NotionEditorControl] Error parsing web message: {ex.Message}");
             }
+        }
+
+        private async void SaveAndRespondImage(string reqId, string base64Data, string? suggestedName, string? altText)
+        {
+            if (string.IsNullOrWhiteSpace(base64Data)) return;
+
+            try
+            {
+                var rootDir = NotesRoot;
+                if (string.IsNullOrWhiteSpace(rootDir))
+                {
+                    rootDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "QuickNote");
+                }
+
+                var assetsDir = Path.Combine(rootDir, ".assets");
+                if (!Directory.Exists(assetsDir))
+                {
+                    Directory.CreateDirectory(assetsDir);
+                }
+
+                string ext = ".png";
+                string cleanBase64 = base64Data;
+                if (base64Data.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase))
+                {
+                    var headerEnd = base64Data.IndexOf(";base64,", StringComparison.OrdinalIgnoreCase);
+                    if (headerEnd > 0)
+                    {
+                        var mime = base64Data.Substring(11, headerEnd - 11).ToLowerInvariant();
+                        ext = mime switch
+                        {
+                            "jpeg" or "jpg" => ".jpg",
+                            "gif" => ".gif",
+                            "webp" => ".webp",
+                            "svg+xml" => ".svg",
+                            _ => ".png"
+                        };
+                        cleanBase64 = base64Data.Substring(headerEnd + 8);
+                    }
+                }
+                else if (!string.IsNullOrWhiteSpace(suggestedName))
+                {
+                    var sExt = Path.GetExtension(suggestedName);
+                    if (!string.IsNullOrWhiteSpace(sExt)) ext = sExt.ToLowerInvariant();
+                }
+
+                var imageBytes = Convert.FromBase64String(cleanBase64);
+                var shortId = Guid.NewGuid().ToString("N").Substring(0, 6);
+                var fileName = $"pasted_image_{DateTime.Now:yyyyMMdd_HHmmss}_{shortId}{ext}";
+                var fullPath = Path.Combine(assetsDir, fileName);
+                await File.WriteAllBytesAsync(fullPath, imageBytes);
+
+                var relPath = ".assets/" + fileName;
+                var jsonReqId = JsonSerializer.Serialize(reqId);
+                var jsonRelPath = JsonSerializer.Serialize(relPath);
+                var jsonBase64 = JsonSerializer.Serialize(base64Data);
+                var jsonAlt = JsonSerializer.Serialize(altText ?? "image");
+
+                await WebViewControl.InvokeScript(
+                    $"if(window.onImageSaved){{ window.onImageSaved({jsonReqId}, {jsonRelPath}, {jsonBase64}, {jsonAlt}); }}");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[NotionEditorControl] Failed to save image: {ex.Message}");
+            }
+        }
+
+        private async void LoadAndRespondImage(string src)
+        {
+            if (string.IsNullOrWhiteSpace(src)) return;
+
+            try
+            {
+                string? resolvedPath = ResolveImageFilePath(src, CurrentNoteFolderPath, NotesRoot);
+
+                if (resolvedPath != null && File.Exists(resolvedPath))
+                {
+                    var bytes = await File.ReadAllBytesAsync(resolvedPath);
+                    var ext = Path.GetExtension(resolvedPath).TrimStart('.').ToLowerInvariant();
+                    var mime = ext switch
+                    {
+                        "jpg" or "jpeg" => "image/jpeg",
+                        "gif" => "image/gif",
+                        "webp" => "image/webp",
+                        "svg" => "image/svg+xml",
+                        _ => "image/png"
+                    };
+                    var dataUrl = $"data:{mime};base64,{Convert.ToBase64String(bytes)}";
+                    var jsonSrc = JsonSerializer.Serialize(src);
+                    var jsonDataUrl = JsonSerializer.Serialize(dataUrl);
+
+                    await WebViewControl.InvokeScript(
+                        $"if(window.onImageLoaded){{ window.onImageLoaded({jsonSrc}, {jsonDataUrl}); }}");
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[NotionEditorControl] Failed to load image {src}: {ex.Message}");
+            }
+        }
+
+        public static string? ResolveImageFilePath(string src, string? noteFolderPath, string? notesRoot)
+        {
+            if (string.IsNullOrWhiteSpace(src)) return null;
+
+            var cleanSrc = src.Trim();
+            if (cleanSrc.StartsWith("<") && cleanSrc.EndsWith(">") && cleanSrc.Length >= 2)
+            {
+                cleanSrc = cleanSrc.Substring(1, cleanSrc.Length - 2).Trim();
+            }
+            if (cleanSrc.StartsWith("file:///", StringComparison.OrdinalIgnoreCase))
+            {
+                cleanSrc = cleanSrc.Substring(8);
+            }
+            else if (cleanSrc.StartsWith("file://", StringComparison.OrdinalIgnoreCase))
+            {
+                cleanSrc = cleanSrc.Substring(7);
+            }
+
+            cleanSrc = Uri.UnescapeDataString(cleanSrc).Replace('/', Path.DirectorySeparatorChar);
+
+            if (Path.IsPathRooted(cleanSrc) && File.Exists(cleanSrc))
+            {
+                return cleanSrc;
+            }
+
+            var fileName = Path.GetFileName(cleanSrc);
+
+            // 1. Check in note folder and parent hierarchy
+            if (!string.IsNullOrWhiteSpace(noteFolderPath))
+            {
+                var p = Path.Combine(noteFolderPath, cleanSrc);
+                if (File.Exists(p)) return p;
+
+                if (!string.IsNullOrWhiteSpace(fileName))
+                {
+                    var pAssets = Path.Combine(noteFolderPath, ".assets", fileName);
+                    if (File.Exists(pAssets)) return pAssets;
+
+                    var pAssets2 = Path.Combine(noteFolderPath, "assets", fileName);
+                    if (File.Exists(pAssets2)) return pAssets2;
+                }
+
+                // Walk up directories from noteFolderPath to notesRoot or drive root
+                try
+                {
+                    var currentDir = new DirectoryInfo(noteFolderPath);
+                    while (currentDir != null && currentDir.Parent != null)
+                    {
+                        if (!string.IsNullOrWhiteSpace(fileName))
+                        {
+                            var parentAssets = Path.Combine(currentDir.FullName, ".assets", fileName);
+                            if (File.Exists(parentAssets)) return parentAssets;
+
+                            var parentAssets2 = Path.Combine(currentDir.FullName, "assets", fileName);
+                            if (File.Exists(parentAssets2)) return parentAssets2;
+                        }
+                        if (!string.IsNullOrWhiteSpace(notesRoot) && string.Equals(currentDir.FullName, notesRoot, StringComparison.OrdinalIgnoreCase))
+                        {
+                            break;
+                        }
+                        currentDir = currentDir.Parent;
+                    }
+                }
+                catch { }
+            }
+
+            // 2. Check in notesRoot
+            if (!string.IsNullOrWhiteSpace(notesRoot))
+            {
+                var p = Path.Combine(notesRoot, cleanSrc);
+                if (File.Exists(p)) return p;
+
+                if (!string.IsNullOrWhiteSpace(fileName))
+                {
+                    var pDotAssets = Path.Combine(notesRoot, ".assets", fileName);
+                    if (File.Exists(pDotAssets)) return pDotAssets;
+
+                    var pAssets = Path.Combine(notesRoot, "assets", fileName);
+                    if (File.Exists(pAssets)) return pAssets;
+                }
+            }
+
+            // 3. Fallback to standard OneDrive / MyDocuments locations
+            var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            var standardLocations = new[]
+            {
+                Path.Combine(userProfile, "OneDrive - BIM ADVANCED TECHNOLOGY SERVICES PTE. LTD", "QuickNote"),
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "QuickNote"),
+                Path.Combine(userProfile, "OneDrive", "QuickNote")
+            };
+
+            foreach (var loc in standardLocations)
+            {
+                if (Directory.Exists(loc))
+                {
+                    var p = Path.Combine(loc, cleanSrc);
+                    if (File.Exists(p)) return p;
+
+                    if (!string.IsNullOrWhiteSpace(fileName))
+                    {
+                        var pDotAssets = Path.Combine(loc, ".assets", fileName);
+                        if (File.Exists(pDotAssets)) return pDotAssets;
+
+                        var pAssets = Path.Combine(loc, "assets", fileName);
+                        if (File.Exists(pAssets)) return pAssets;
+                    }
+                }
+            }
+
+            return null;
         }
 
 
@@ -253,6 +482,18 @@ namespace QuickNote.Avalonia.Notion
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"[NotionEditorControl] Failed to scroll to heading: {ex.Message}");
+            }
+        }
+
+        public async Task PrintOrExportPdfAsync()
+        {
+            try
+            {
+                await WebViewControl.InvokeScript("window.print();");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[NotionEditorControl] Failed to invoke window.print(): {ex.Message}");
             }
         }
     }

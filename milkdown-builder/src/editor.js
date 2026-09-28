@@ -1,6 +1,31 @@
 import { Crepe } from '@milkdown/crepe';
-import { replaceAll } from '@milkdown/kit/utils';
+import { replaceAll, $remark } from '@milkdown/kit/utils';
+import { visit } from 'unist-util-visit';
 import { editorViewCtx, commandsCtx } from '@milkdown/kit/core';
+
+const remarkFixImageNodes = $remark('remarkFixImageNodes', () => () => (ast) => {
+  visit(ast, (node, index, parent) => {
+    if (node.type === 'paragraph' && node.children && parent && parent.children && typeof index === 'number') {
+      const imgChildren = node.children.filter(c => c.type === 'image' || c.type === 'image-block');
+      const nonImgNonEmpty = node.children.filter(c => c.type !== 'image' && c.type !== 'image-block' && (c.type !== 'text' || (c.value && c.value.trim().length > 0)));
+      if (imgChildren.length > 0 && nonImgNonEmpty.length === 0) {
+        const newNodes = imgChildren.map(img => ({
+          type: 'image-block',
+          url: img.url || '',
+          alt: (img.alt && !Number.isNaN(Number(img.alt))) ? img.alt : '1',
+          title: img.title || ''
+        }));
+        parent.children.splice(index, 1, ...newNodes);
+        return index + newNodes.length;
+      }
+    }
+    if (node.type === 'image' || node.type === 'image-block') {
+      if (node.title == null) node.title = '';
+      if (node.alt == null) node.alt = '';
+      if (node.url == null) node.url = '';
+    }
+  });
+});
 import { createTable, strikethroughSchema } from '@milkdown/kit/preset/gfm';
 import { clearTextInCurrentBlockCommand, addBlockTypeCommand, selectTextNearPosCommand, codeBlockSchema, hrSchema, setBlockTypeCommand, linkSchema, strongSchema, emphasisSchema, inlineCodeSchema } from '@milkdown/kit/preset/commonmark';
 import { Selection } from '@milkdown/kit/prose/state';
@@ -162,6 +187,23 @@ window.addEventListener('keydown', (e) => {
   } else if (e.key === 'Escape') {
     hideContextMenu();
     hideLinkDialog();
+  } else if (e.key === '`' && !e.ctrlKey && !e.altKey && !e.metaKey) {
+    const view = getEditorView();
+    if (view && view.state) {
+      const { from, to, empty } = getEffectiveSelection(view);
+      if (!empty) {
+        const codeMarkType = view.state.schema.marks.code_inline;
+        if (codeMarkType) {
+          e.preventDefault();
+          e.stopPropagation();
+          const selectedText = view.state.doc.textBetween(from, to);
+          const mark = codeMarkType.create();
+          const tr = view.state.tr.replaceWith(from, to, view.state.schema.text(selectedText, [mark]));
+          view.dispatch(tr.scrollIntoView());
+          return;
+        }
+      }
+    }
   }
 }, true);
 
@@ -178,6 +220,11 @@ async function init() {
     root,
     defaultValue: '',
     features,
+    featureConfigs: {
+      [Crepe.Feature.ImageBlock]: {
+        proxyDomURL: proxyDomURL,
+      },
+    },
   });
 
   // Listen to markdown changes and send back to host
@@ -194,6 +241,7 @@ async function init() {
   });
 
   try {
+    crepeInstance.editor.use(remarkFixImageNodes);
     await crepeInstance.create();
     crepeInstance.editor.action((ctx) => {
       editorView = ctx.get(editorViewCtx);
@@ -219,9 +267,28 @@ async function init() {
     if ((current || '').trim() === (markdown || '').trim()) {
       return;
     }
+
+    const cleanMd = (markdown || '').replace(/(!\[.*?\]\([^\n\r]*?\))\r?\n(?=!\[)/g, '$1\n\n');
+
+    // Pre-scan markdown for images to request them early from host
+    const md = cleanMd || '';
+    const imgRegex = /!\[.*?\]\(\s*<?([^\s>)]+)>?\s*\)/g;
+    let match;
+    while ((match = imgRegex.exec(md)) !== null) {
+      const rawSrc = match[1];
+      const clean = cleanImageSrc(rawSrc);
+      if (clean && !clean.startsWith('data:') && !clean.startsWith('http://') && !clean.startsWith('https://')) {
+        const fileName = clean.split(/[/\\]/).pop();
+        if (!imageBase64Cache[clean] && !(fileName && imageBase64Cache[fileName])) {
+          sendMessage({ type: 'loadImage', src: clean });
+        }
+      }
+    }
+
     isUpdatingFromHost = true;
     try {
-      crepeInstance.editor.action(replaceAll(markdown || ''));
+      crepeInstance.editor.action(replaceAll(cleanMd));
+      setTimeout(resolveAllImagesInDOM, 60);
     } catch (e) {
       console.error('[setMarkdown] Failed to replace markdown:', e);
     } finally {
@@ -846,44 +913,400 @@ window.addEventListener('auxclick', (e) => {
   if (e.button === 1) handleLinkClick(e);
 }, true);
 
-// Turn selected text into a link when a URL is pasted (Notion / Obsidian style)
-function handlePasteLink(e) {
+// Scan current block and convert literal `...` into inline_code mark (reverse index order)
+function autoFormatInlineCode(view) {
+  if (!view || !view.state) return false;
+  const { state, dispatch } = view;
+  const codeMarkType = state.schema.marks.code_inline;
+  if (!codeMarkType) return false;
+
+  const { $from } = state.selection;
+  if (!$from || !$from.parent || !$from.parent.isTextblock) return false;
+
+  const blockNode = $from.parent;
+  if (blockNode.type.name === 'code_block' || blockNode.type.name === 'code_bracket') return false;
+
+  const blockStart = $from.start();
+  const matches = [];
+
+  blockNode.forEach((child, childOffset) => {
+    if (child.isText && !child.marks.some(m => m.type === codeMarkType)) {
+      const text = child.text;
+      const regex = /`([^`\r\n]+)`/g;
+      let match;
+      while ((match = regex.exec(text)) !== null) {
+        const matchStart = blockStart + childOffset + match.index;
+        const matchEnd = matchStart + match[0].length;
+        matches.push({ from: matchStart, to: matchEnd, code: match[1] });
+      }
+    }
+  });
+
+  if (matches.length === 0) return false;
+
+  let tr = state.tr;
+  for (let i = matches.length - 1; i >= 0; i--) {
+    const m = matches[i];
+    const mark = codeMarkType.create();
+    tr = tr.replaceWith(m.from, m.to, state.schema.text(m.code, [mark]));
+  }
+
+  if (tr.docChanged) {
+    dispatch(tr);
+    return true;
+  }
+  return false;
+}
+
+const imageBase64Cache = {};
+const pendingImageRequests = new Set();
+const pendingImageResolvers = {};
+
+function cleanImageSrc(src) {
+  if (!src) return '';
+  let s = src.trim();
+  if (s.startsWith('<') && s.endsWith('>') && s.length >= 2) {
+    s = s.slice(1, -1).trim();
+  }
+  if (s.startsWith('file:///')) {
+    s = s.slice(8);
+  } else if (s.startsWith('file://')) {
+    s = s.slice(7);
+  }
+  return s;
+}
+
+function proxyDomURL(rawSrc) {
+  if (!rawSrc) return '';
+  const clean = cleanImageSrc(rawSrc);
+  if (clean.startsWith('data:') || clean.startsWith('http://') || clean.startsWith('https://')) {
+    return rawSrc;
+  }
+
+  const fileName = clean.split(/[/\\]/).pop();
+
+  if (imageBase64Cache[rawSrc]) return imageBase64Cache[rawSrc];
+  if (imageBase64Cache[clean]) return imageBase64Cache[clean];
+  if (fileName && imageBase64Cache[fileName]) return imageBase64Cache[fileName];
+
+  return new Promise((resolve) => {
+    if (!pendingImageResolvers[rawSrc]) pendingImageResolvers[rawSrc] = [];
+    pendingImageResolvers[rawSrc].push(resolve);
+
+    if (clean !== rawSrc) {
+      if (!pendingImageResolvers[clean]) pendingImageResolvers[clean] = [];
+      pendingImageResolvers[clean].push(resolve);
+    }
+
+    if (fileName && fileName !== clean) {
+      if (!pendingImageResolvers[fileName]) pendingImageResolvers[fileName] = [];
+      pendingImageResolvers[fileName].push(resolve);
+    }
+
+    if (!pendingImageRequests.has(clean)) {
+      pendingImageRequests.add(clean);
+      sendMessage({ type: 'loadImage', src: clean });
+    }
+
+    // Safety timeout in case image does not exist or host is slow
+    setTimeout(() => {
+      resolve(rawSrc);
+    }, 5000);
+  });
+}
+
+function resolveImageElement(img) {
+  if (!img) return;
+  const rawSrc = img.getAttribute('src');
+  if (!rawSrc) return;
+
+  const clean = cleanImageSrc(rawSrc);
+  if (clean.startsWith('data:') || clean.startsWith('http://') || clean.startsWith('https://')) return;
+
+  const fileName = clean.split(/[/\\]/).pop();
+
+  if (imageBase64Cache[clean]) {
+    if (img.src !== imageBase64Cache[clean]) {
+      img.src = imageBase64Cache[clean];
+    }
+    return;
+  }
+  if (fileName && imageBase64Cache[fileName]) {
+    if (img.src !== imageBase64Cache[fileName]) {
+      img.src = imageBase64Cache[fileName];
+    }
+    return;
+  }
+
+  if (clean.startsWith('.assets/') || clean.startsWith('assets/') || clean.includes('.assets/')) {
+    if (!pendingImageRequests.has(clean)) {
+      pendingImageRequests.add(clean);
+      sendMessage({ type: 'loadImage', src: clean });
+    }
+  }
+}
+
+function resolveAllImagesInDOM() {
+  const imgs = document.querySelectorAll('.milkdown img, .ProseMirror img, img');
+  imgs.forEach(resolveImageElement);
+}
+
+// Setup MutationObserver to automatically resolve images as they are mounted/rendered
+const imgObserver = new MutationObserver((mutations) => {
+  for (const m of mutations) {
+    if (m.type === 'childList') {
+      m.addedNodes.forEach((node) => {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          if (node.tagName === 'IMG') {
+            resolveImageElement(node);
+          } else {
+            node.querySelectorAll && node.querySelectorAll('img').forEach(resolveImageElement);
+          }
+        }
+      });
+    } else if (m.type === 'attributes' && m.attributeName === 'src') {
+      if (m.target && m.target.tagName === 'IMG') {
+        resolveImageElement(m.target);
+      }
+    }
+  }
+});
+
+if (document.body) {
+  imgObserver.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['src'] });
+} else {
+  document.addEventListener('DOMContentLoaded', () => {
+    imgObserver.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['src'] });
+  });
+}
+
+function uploadAndInsertImage(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    const base64Data = evt.target.result;
+    const reqId = 'img_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
+    sendMessage({
+      type: 'saveImage',
+      reqId: reqId,
+      base64: base64Data,
+      name: file.name || 'image.png',
+      alt: 'image'
+    });
+  };
+  reader.readAsDataURL(file);
+}
+
+window.addEventListener('error', (e) => {
+  if (e.target && e.target.tagName === 'IMG') {
+    resolveImageElement(e.target);
+  }
+}, true);
+
+window.addEventListener('drop', (e) => {
+  const files = e.dataTransfer ? e.dataTransfer.files : null;
+  if (files && files.length > 0) {
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (file.type && file.type.startsWith('image/')) {
+        e.preventDefault();
+        e.stopPropagation();
+        uploadAndInsertImage(file);
+        return;
+      }
+    }
+  }
+}, true);
+
+window.onImageSaved = (reqId, relPath, base64Data, altText) => {
+  if (!relPath) return;
+  const clean = cleanImageSrc(relPath);
+  const fileName = clean.split(/[/\\]/).pop();
+
+  if (base64Data) {
+    imageBase64Cache[relPath] = base64Data;
+    imageBase64Cache[clean] = base64Data;
+    if (fileName) imageBase64Cache[fileName] = base64Data;
+  }
+
+  const view = getEditorView();
+  if (view && view.state) {
+    const { schema, tr } = view.state;
+    const imageType = schema.nodes['image-block'] || schema.nodes.image;
+    if (imageType) {
+      const node = imageType.create({
+        src: clean,
+        alt: altText || 'image'
+      });
+      const newTr = tr.replaceSelectionWith(node).scrollIntoView();
+      view.dispatch(newTr);
+      view.focus();
+    } else {
+      insertText(`\n\n![${altText || 'image'}](${clean})\n\n`);
+    }
+  }
+
+  setTimeout(resolveAllImagesInDOM, 50);
+};
+
+window.onImageLoaded = (src, base64Data) => {
+  if (!src || !base64Data) return;
+  const clean = cleanImageSrc(src);
+  const fileName = clean.split(/[/\\]/).pop();
+
+  imageBase64Cache[src] = base64Data;
+  imageBase64Cache[clean] = base64Data;
+  if (fileName) imageBase64Cache[fileName] = base64Data;
+
+  const resolvers = [
+    ...(pendingImageResolvers[src] || []),
+    ...(pendingImageResolvers[clean] || []),
+    ...(fileName ? (pendingImageResolvers[fileName] || []) : [])
+  ];
+
+  delete pendingImageResolvers[src];
+  delete pendingImageResolvers[clean];
+  if (fileName) delete pendingImageResolvers[fileName];
+
+  resolvers.forEach((res) => {
+    try {
+      res(base64Data);
+    } catch (err) {
+      console.error('Error resolving image promise:', err);
+    }
+  });
+
+  document.querySelectorAll('.milkdown img, .ProseMirror img, img').forEach((img) => {
+    const rawAttr = img.getAttribute('src') || '';
+    const cleanAttr = cleanImageSrc(rawAttr);
+    const currentSrc = img.src || '';
+    if (cleanAttr === src || cleanAttr === clean || (fileName && (cleanAttr.endsWith(fileName) || currentSrc.endsWith(fileName)))) {
+      img.src = base64Data;
+    }
+  });
+};
+
+// Unified paste handler for Images, URLs, and Inline Code
+function handlePaste(e) {
+  // 0. Image paste detection
+  const items = e.clipboardData ? e.clipboardData.items : null;
+  if (items && items.length > 0) {
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.type && item.type.indexOf('image') !== -1) {
+        const file = item.getAsFile();
+        if (file) {
+          e.preventDefault();
+          e.stopPropagation();
+          uploadAndInsertImage(file);
+          return;
+        }
+      }
+    }
+  }
+
   const view = getEditorView();
   if (!view || !view.state) return;
   const { state, dispatch } = view;
   const { from, to, empty } = getEffectiveSelection(view);
-  if (empty) return;
 
-  const text = e.clipboardData ? e.clipboardData.getData('text/plain') : '';
-  if (!text) return;
+  const rawText = e.clipboardData ? e.clipboardData.getData('text/plain') : '';
+  if (!rawText) return;
 
-  const trimmed = text.trim();
+  const trimmed = rawText.trim();
+
+  // 1. URL pasted on selected text -> transform to [selectedText](url)
   const isUrl = /^https?:\/\/\S+$/i.test(trimmed) || /^www\.\S+\.\S+$/i.test(trimmed);
-  if (!isUrl) return;
+  if (isUrl && !empty) {
+    let cleanUrl = trimmed;
+    if (!cleanUrl.includes('://') && !cleanUrl.startsWith('mailto:') && !cleanUrl.startsWith('#')) {
+      cleanUrl = 'https://' + cleanUrl;
+    }
 
-  let cleanUrl = trimmed;
-  if (!cleanUrl.includes('://') && !cleanUrl.startsWith('mailto:') && !cleanUrl.startsWith('#')) {
-    cleanUrl = 'https://' + cleanUrl;
+    const linkType = state.schema.marks.link;
+    if (linkType) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const mark = linkType.create({ href: cleanUrl });
+      const selectedText = state.doc.textBetween(from, to);
+      const tr = state.tr.replaceWith(from, to, state.schema.text(selectedText, [mark]));
+      dispatch(tr.scrollIntoView());
+      return;
+    }
   }
 
-  const linkType = state.schema.marks.link;
-  if (!linkType) return;
+  // 2. Inline Code Paste Scenarios:
+  const codeMarkType = state.schema.marks.code_inline;
+  if (codeMarkType) {
+    // Scenario A: Cursor / selection is placed between existing literal backticks (e.g. `|` or `selected`)
+    const $from = state.doc.resolve(from);
+    const $to = state.doc.resolve(to);
 
-  e.preventDefault();
-  e.stopPropagation();
+    if ($from.parent && $from.parent.isTextblock) {
+      const textBefore = $from.parent.textBetween(0, $from.parentOffset);
+      const textAfter = $to.parent.textBetween($to.parentOffset, $to.parent.content.size);
 
-  const mark = linkType.create({ href: cleanUrl });
-  const selectedText = state.doc.textBetween(from, to);
-  const tr = state.tr.replaceWith(from, to, state.schema.text(selectedText, [mark]));
-  dispatch(tr.scrollIntoView());
+      if (textBefore.endsWith('`') && textAfter.startsWith('`')) {
+        // User pasted text between existing backticks `[cursor]` -> replace `[text]` with inline_code
+        e.preventDefault();
+        e.stopPropagation();
+
+        let codeText = rawText;
+        if (codeText.startsWith('`') && codeText.endsWith('`') && codeText.length >= 2) {
+          codeText = codeText.slice(1, -1);
+        }
+
+        const mark = codeMarkType.create();
+        const replaceFrom = from - 1;
+        const replaceTo = to + 1;
+        const tr = state.tr.replaceWith(replaceFrom, replaceTo, state.schema.text(codeText, [mark]));
+        dispatch(tr.scrollIntoView());
+        return;
+      }
+    }
+
+    // Scenario B: Pasted text itself is enclosed in single backticks: `hello world`
+    if (trimmed.startsWith('`') && trimmed.endsWith('`') && !trimmed.startsWith('```') && trimmed.length >= 2 && !trimmed.includes('\n')) {
+      e.preventDefault();
+      e.stopPropagation();
+      const codeText = trimmed.slice(1, -1);
+      const mark = codeMarkType.create();
+      const tr = state.tr.replaceWith(from, to, state.schema.text(codeText, [mark]));
+      dispatch(tr.scrollIntoView());
+      return;
+    }
+  }
+
+  // Run autoFormat after microtask if pasting generic text
+  setTimeout(() => {
+    const currentView = getEditorView();
+    if (currentView) autoFormatInlineCode(currentView);
+    resolveAllImagesInDOM();
+  }, 10);
 }
 
-window.addEventListener('paste', handlePasteLink, true);
-document.addEventListener('paste', handlePasteLink, true);
+window.addEventListener('paste', handlePaste, true);
+document.addEventListener('paste', handlePaste, true);
+
+// Trigger autoFormatInlineCode on input and keyup
+window.addEventListener('input', () => {
+  const view = getEditorView();
+  if (view) autoFormatInlineCode(view);
+}, true);
+
+window.addEventListener('keyup', (e) => {
+  if (e.key === ' ' || e.key === 'Enter' || e.key === '`' || e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+    const view = getEditorView();
+    if (view) autoFormatInlineCode(view);
+  }
+}, true);
 
 window.showLinkDialog = showLinkDialog;
 window.applyLink = applyLink;
 window.removeLinkAtSelection = removeLinkAtSelection;
+window.resolveAllImagesInDOM = resolveAllImagesInDOM;
+window.getEditorView = getEditorView;
 
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', init);

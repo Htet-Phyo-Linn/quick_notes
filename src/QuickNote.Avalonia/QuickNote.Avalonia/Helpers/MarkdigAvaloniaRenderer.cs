@@ -466,6 +466,15 @@ namespace QuickNote.Avalonia.Helpers
                     break;
 
                 case LinkInline link:
+                    if (link.IsImage)
+                    {
+                        var imageCtrl = CreateImageControl(link.Url, link.FirstChild is LiteralInline altLit ? altLit.Content.ToString() : string.Empty);
+                        if (imageCtrl != null)
+                        {
+                            tb.Inlines?.Add(new InlineUIContainer(imageCtrl));
+                            break;
+                        }
+                    }
                     var linkText = link.FirstChild is LiteralInline l ? l.Content.ToString() : (link.Url ?? string.Empty);
                     var url = link.Url;
                     var linkBtn = new Button
@@ -521,6 +530,52 @@ namespace QuickNote.Avalonia.Helpers
                     AppendInlineToSpan(span, child);
                 }
             }
+        }
+
+        private static Control? CreateImageControl(string? src, string alt)
+        {
+            if (string.IsNullOrWhiteSpace(src)) return null;
+
+            try
+            {
+                global::Avalonia.Media.Imaging.Bitmap? bitmap = null;
+
+                if (src.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase))
+                {
+                    var headerEnd = src.IndexOf(";base64,", StringComparison.OrdinalIgnoreCase);
+                    if (headerEnd > 0)
+                    {
+                        var cleanB64 = src.Substring(headerEnd + 8);
+                        var bytes = Convert.FromBase64String(cleanB64);
+                        using var ms = new MemoryStream(bytes);
+                        bitmap = new global::Avalonia.Media.Imaging.Bitmap(ms);
+                    }
+                }
+                else if (File.Exists(src))
+                {
+                    bitmap = new global::Avalonia.Media.Imaging.Bitmap(src);
+                }
+
+                if (bitmap != null)
+                {
+                    var img = new Image
+                    {
+                        Source = bitmap,
+                        Stretch = Stretch.Uniform,
+                        MaxWidth = 700,
+                        MaxHeight = 500,
+                        Margin = new Thickness(0, 8, 0, 8)
+                    };
+                    if (!string.IsNullOrWhiteSpace(alt))
+                    {
+                        ToolTip.SetTip(img, alt);
+                    }
+                    return img;
+                }
+            }
+            catch { }
+
+            return null;
         }
     }
 }

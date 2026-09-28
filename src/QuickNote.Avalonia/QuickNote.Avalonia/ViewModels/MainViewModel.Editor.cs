@@ -35,6 +35,11 @@ namespace QuickNote.Avalonia.ViewModels
         [RelayCommand] public void ToggleReading() => IsReadingMode = !IsReadingMode;
         [RelayCommand] public void ToggleTheme()   => IsDarkMode    = !IsDarkMode;
 
+        // ── Export commands ─────────────────────────────────────────
+        [RelayCommand] public void ExportAsMarkdown() => ExportRequested?.Invoke("md");
+        [RelayCommand] public void ExportAsWord()     => ExportRequested?.Invoke("docx");
+        [RelayCommand] public void ExportAsPdf()      => ExportRequested?.Invoke("pdf");
+
         // ── Tags ───────────────────────────────────────────────────
         [RelayCommand]
         public void StartAddTag()

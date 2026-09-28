@@ -43,6 +43,7 @@ namespace QuickNote.Avalonia.ViewModels
         public event Action<int>? ScrollToLineRequested;
         public event Action<Heading>? HeadingNavigationRequested;
         public event Action<string>? MarkdownRenderRequested;
+        public event Action<string>? ExportRequested;
 
         // ── Collections ──────────────────────────────────────────────
         public ObservableCollection<NoteDocument> Notes { get; } = new();

@@ -66,17 +66,28 @@ namespace QuickNote.App.Helpers
                 await writer.WriteAsync(documentXml);
             }
 
-            // 4. word/_rels/document.xml.rels (image relationships)
-            if (images.Count > 0)
+            // 4. word/styles.xml (Word Heading 1-6, Title, Normal styles for Outline Navigation)
+            var stylesEntry = archive.CreateEntry("word/styles.xml");
+            using (var writer = new StreamWriter(stylesEntry.Open(), Encoding.UTF8))
             {
-                var docRelsEntry = archive.CreateEntry("word/_rels/document.xml.rels");
-                using (var writer = new StreamWriter(docRelsEntry.Open(), Encoding.UTF8))
-                {
-                    await writer.WriteAsync(GetDocumentRelsXml(images));
-                }
+                await writer.WriteAsync(GetStylesXml());
             }
 
-            // 5. word/media/image_{id}.ext (embedded image binaries)
+            // 5. word/settings.xml (Modern Word mode, remove compatibility bar)
+            var settingsEntry = archive.CreateEntry("word/settings.xml");
+            using (var writer = new StreamWriter(settingsEntry.Open(), Encoding.UTF8))
+            {
+                await writer.WriteAsync(GetSettingsXml());
+            }
+
+            // 6. word/_rels/document.xml.rels
+            var docRelsEntry = archive.CreateEntry("word/_rels/document.xml.rels");
+            using (var writer = new StreamWriter(docRelsEntry.Open(), Encoding.UTF8))
+            {
+                await writer.WriteAsync(GetDocumentRelsXml(images));
+            }
+
+            // 7. word/media/image_{id}.ext (embedded image binaries)
             foreach (var img in images)
             {
                 var mediaEntry = archive.CreateEntry(img.ZipPath);
@@ -113,6 +124,8 @@ namespace QuickNote.App.Helpers
                 sb.Append($"  <Default Extension=\"{ext}\" ContentType=\"{cType}\"/>\n");
             }
             sb.Append("  <Override PartName=\"/word/document.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/>\n");
+            sb.Append("  <Override PartName=\"/word/styles.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml\"/>\n");
+            sb.Append("  <Override PartName=\"/word/settings.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml\"/>\n");
             sb.Append("</Types>");
             return sb.ToString();
         }
@@ -130,12 +143,174 @@ namespace QuickNote.App.Helpers
             var sb = new StringBuilder();
             sb.Append("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n");
             sb.Append("<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">\n");
+            sb.Append("  <Relationship Id=\"rIdStyles\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles\" Target=\"styles.xml\"/>\n");
+            sb.Append("  <Relationship Id=\"rIdSettings\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings\" Target=\"settings.xml\"/>\n");
             foreach (var img in images)
             {
                 sb.Append($"  <Relationship Id=\"{img.RelId}\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/image\" Target=\"media/image_{img.Id}{img.Extension}\"/>\n");
             }
             sb.Append("</Relationships>");
             return sb.ToString();
+        }
+
+        private static string GetSettingsXml()
+        {
+            return "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n" +
+                   "<w:settings xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\">\n" +
+                   "  <w:compat>\n" +
+                   "    <w:compatSetting w:name=\"compatibilityMode\" w:uri=\"http://schemas.microsoft.com/office/word\" w:val=\"15\"/>\n" +
+                   "  </w:compat>\n" +
+                   "</w:settings>";
+        }
+
+        private static string GetStylesXml()
+        {
+            return "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n" +
+                   "<w:styles xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\">\n" +
+                   "  <w:docDefaults>\n" +
+                   "    <w:rPrDefault>\n" +
+                   "      <w:rPr>\n" +
+                   "        <w:rFonts w:ascii=\"Segoe UI\" w:hAnsi=\"Segoe UI\" w:eastAsia=\"Segoe UI\" w:cs=\"Segoe UI\"/>\n" +
+                   "        <w:sz w:val=\"24\"/>\n" +
+                   "        <w:szCs w:val=\"24\"/>\n" +
+                   "        <w:color w:val=\"111827\"/>\n" +
+                   "        <w:lang w:val=\"en-US\"/>\n" +
+                   "      </w:rPr>\n" +
+                   "    </w:rPrDefault>\n" +
+                   "    <w:pPrDefault>\n" +
+                   "      <w:pPr>\n" +
+                   "        <w:spacing w:after=\"120\" w:line=\"276\" w:lineRule=\"auto\"/>\n" +
+                   "      </w:pPr>\n" +
+                   "    </w:pPrDefault>\n" +
+                   "  </w:docDefaults>\n" +
+                   "  <w:style w:type=\"paragraph\" w:default=\"1\" w:styleId=\"Normal\">\n" +
+                   "    <w:name w:val=\"Normal\"/>\n" +
+                   "    <w:qFormat/>\n" +
+                   "  </w:style>\n" +
+                   "  <w:style w:type=\"paragraph\" w:styleId=\"Title\">\n" +
+                   "    <w:name w:val=\"Title\"/>\n" +
+                   "    <w:basedOn w:val=\"Normal\"/>\n" +
+                   "    <w:next w:val=\"Normal\"/>\n" +
+                   "    <w:qFormat/>\n" +
+                   "    <w:pPr>\n" +
+                   "      <w:spacing w:before=\"240\" w:after=\"160\"/>\n" +
+                   "    </w:pPr>\n" +
+                   "    <w:rPr>\n" +
+                   "      <w:b/>\n" +
+                   "      <w:sz w:val=\"52\"/>\n" +
+                   "      <w:szCs w:val=\"52\"/>\n" +
+                   "      <w:color w:val=\"111827\"/>\n" +
+                   "    </w:rPr>\n" +
+                   "  </w:style>\n" +
+                   "  <w:style w:type=\"paragraph\" w:styleId=\"Heading1\">\n" +
+                   "    <w:name w:val=\"heading 1\"/>\n" +
+                   "    <w:basedOn w:val=\"Normal\"/>\n" +
+                   "    <w:next w:val=\"Normal\"/>\n" +
+                   "    <w:uiPriority w:val=\"9\"/>\n" +
+                   "    <w:qFormat/>\n" +
+                   "    <w:pPr>\n" +
+                   "      <w:keepNext/>\n" +
+                   "      <w:spacing w:before=\"360\" w:after=\"120\"/>\n" +
+                   "      <w:outlineLvl w:val=\"0\"/>\n" +
+                   "    </w:pPr>\n" +
+                   "    <w:rPr>\n" +
+                   "      <w:b/>\n" +
+                   "      <w:sz w:val=\"40\"/>\n" +
+                   "      <w:szCs w:val=\"40\"/>\n" +
+                   "      <w:color w:val=\"1F2937\"/>\n" +
+                   "    </w:rPr>\n" +
+                   "  </w:style>\n" +
+                   "  <w:style w:type=\"paragraph\" w:styleId=\"Heading2\">\n" +
+                   "    <w:name w:val=\"heading 2\"/>\n" +
+                   "    <w:basedOn w:val=\"Normal\"/>\n" +
+                   "    <w:next w:val=\"Normal\"/>\n" +
+                   "    <w:uiPriority w:val=\"9\"/>\n" +
+                   "    <w:qFormat/>\n" +
+                   "    <w:pPr>\n" +
+                   "      <w:keepNext/>\n" +
+                   "      <w:spacing w:before=\"280\" w:after=\"100\"/>\n" +
+                   "      <w:outlineLvl w:val=\"1\"/>\n" +
+                   "    </w:pPr>\n" +
+                   "    <w:rPr>\n" +
+                   "      <w:b/>\n" +
+                   "      <w:sz w:val=\"32\"/>\n" +
+                   "      <w:szCs w:val=\"32\"/>\n" +
+                   "      <w:color w:val=\"374151\"/>\n" +
+                   "    </w:rPr>\n" +
+                   "  </w:style>\n" +
+                   "  <w:style w:type=\"paragraph\" w:styleId=\"Heading3\">\n" +
+                   "    <w:name w:val=\"heading 3\"/>\n" +
+                   "    <w:basedOn w:val=\"Normal\"/>\n" +
+                   "    <w:next w:val=\"Normal\"/>\n" +
+                   "    <w:uiPriority w:val=\"9\"/>\n" +
+                   "    <w:qFormat/>\n" +
+                   "    <w:pPr>\n" +
+                   "      <w:keepNext/>\n" +
+                   "      <w:spacing w:before=\"220\" w:after=\"80\"/>\n" +
+                   "      <w:outlineLvl w:val=\"2\"/>\n" +
+                   "    </w:pPr>\n" +
+                   "    <w:rPr>\n" +
+                   "      <w:b/>\n" +
+                   "      <w:sz w:val=\"28\"/>\n" +
+                   "      <w:szCs w:val=\"28\"/>\n" +
+                   "      <w:color w:val=\"4B5563\"/>\n" +
+                   "    </w:rPr>\n" +
+                   "  </w:style>\n" +
+                   "  <w:style w:type=\"paragraph\" w:styleId=\"Heading4\">\n" +
+                   "    <w:name w:val=\"heading 4\"/>\n" +
+                   "    <w:basedOn w:val=\"Normal\"/>\n" +
+                   "    <w:next w:val=\"Normal\"/>\n" +
+                   "    <w:uiPriority w:val=\"9\"/>\n" +
+                   "    <w:qFormat/>\n" +
+                   "    <w:pPr>\n" +
+                   "      <w:keepNext/>\n" +
+                   "      <w:spacing w:before=\"180\" w:after=\"60\"/>\n" +
+                   "      <w:outlineLvl w:val=\"3\"/>\n" +
+                   "    </w:pPr>\n" +
+                   "    <w:rPr>\n" +
+                   "      <w:b/>\n" +
+                   "      <w:sz w:val=\"26\"/>\n" +
+                   "      <w:szCs w:val=\"26\"/>\n" +
+                   "      <w:color w:val=\"4B5563\"/>\n" +
+                   "    </w:rPr>\n" +
+                   "  </w:style>\n" +
+                   "  <w:style w:type=\"paragraph\" w:styleId=\"Heading5\">\n" +
+                   "    <w:name w:val=\"heading 5\"/>\n" +
+                   "    <w:basedOn w:val=\"Normal\"/>\n" +
+                   "    <w:next w:val=\"Normal\"/>\n" +
+                   "    <w:uiPriority w:val=\"9\"/>\n" +
+                   "    <w:qFormat/>\n" +
+                   "    <w:pPr>\n" +
+                   "      <w:keepNext/>\n" +
+                   "      <w:spacing w:before=\"140\" w:after=\"40\"/>\n" +
+                   "      <w:outlineLvl w:val=\"4\"/>\n" +
+                   "    </w:pPr>\n" +
+                   "    <w:rPr>\n" +
+                   "      <w:b/>\n" +
+                   "      <w:sz w:val=\"24\"/>\n" +
+                   "      <w:szCs w:val=\"24\"/>\n" +
+                   "      <w:color w:val=\"6B7280\"/>\n" +
+                   "    </w:rPr>\n" +
+                   "  </w:style>\n" +
+                   "  <w:style w:type=\"paragraph\" w:styleId=\"Heading6\">\n" +
+                   "    <w:name w:val=\"heading 6\"/>\n" +
+                   "    <w:basedOn w:val=\"Normal\"/>\n" +
+                   "    <w:next w:val=\"Normal\"/>\n" +
+                   "    <w:uiPriority w:val=\"9\"/>\n" +
+                   "    <w:qFormat/>\n" +
+                   "    <w:pPr>\n" +
+                   "      <w:keepNext/>\n" +
+                   "      <w:spacing w:before=\"120\" w:after=\"40\"/>\n" +
+                   "      <w:outlineLvl w:val=\"5\"/>\n" +
+                   "    </w:pPr>\n" +
+                   "    <w:rPr>\n" +
+                   "      <w:b/>\n" +
+                   "      <w:sz w:val=\"24\"/>\n" +
+                   "      <w:szCs w:val=\"24\"/>\n" +
+                   "      <w:color w:val=\"9CA3AF\"/>\n" +
+                   "    </w:rPr>\n" +
+                   "  </w:style>\n" +
+                   "</w:styles>";
         }
 
         private static async Task<string> BuildDocumentXmlAsync(NoteDocument note, string markdownContent, List<ExportImageInfo> images, string? notesRoot)
@@ -231,12 +406,21 @@ namespace QuickNote.App.Helpers
                     continue;
                 }
 
-                // 4. Image tag check: ![alt](src)
-                var imgMatch = Regex.Match(trimmed, @"^!\[(?<alt>.*?)\]\((?<src>.*?)\)");
+                // 4. Image tag check: ![alt](src) or ![](src) or ![alt](<src>)
+                var imgMatch = Regex.Match(trimmed, @"^!\[(?<alt>.*?)\]\((?:<(?<src>[^>]+)>|(?<src>.*?))\)");
                 if (imgMatch.Success)
                 {
                     var alt = imgMatch.Groups["alt"].Value;
-                    var src = imgMatch.Groups["src"].Value;
+                    var src = imgMatch.Groups["src"].Value.Trim();
+                    if (src.StartsWith("<") && src.EndsWith(">") && src.Length >= 2)
+                    {
+                        src = src.Substring(1, src.Length - 2).Trim();
+                    }
+                    var spaceIdx = src.IndexOf(' ');
+                    if (spaceIdx > 0 && (src.EndsWith("\"") || src.EndsWith("'")))
+                    {
+                        src = src.Substring(0, spaceIdx).Trim();
+                    }
                     var imgInfo = await LoadImageInfoAsync(src, alt, note.FolderPath, notesRoot, images.Count + 1);
                     if (imgInfo != null)
                     {
@@ -442,12 +626,33 @@ namespace QuickNote.App.Helpers
             byte[]? data = null;
             string ext = ".png";
 
-            // 1. Check if HTTP / HTTPS URL
-            if (Uri.TryCreate(src, UriKind.Absolute, out var uri) && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
+            if (src.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase))
             {
                 try
                 {
-                    using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(3) };
+                    var headerEnd = src.IndexOf(";base64,", StringComparison.OrdinalIgnoreCase);
+                    if (headerEnd > 0)
+                    {
+                        var mime = src.Substring(11, headerEnd - 11).ToLowerInvariant();
+                        ext = mime switch
+                        {
+                            "jpeg" or "jpg" => ".jpg",
+                            "gif" => ".gif",
+                            "webp" => ".webp",
+                            "bmp" => ".bmp",
+                            _ => ".png"
+                        };
+                        var cleanB64 = src.Substring(headerEnd + 8);
+                        data = Convert.FromBase64String(cleanB64);
+                    }
+                }
+                catch { }
+            }
+            else if (Uri.TryCreate(src, UriKind.Absolute, out var uri) && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
+            {
+                try
+                {
+                    using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
                     data = await client.GetByteArrayAsync(uri);
                     ext = Path.GetExtension(uri.AbsolutePath);
                     if (string.IsNullOrWhiteSpace(ext)) ext = ".png";
@@ -456,7 +661,6 @@ namespace QuickNote.App.Helpers
             }
             else
             {
-                // 2. Local disk file resolution
                 string? resolvedPath = ResolveImagePath(src, noteFolderPath, notesRoot);
                 if (resolvedPath != null && File.Exists(resolvedPath))
                 {
@@ -475,7 +679,6 @@ namespace QuickNote.App.Helpers
             ext = ext.ToLowerInvariant();
             if (ext == ".jpeg") ext = ".jpg";
 
-            // Determine dimensions
             int pixelWidth = 600;
             int pixelHeight = 400;
 
@@ -494,11 +697,9 @@ namespace QuickNote.App.Helpers
             if (pixelWidth <= 0) pixelWidth = 600;
             if (pixelHeight <= 0) pixelHeight = 400;
 
-            // Convert to EMUs: 1 px at 96 DPI = 9525 EMUs
             long widthEmu = (long)pixelWidth * 9525;
             long heightEmu = (long)pixelHeight * 9525;
 
-            // Constrain to maximum printable area in Word (~5.7 inches / 5,200,000 EMUs)
             const long maxEmuWidth = 5200000;
             const long maxEmuHeight = 7000000;
 
@@ -531,21 +732,105 @@ namespace QuickNote.App.Helpers
         {
             if (string.IsNullOrWhiteSpace(src)) return null;
 
-            if (Path.IsPathRooted(src) && File.Exists(src))
+            var cleanSrc = src.Trim();
+            if (cleanSrc.StartsWith("<") && cleanSrc.EndsWith(">") && cleanSrc.Length >= 2)
             {
-                return src;
+                cleanSrc = cleanSrc.Substring(1, cleanSrc.Length - 2).Trim();
             }
+            if (cleanSrc.StartsWith("file:///", StringComparison.OrdinalIgnoreCase))
+            {
+                cleanSrc = cleanSrc.Substring(8);
+            }
+            else if (cleanSrc.StartsWith("file://", StringComparison.OrdinalIgnoreCase))
+            {
+                cleanSrc = cleanSrc.Substring(7);
+            }
+
+            cleanSrc = Uri.UnescapeDataString(cleanSrc).Replace('/', Path.DirectorySeparatorChar);
+
+            if (Path.IsPathRooted(cleanSrc) && File.Exists(cleanSrc))
+            {
+                return cleanSrc;
+            }
+
+            var fileName = Path.GetFileName(cleanSrc);
 
             if (!string.IsNullOrWhiteSpace(noteFolderPath))
             {
-                var localToNote = Path.Combine(noteFolderPath, src);
+                var localToNote = Path.Combine(noteFolderPath, cleanSrc);
                 if (File.Exists(localToNote)) return localToNote;
+
+                if (!string.IsNullOrWhiteSpace(fileName))
+                {
+                    var pAssets = Path.Combine(noteFolderPath, ".assets", fileName);
+                    if (File.Exists(pAssets)) return pAssets;
+
+                    var pAssets2 = Path.Combine(noteFolderPath, "assets", fileName);
+                    if (File.Exists(pAssets2)) return pAssets2;
+                }
+
+                try
+                {
+                    var currentDir = new DirectoryInfo(noteFolderPath);
+                    while (currentDir != null && currentDir.Parent != null)
+                    {
+                        if (!string.IsNullOrWhiteSpace(fileName))
+                        {
+                            var parentAssets = Path.Combine(currentDir.FullName, ".assets", fileName);
+                            if (File.Exists(parentAssets)) return parentAssets;
+
+                            var parentAssets2 = Path.Combine(currentDir.FullName, "assets", fileName);
+                            if (File.Exists(parentAssets2)) return parentAssets2;
+                        }
+                        if (!string.IsNullOrWhiteSpace(notesRoot) && string.Equals(currentDir.FullName, notesRoot, StringComparison.OrdinalIgnoreCase))
+                        {
+                            break;
+                        }
+                        currentDir = currentDir.Parent;
+                    }
+                }
+                catch { }
             }
 
             if (!string.IsNullOrWhiteSpace(notesRoot))
             {
-                var localToRoot = Path.Combine(notesRoot, src);
+                var localToRoot = Path.Combine(notesRoot, cleanSrc);
                 if (File.Exists(localToRoot)) return localToRoot;
+
+                if (!string.IsNullOrWhiteSpace(fileName))
+                {
+                    var inDotAssets = Path.Combine(notesRoot, ".assets", fileName);
+                    if (File.Exists(inDotAssets)) return inDotAssets;
+
+                    var inAssets = Path.Combine(notesRoot, "assets", fileName);
+                    if (File.Exists(inAssets)) return inAssets;
+                }
+            }
+
+            var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            var standardLocations = new[]
+            {
+                Path.Combine(userProfile, "OneDrive - BIM ADVANCED TECHNOLOGY SERVICES PTE. LTD", "QuickNote"),
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "QuickNote"),
+                Path.Combine(userProfile, "OneDrive", "QuickNote")
+            };
+
+            foreach (var loc in standardLocations)
+            {
+                if (Directory.Exists(loc))
+                {
+                    var p = Path.Combine(loc, cleanSrc);
+                    if (File.Exists(p)) return p;
+
+                    if (!string.IsNullOrWhiteSpace(fileName))
+                    {
+                        var pDotAssets = Path.Combine(loc, ".assets", fileName);
+                        if (File.Exists(pDotAssets)) return pDotAssets;
+
+                        var pAssets = Path.Combine(loc, "assets", fileName);
+                        if (File.Exists(pAssets)) return pAssets;
+                    }
+                }
             }
 
             return null;

@@ -32,6 +32,9 @@
         <StreamGeometry x:Key="IconSidebarRight">M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2zm0 2v12h9V6H4zm11 0v12h5V6h-5z</StreamGeometry>
         <StreamGeometry x:Key="IconChevronLeft">M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z</StreamGeometry>
         <StreamGeometry x:Key="IconChevronRight">M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z</StreamGeometry>
+        <StreamGeometry x:Key="IconExport">M12 16l-5-5h3V4h4v7h3l-5 5zm9-4v7H3v-7H1v9h22v-9h-2z</StreamGeometry>
+        <StreamGeometry x:Key="IconWord">M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z</StreamGeometry>
+        <StreamGeometry x:Key="IconPdf">M20 2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8.5 7.5c0 .83-.67 1.5-1.5 1.5H9v2H7.5V7H10c.83 0 1.5.67 1.5 1.5v1zm5 2c0 .83-.67 1.5-1.5 1.5h-2.5V7H15c.83 0 1.5.67 1.5 1.5v3zm4-3H19v1h1.5V11H19v2h-1.5V7h3v1.5z</StreamGeometry>
     </UserControl.Resources>
 
     <UserControl.Styles>
@@ -58,10 +61,10 @@
 
     <Grid RowDefinitions="Auto,Auto,*,Auto">
         <!-- 1. TOP TOOLBAR -->
-        <Border Grid.Row="0" Background="#202020" BorderBrush="#2d2d2d" BorderThickness="0,0,0,1" Padding="12,7">
+        <Border Grid.Row="0" Background="#202020" BorderBrush="#2d2d2d" BorderThickness="0,0,0,1" Padding="10,6">
             <Grid ColumnDefinitions="Auto,*,Auto">
                 <!-- Left: App Title / Brand & Quick Creation Actions -->
-                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" HorizontalAlignment="Left" VerticalAlignment="Center">
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="5" HorizontalAlignment="Left" VerticalAlignment="Center">
                     <Button Command="{Binding ToggleLeftSidebarCommand}"
                             Background="Transparent"
                             Foreground="#9ca3af"
@@ -71,27 +74,27 @@
                         <PathIcon Data="{StaticResource IconSidebarLeft}" Width="15" Height="15" />
                     </Button>
 
-                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="0,0,4,0">
+                    <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center" Margin="0,0,2,0">
                         <PathIcon Data="{StaticResource IconBolt}" Width="15" Height="15" Foreground="#3b82f6" VerticalAlignment="Center" />
                         <TextBlock Text="QuickNote" FontSize="14" FontWeight="SemiBold" Foreground="#f3f4f6" VerticalAlignment="Center" />
                     </StackPanel>
 
-                    <Button Command="{Binding NewNoteCommand}" Background="#2563eb" Foreground="White" CornerRadius="6" Padding="8,5" ToolTip.Tip="New Note (Ctrl+N)">
-                        <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                    <Button Command="{Binding NewNoteCommand}" Background="#2563eb" Foreground="White" CornerRadius="6" Padding="7,5" ToolTip.Tip="New Note (Ctrl+N)">
+                        <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                             <PathIcon Data="{StaticResource IconPlus}" Width="11" Height="11" Foreground="White" VerticalAlignment="Center" />
                             <TextBlock Text="Note" FontSize="12" FontWeight="Medium" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
-                    <Button Command="{Binding NewFolderCommand}" Background="#2f333a" Foreground="#e5e7eb" CornerRadius="6" Padding="8,5" ToolTip.Tip="New Folder (Ctrl+Shift+N)">
-                        <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                    <Button Command="{Binding NewFolderCommand}" Background="#2f333a" Foreground="#e5e7eb" CornerRadius="6" Padding="7,5" ToolTip.Tip="New Folder (Ctrl+Shift+N)">
+                        <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                             <PathIcon Data="{StaticResource IconFolder}" Width="12" Height="12" Foreground="#e5e7eb" VerticalAlignment="Center" />
                             <TextBlock Text="Folder" FontSize="12" FontWeight="Medium" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
                 </StackPanel>
 
-                <!-- Center: Search Bar (Responsive flex column, MaxWidth 420, never overlaps) -->
-                <Grid Grid.Column="1" HorizontalAlignment="Stretch" MaxWidth="420" MinWidth="80" Margin="10,0" VerticalAlignment="Center">
+                <!-- Center: Search Bar (Responsive flex column, MaxWidth 380, never crushed) -->
+                <Grid Grid.Column="1" HorizontalAlignment="Stretch" MaxWidth="380" MinWidth="130" Margin="8,0" VerticalAlignment="Center">
                     <PathIcon Data="{StaticResource IconSearch}" Width="13" Height="13" Foreground="#6b7280" Margin="10,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Center" IsHitTestVisible="False" />
                     <TextBox x:Name="SearchBox"
                              Text="{Binding SearchQuery, Mode=TwoWay}"
@@ -117,7 +120,7 @@
                             Padding="6,2" />
                 </Grid>
 
-                <!-- Right: Action Icons & Mode Dropdown Menu -->
+                <!-- Right: Action Icons & Unified Mode/Export Dropdown Menu -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="5" HorizontalAlignment="Right" VerticalAlignment="Center">
                     <Button Command="{Binding RefreshCommand}" Background="#2f333a" Foreground="#e5e7eb" CornerRadius="6" Padding="7,5" ToolTip.Tip="Refresh Notes">
                         <PathIcon Data="{StaticResource IconRefresh}" Width="13" Height="13" Foreground="#9ca3af" />
@@ -126,16 +129,16 @@
                         <PathIcon Data="{StaticResource IconTrash}" Width="13" Height="13" Foreground="#ef4444" />
                     </Button>
 
-                    <Rectangle Width="1" Height="16" Fill="#374151" Margin="3,0" />
+                    <Rectangle Width="1" Height="16" Fill="#374151" Margin="2,0" />
 
-                    <!-- Editor Mode Dropdown Menu (No Notion Text, Clean Dropdown) -->
+                    <!-- Unified Editor Mode & Export Dropdown Menu -->
                     <Button Background="#262626"
                             Foreground="#e5e7eb"
                             BorderBrush="#374151"
                             BorderThickness="1"
                             CornerRadius="6"
-                            Padding="8,5"
-                            ToolTip.Tip="Select Editor Mode">
+                            Padding="7,5"
+                            ToolTip.Tip="Editor Mode &amp; Export Options">
                         <Button.Flyout>
                             <MenuFlyout Placement="BottomEdgeAlignedRight">
                                 <MenuItem Header="Visual Editor" Command="{Binding SetNotionModeCommand}">
@@ -158,6 +161,24 @@
                                         <PathIcon Data="{StaticResource IconReading}" Width="13" Height="13" Foreground="#9ca3af" />
                                     </MenuItem.Icon>
                                 </MenuItem>
+
+                                <Separator Background="#374151" Margin="4,2" />
+
+                                <MenuItem Header="Export as Markdown (.md)" Command="{Binding ExportAsMarkdownCommand}">
+                                    <MenuItem.Icon>
+                                        <PathIcon Data="{StaticResource IconMarkdown}" Width="13" Height="13" Foreground="#38bdf8" />
+                                    </MenuItem.Icon>
+                                </MenuItem>
+                                <MenuItem Header="Export as Word (.docx)" Command="{Binding ExportAsWordCommand}">
+                                    <MenuItem.Icon>
+                                        <PathIcon Data="{StaticResource IconWord}" Width="13" Height="13" Foreground="#3b82f6" />
+                                    </MenuItem.Icon>
+                                </MenuItem>
+                                <MenuItem Header="Export as PDF (.pdf)" Command="{Binding ExportAsPdfCommand}">
+                                    <MenuItem.Icon>
+                                        <PathIcon Data="{StaticResource IconPdf}" Width="13" Height="13" Foreground="#ef4444" />
+                                    </MenuItem.Icon>
+                                </MenuItem>
                             </MenuFlyout>
                         </Button.Flyout>
                         <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
@@ -168,7 +189,7 @@
                         </StackPanel>
                     </Button>
 
-                    <Rectangle Width="1" Height="16" Fill="#374151" Margin="3,0" />
+                    <Rectangle Width="1" Height="16" Fill="#374151" Margin="2,0" />
 
                     <!-- Toggle Right Sidebar (Outline) Button -->
                     <Button Command="{Binding ToggleRightSidebarCommand}"

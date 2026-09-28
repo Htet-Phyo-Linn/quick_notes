@@ -49,7 +49,12 @@ namespace QuickNote.Avalonia.Views
                 _isUpdatingEditorText = true;
                 try
                 {
-                    if (NotionEditor != null) NotionEditor.LoadMarkdown(markdown, force: true);
+                    if (NotionEditor != null)
+                    {
+                        NotionEditor.NotesRoot = _viewModel.NotesRoot;
+                        NotionEditor.CurrentNoteFolderPath = _viewModel.CurrentNote?.FolderPath;
+                        NotionEditor.LoadMarkdown(markdown, force: true);
+                    }
                     if (TextEditor != null && TextEditor.Text != markdown)
                         TextEditor.Text = markdown;
                 }

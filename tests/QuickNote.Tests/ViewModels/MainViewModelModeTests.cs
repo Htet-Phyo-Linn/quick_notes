@@ -63,11 +63,12 @@ namespace QuickNote.Tests.ViewModels
         }
 
         [Fact]
-        public void SplitMode_Toggle_InitializesSecondaryNoteAndCloses()
+        public async Task SplitMode_Toggle_InitializesSecondaryNoteAndCloses()
         {
             var (vm, tempDir) = CreateViewModel();
             try
             {
+                await Task.Delay(100);
                 Assert.False(vm.IsSplitMode);
 
                 var note = new NoteDocument
