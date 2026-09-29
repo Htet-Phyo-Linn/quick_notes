@@ -17,6 +17,9 @@ namespace QuickNote.Avalonia.Notion
         public event Action<string>? MarkdownChanged;
         public event Action<string>? ShortcutTriggered;
         public event Action? EditorFocused;
+        public event Action<string>? WordIgnored;
+
+        public bool IsSpellCheckEnabled { get; set; } = false;
 
         public NotionEditorControl()
         {
@@ -98,6 +101,7 @@ namespace QuickNote.Avalonia.Notion
                     if (msgType == "ready")
                     {
                         _isEditorReady = true;
+                        _ = SetSpellCheckAsync(IsSpellCheckEnabled);
                         // Capture before async dispatch
                         var contentToRestore = _pendingMarkdown ?? _currentMarkdown;
                         _pendingMarkdown = null;
@@ -163,6 +167,17 @@ namespace QuickNote.Avalonia.Notion
                         {
                             var src = srcProp.GetString() ?? string.Empty;
                             Dispatcher.UIThread.Post(() => LoadAndRespondImage(src));
+                        }
+                    }
+                    else if (msgType == "ignoreWord")
+                    {
+                        if (root.TryGetProperty("word", out var wordProp))
+                        {
+                            var word = wordProp.GetString();
+                            if (!string.IsNullOrWhiteSpace(word))
+                            {
+                                Dispatcher.UIThread.Post(() => WordIgnored?.Invoke(word.Trim()));
+                            }
                         }
                     }
                 }
@@ -494,6 +509,19 @@ namespace QuickNote.Avalonia.Notion
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"[NotionEditorControl] Failed to invoke window.print(): {ex.Message}");
+            }
+        }
+
+        public async Task SetSpellCheckAsync(bool enabled)
+        {
+            IsSpellCheckEnabled = enabled;
+            try
+            {
+                await WebViewControl.InvokeScript($"if (window.setSpellCheck) {{ window.setSpellCheck({(enabled ? "true" : "false")}); }}");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[NotionEditorControl] Failed to set spellcheck: {ex.Message}");
             }
         }
     }

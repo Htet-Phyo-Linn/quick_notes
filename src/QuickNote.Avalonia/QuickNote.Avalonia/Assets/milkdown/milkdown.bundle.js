@@ -95234,7 +95234,7 @@
           return app;
         },
         mixin(mixin2) {
-          if (true) {
+          if (__VUE_OPTIONS_API__) {
             if (!context.mixins.includes(mixin2)) {
               context.mixins.push(mixin2);
             } else if (true) {
@@ -95454,7 +95454,7 @@ If you want to remount the same app, move your app creation logic into a factory
     }
   }
   function normalizeEmitsOptions(comp, appContext, asMixin = false) {
-    const cache4 = asMixin ? mixinEmitsCache : appContext.emitsCache;
+    const cache4 = __VUE_OPTIONS_API__ && asMixin ? mixinEmitsCache : appContext.emitsCache;
     const cached = cache4.get(comp);
     if (cached !== void 0) {
       return cached;
@@ -95462,7 +95462,7 @@ If you want to remount the same app, move your app creation logic into a factory
     const raw3 = comp.emits;
     let normalized = {};
     let hasExtends = false;
-    if (!isFunction3(comp)) {
+    if (__VUE_OPTIONS_API__ && !isFunction3(comp)) {
       const extendEmits = (raw22) => {
         const normalizedFromExtend = normalizeEmitsOptions(raw22, appContext, true);
         if (normalizedFromExtend) {
@@ -95967,7 +95967,7 @@ If you want to remount the same app, move your app creation logic into a factory
     return value;
   }
   function normalizePropsOptions(comp, appContext, asMixin = false) {
-    const cache4 = asMixin ? mixinPropsCache : appContext.propsCache;
+    const cache4 = __VUE_OPTIONS_API__ && asMixin ? mixinPropsCache : appContext.propsCache;
     const cached = cache4.get(comp);
     if (cached) {
       return cached;
@@ -95976,7 +95976,7 @@ If you want to remount the same app, move your app creation logic into a factory
     const normalized = {};
     const needCastKeys = [];
     let hasExtends = false;
-    if (!isFunction3(comp)) {
+    if (__VUE_OPTIONS_API__ && !isFunction3(comp)) {
       const extendProps = (raw22) => {
         hasExtends = true;
         const [props, keys3] = normalizePropsOptions(raw22, appContext, true);
@@ -96217,15 +96217,15 @@ If you want to remount the same app, move your app creation logic into a factory
   }
   function initFeatureFlags() {
     const needWarn = [];
-    if (false) {
+    if (typeof __VUE_OPTIONS_API__ !== "boolean") {
       needWarn.push(`__VUE_OPTIONS_API__`);
       getGlobalThis().__VUE_OPTIONS_API__ = true;
     }
-    if (false) {
+    if (typeof __VUE_PROD_DEVTOOLS__ !== "boolean") {
       needWarn.push(`__VUE_PROD_DEVTOOLS__`);
       getGlobalThis().__VUE_PROD_DEVTOOLS__ = false;
     }
-    if (false) {
+    if (typeof __VUE_PROD_HYDRATION_MISMATCH_DETAILS__ !== "boolean") {
       needWarn.push(`__VUE_PROD_HYDRATION_MISMATCH_DETAILS__`);
       getGlobalThis().__VUE_PROD_HYDRATION_MISMATCH_DETAILS__ = false;
     }
@@ -98381,7 +98381,7 @@ Component that was made reactive: `,
     const Component = instance.type;
     if (!instance.render) {
       if (!isSSR && compile && !Component.render) {
-        const template = Component.template || resolveMergedOptions(instance).template;
+        const template = Component.template || __VUE_OPTIONS_API__ && resolveMergedOptions(instance).template;
         if (template) {
           if (true) {
             startMeasure(instance, `compile`);
@@ -98409,7 +98409,7 @@ Component that was made reactive: `,
         installWithProxy(instance);
       }
     }
-    if (true) {
+    if (__VUE_OPTIONS_API__ && true) {
       const reset = setCurrentInstance(instance);
       pauseTracking();
       try {
@@ -98923,12 +98923,12 @@ Component that was made reactive: `,
         $root: (i4) => getPublicInstance(i4.root),
         $host: (i4) => i4.ce,
         $emit: (i4) => i4.emit,
-        $options: (i4) => true ? resolveMergedOptions(i4) : i4.type,
+        $options: (i4) => __VUE_OPTIONS_API__ ? resolveMergedOptions(i4) : i4.type,
         $forceUpdate: (i4) => i4.f || (i4.f = () => {
           queueJob(i4.update);
         }),
         $nextTick: (i4) => i4.n || (i4.n = nextTick.bind(i4.proxy)),
-        $watch: (i4) => true ? instanceWatch.bind(i4) : NOOP
+        $watch: (i4) => __VUE_OPTIONS_API__ ? instanceWatch.bind(i4) : NOOP
       });
       isReservedPrefix = (key6) => key6 === "_" || key6 === "$";
       hasSetupBinding = (state, key6) => state !== EMPTY_OBJ && !state.__isScriptSetup && hasOwn(state, key6);
@@ -98957,7 +98957,7 @@ Component that was made reactive: `,
             } else if (hasSetupBinding(setupState, key6)) {
               accessCache[key6] = 1;
               return setupState[key6];
-            } else if (data2 !== EMPTY_OBJ && hasOwn(data2, key6)) {
+            } else if (__VUE_OPTIONS_API__ && data2 !== EMPTY_OBJ && hasOwn(data2, key6)) {
               accessCache[key6] = 2;
               return data2[key6];
             } else if (hasOwn(props, key6)) {
@@ -98966,7 +98966,7 @@ Component that was made reactive: `,
             } else if (ctx !== EMPTY_OBJ && hasOwn(ctx, key6)) {
               accessCache[key6] = 4;
               return ctx[key6];
-            } else if (shouldCacheAccess) {
+            } else if (!__VUE_OPTIONS_API__ || shouldCacheAccess) {
               accessCache[key6] = 0;
             }
           }
@@ -99019,7 +99019,7 @@ Component that was made reactive: `,
           } else if (setupState.__isScriptSetup && hasOwn(setupState, key6)) {
             warn$1(`Cannot mutate <script setup> binding "${key6}" from Options API.`);
             return false;
-          } else if (data2 !== EMPTY_OBJ && hasOwn(data2, key6)) {
+          } else if (__VUE_OPTIONS_API__ && data2 !== EMPTY_OBJ && hasOwn(data2, key6)) {
             data2[key6] = value;
             return true;
           } else if (hasOwn(instance.props, key6)) {
@@ -99048,7 +99048,7 @@ Component that was made reactive: `,
           _: { data: data2, setupState, accessCache, ctx, appContext, props, type: type7 }
         }, key6) {
           let cssModules;
-          return !!(accessCache[key6] || data2 !== EMPTY_OBJ && key6[0] !== "$" && hasOwn(data2, key6) || hasSetupBinding(setupState, key6) || hasOwn(props, key6) || hasOwn(ctx, key6) || hasOwn(publicPropertiesMap, key6) || hasOwn(appContext.config.globalProperties, key6) || (cssModules = type7.__cssModules) && cssModules[key6]);
+          return !!(accessCache[key6] || __VUE_OPTIONS_API__ && data2 !== EMPTY_OBJ && key6[0] !== "$" && hasOwn(data2, key6) || hasSetupBinding(setupState, key6) || hasOwn(props, key6) || hasOwn(ctx, key6) || hasOwn(publicPropertiesMap, key6) || hasOwn(appContext.config.globalProperties, key6) || (cssModules = type7.__cssModules) && cssModules[key6]);
         },
         defineProperty(target, key6, descriptor) {
           if (descriptor.get != null) {
@@ -136644,6 +136644,7 @@ Expected function or array of functions, received type ${typeof value}.`
           crepeInstance.editor.action((ctx) => {
             editorView2 = ctx.get(editorViewCtx);
           });
+          applySpellCheck(false);
         } catch (err) {
           console.error("Failed to create Crepe editor:", err);
         }
@@ -136760,12 +136761,25 @@ Expected function or array of functions, received type ${typeof value}.`
             }
           }
         };
+        window.setSpellCheck = (enabled) => {
+          applySpellCheck(enabled);
+        };
         if (window.__pendingMarkdown !== void 0) {
           const pending = window.__pendingMarkdown;
           delete window.__pendingMarkdown;
           window.setMarkdown(pending);
         }
         sendMessage({ type: "ready" });
+      }
+      function applySpellCheck(enabled) {
+        const isEnabled = !!enabled;
+        const pm = document.querySelector(".ProseMirror");
+        if (pm) pm.setAttribute("spellcheck", isEnabled ? "true" : "false");
+        const root3 = document.getElementById("editor");
+        if (root3) root3.setAttribute("spellcheck", isEnabled ? "true" : "false");
+        const container = document.getElementById("editor-container");
+        if (container) container.setAttribute("spellcheck", isEnabled ? "true" : "false");
+        document.body.setAttribute("spellcheck", isEnabled ? "true" : "false");
       }
       var contextMenuX = 0;
       var contextMenuY = 0;
@@ -136795,6 +136809,21 @@ Expected function or array of functions, received type ${typeof value}.`
       function showContextMenu(x, y) {
         const menu2 = document.getElementById("format-menu");
         if (!menu2) return;
+        const sel = window.getSelection() ? window.getSelection().toString().trim() : "";
+        const ignoreBtn = document.getElementById("menu-ignore-word");
+        const ignoreDiv = document.getElementById("menu-ignore-divider");
+        if (ignoreBtn) {
+          if (sel && sel.length > 0 && sel.length <= 40 && !sel.includes("\n")) {
+            ignoreBtn.style.display = "flex";
+            if (ignoreDiv) ignoreDiv.style.display = "block";
+            const label = ignoreBtn.querySelector(".label");
+            if (label) label.textContent = `Ignore "${sel.length > 14 ? sel.substring(0, 14) + "..." : sel}"`;
+            ignoreBtn.dataset.word = sel;
+          } else {
+            ignoreBtn.style.display = "none";
+            if (ignoreDiv) ignoreDiv.style.display = "none";
+          }
+        }
         menu2.style.display = "block";
         const menuWidth = 230;
         const menuHeight = menu2.offsetHeight || 380;
@@ -136901,6 +136930,13 @@ Expected function or array of functions, received type ${typeof value}.`
             break;
           case "inline-code":
             toggleMark2("code_inline", inlineCodeSchema);
+            break;
+          case "ignore-word":
+            const ignoreBtn = document.getElementById("menu-ignore-word");
+            const wordToIgnore = ignoreBtn && ignoreBtn.dataset.word || (window.getSelection() ? window.getSelection().toString().trim() : "");
+            if (wordToIgnore) {
+              sendMessage({ type: "ignoreWord", word: wordToIgnore });
+            }
             break;
         }
       }

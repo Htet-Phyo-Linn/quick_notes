@@ -126,13 +126,26 @@ namespace QuickNote.Avalonia.ViewModels
             {
                 try
                 {
-                    await _folderService.DeleteFolderAsync(node.FullPath);
+                    var trashItem = await _trashBinService.MoveToTrashAsync(node.FullPath);
+                    if (trashItem == null)
+                    {
+                        await _folderService.DeleteFolderAsync(node.FullPath);
+                    }
                     await RefreshFolderTreeAsync();
                     StatusText = "Folder deleted";
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
-                    StatusText = $"Delete folder failed: {ex.Message}";
+                    try
+                    {
+                        await _folderService.DeleteFolderAsync(node.FullPath);
+                        await RefreshFolderTreeAsync();
+                        StatusText = "Folder deleted";
+                    }
+                    catch (Exception ex2)
+                    {
+                        StatusText = $"Delete folder failed: {ex2.Message}";
+                    }
                 }
             }
         }

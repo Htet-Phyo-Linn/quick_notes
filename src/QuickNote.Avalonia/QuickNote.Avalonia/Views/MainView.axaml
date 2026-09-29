@@ -38,6 +38,8 @@
         <StreamGeometry x:Key="IconUser">M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z</StreamGeometry>
         <StreamGeometry x:Key="IconBuilding">M12 7V3H2v18h20V7H12zM6 19H4v-2h2v2zm0-4H4v-2h2v2zm0-4H4V9h2v2zm0-4H4V5h2v2zm4 12H8v-2h2v2zm0-4H8v-2h2v2zm0-4H8V9h2v2zm0-4H8V5h2v2zm10 12h-8v-2h2v-2h-2v-2h2v-2h-2V9h8v10zm-2-8h-2v2h2v-2zm0 4h-2v2h2v-2z</StreamGeometry>
         <StreamGeometry x:Key="IconCheck">M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z</StreamGeometry>
+        <StreamGeometry x:Key="IconSettings">M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z</StreamGeometry>
+        <StreamGeometry x:Key="IconSpellCheck">M12.45 16h2.09L9.43 3H7.57L2.46 16h2.09l1.12-3h5.66l1.12 3zm-6.01-4.72L8.5 5.88l2.06 5.4H6.44zM21.5 9l-7 7-3.5-3.5 1.41-1.41L14.5 13.17l5.59-5.59L21.5 9z</StreamGeometry>
     </UserControl.Resources>
 
     <UserControl.Styles>
@@ -202,6 +204,16 @@
                             Padding="6,5"
                             ToolTip.Tip="Toggle Outline Sidebar">
                         <PathIcon Data="{StaticResource IconSidebarRight}" Width="15" Height="15" />
+                    </Button>
+
+                    <!-- Settings & Profiles Button -->
+                    <Button Command="{Binding ShowProfileDialogCommand}"
+                            Background="Transparent"
+                            Foreground="#9ca3af"
+                            CornerRadius="6"
+                            Padding="6,5"
+                            ToolTip.Tip="Settings, Storage Profiles &amp; Dictionary">
+                        <PathIcon Data="{StaticResource IconSettings}" Width="15" Height="15" />
                     </Button>
                 </StackPanel>
             </Grid>
@@ -914,72 +926,237 @@
             </Border>
         </Grid>
 
-        <!-- Storage Profile & Cloud Sync Switcher Dialog -->
+        <!-- Settings, Storage Profile & Dictionary Dialog -->
         <Grid Grid.Row="0" Grid.RowSpan="4" Background="#80000000" IsVisible="{Binding IsProfileDialogVisible}">
-            <Border Width="530" MaxHeight="560" Background="#242424" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="8" Padding="22" HorizontalAlignment="Center" VerticalAlignment="Center">
-                <Grid RowDefinitions="Auto,Auto,*,Auto,Auto">
-                    <!-- Title & Subtitle -->
-                    <StackPanel Grid.Row="0" Margin="0,0,0,14">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <PathIcon Data="{StaticResource IconCloud}" Width="16" Height="16" Foreground="#3b82f6" VerticalAlignment="Center" />
-                            <TextBlock Text="Storage Profile &amp; Account Switcher" FontWeight="Bold" FontSize="16" Foreground="#f3f4f6" VerticalAlignment="Center" />
-                        </StackPanel>
-                        <TextBlock Text="Select where QuickNote stores and synchronizes your notes." Foreground="#9ca3af" FontSize="12.5" Margin="0,4,0,0" />
-                    </StackPanel>
-
-                    <!-- Profile List Header -->
-                    <TextBlock Grid.Row="1" Text="AVAILABLE STORAGE PROFILES" FontWeight="Bold" FontSize="11" Foreground="#6b7280" Margin="0,0,0,6" />
-
-                    <!-- Profile List -->
-                    <Border Grid.Row="2" Background="#1a1a1a" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="6" MaxHeight="240" Margin="0,0,0,14">
-                        <ListBox ItemsSource="{Binding AvailableProfiles}" SelectedItem="{Binding SelectedProfile, Mode=TwoWay}" Background="Transparent">
-                            <ListBox.ItemTemplate>
-                                <DataTemplate DataType="vm:ProfileItemViewModel">
-                                    <Grid ColumnDefinitions="Auto,*,Auto" Margin="4,6">
-                                        <!-- Account Icon -->
-                                        <Border Grid.Column="0" Width="34" Height="34" CornerRadius="6" Background="#27272a" Margin="0,0,12,0" VerticalAlignment="Center">
-                                            <PathIcon Data="{StaticResource IconCloud}" Width="15" Height="15" Foreground="{Binding IconForeground}" VerticalAlignment="Center" HorizontalAlignment="Center" />
-                                        </Border>
-
-                                        <!-- Account Name & Path -->
-                                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
-                                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                                <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="13.5" Foreground="#f3f4f6" />
-                                                <Border Background="{Binding BadgeBackground}" CornerRadius="4" Padding="6,1,6,1" VerticalAlignment="Center">
-                                                    <TextBlock Text="{Binding AccountType}" FontSize="11" FontWeight="Medium" Foreground="{Binding BadgeForeground}" />
-                                                </Border>
-                                            </StackPanel>
-                                            <TextBlock Text="{Binding Path}" FontSize="11.5" Foreground="#9ca3af" TextTrimming="CharacterEllipsis" MaxWidth="320" />
-                                        </StackPanel>
-
-                                        <!-- Active Badge -->
-                                        <Border Grid.Column="2" IsVisible="{Binding IsActive}" Background="#064e3b" BorderBrush="#059669" BorderThickness="1" CornerRadius="10" Padding="8,2" VerticalAlignment="Center" Margin="8,0,4,0">
-                                            <StackPanel Orientation="Horizontal" Spacing="4">
-                                                <PathIcon Data="{StaticResource IconCheck}" Width="10" Height="10" Foreground="#34d399" VerticalAlignment="Center" />
-                                                <TextBlock Text="Active" FontSize="11" FontWeight="SemiBold" Foreground="#34d399" VerticalAlignment="Center" />
-                                            </StackPanel>
-                                        </Border>
-                                    </Grid>
-                                </DataTemplate>
-                            </ListBox.ItemTemplate>
-                        </ListBox>
-                    </Border>
-
-                    <!-- Migration Checkbox -->
-                    <Border Grid.Row="3" Background="#1f1f23" BorderBrush="#374151" BorderThickness="1" CornerRadius="6" Padding="12,10" Margin="0,0,0,16">
-                        <CheckBox IsChecked="{Binding MigrateNotesOnSwitch, Mode=TwoWay}" HorizontalAlignment="Stretch">
-                            <StackPanel Spacing="2" Margin="6,0,0,0">
-                                <TextBlock Text="Copy existing notes &amp; attachments to selected profile" FontWeight="Medium" FontSize="13" Foreground="#e5e7eb" />
-                                <TextBlock Text="Copies all folders, notes, and .assets images from the current profile to the target folder." FontSize="11" Foreground="#9ca3af" TextWrapping="Wrap" />
+            <Border Width="580" MaxHeight="600" Background="#242424" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="8" Padding="22" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <Grid RowDefinitions="Auto,Auto,*,Auto">
+                    <!-- Title & Header -->
+                    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,14">
+                        <StackPanel Grid.Column="0">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <PathIcon Data="{StaticResource IconSettings}" Width="16" Height="16" Foreground="#3b82f6" VerticalAlignment="Center" />
+                                <TextBlock Text="Settings &amp; Storage Profiles" FontWeight="Bold" FontSize="16" Foreground="#f3f4f6" VerticalAlignment="Center" />
                             </StackPanel>
-                        </CheckBox>
+                            <TextBlock Text="Manage storage accounts, cloud synchronization, and spell check dictionary." Foreground="#9ca3af" FontSize="12" Margin="0,4,0,0" />
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Tab Switcher Bar -->
+                    <Border Grid.Row="1" Background="#18181b" CornerRadius="6" Padding="3" Margin="0,0,0,14">
+                        <Grid ColumnDefinitions="*,*">
+                            <!-- Tab 1: Storage Profiles Button -->
+                            <Button Grid.Column="0"
+                                    Command="{Binding ShowProfileTabCommand}"
+                                    Background="{Binding !ProfileDialogTabIndex, Converter={x:Static ObjectConverters.IsNull}}"
+                                    BorderThickness="0"
+                                    CornerRadius="4"
+                                    Padding="10,6"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Center"
+                                    Cursor="Hand">
+                                <Button.Styles>
+                                    <Style Selector="Button">
+                                        <Setter Property="Background" Value="Transparent" />
+                                    </Style>
+                                    <Style Selector="Button:pointerover">
+                                        <Setter Property="Background" Value="#27272a" />
+                                    </Style>
+                                </Button.Styles>
+                                <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
+                                    <PathIcon Data="{StaticResource IconCloud}" Width="13" Height="13" Foreground="#60a5fa" VerticalAlignment="Center" />
+                                    <TextBlock Text="Storage Profiles" FontSize="12.5" FontWeight="SemiBold" Foreground="#f3f4f6" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+
+                            <!-- Tab 2: Spell Check & Dictionary Button -->
+                            <Button Grid.Column="1"
+                                    Command="{Binding ShowDictionaryTabCommand}"
+                                    BorderThickness="0"
+                                    CornerRadius="4"
+                                    Padding="10,6"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Center"
+                                    Cursor="Hand">
+                                <Button.Styles>
+                                    <Style Selector="Button">
+                                        <Setter Property="Background" Value="Transparent" />
+                                    </Style>
+                                    <Style Selector="Button:pointerover">
+                                        <Setter Property="Background" Value="#27272a" />
+                                    </Style>
+                                </Button.Styles>
+                                <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
+                                    <PathIcon Data="{StaticResource IconSpellCheck}" Width="13" Height="13" Foreground="#34d399" VerticalAlignment="Center" />
+                                    <TextBlock Text="Spell Check &amp; Dictionary" FontSize="12.5" FontWeight="SemiBold" Foreground="#f3f4f6" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                        </Grid>
                     </Border>
+
+                    <!-- TAB 1 CONTENT: Storage Profiles -->
+                    <Grid Grid.Row="2" RowDefinitions="Auto,*,Auto" IsVisible="{Binding !ProfileDialogTabIndex}">
+                        <!-- Profile List Header -->
+                        <TextBlock Grid.Row="0" Text="AVAILABLE STORAGE PROFILES" FontWeight="Bold" FontSize="11" Foreground="#6b7280" Margin="0,0,0,6" />
+
+                        <!-- Profile List -->
+                        <Border Grid.Row="1" Background="#18181b" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="6" MaxHeight="220" Margin="0,0,0,12">
+                            <ListBox ItemsSource="{Binding AvailableProfiles}" SelectedItem="{Binding SelectedProfile, Mode=TwoWay}" Background="Transparent">
+                                <ListBox.Styles>
+                                    <Style Selector="ListBoxItem">
+                                        <Setter Property="Padding" Value="8,6" />
+                                        <Setter Property="Margin" Value="2,2" />
+                                        <Setter Property="CornerRadius" Value="6" />
+                                        <Setter Property="Background" Value="Transparent" />
+                                    </Style>
+                                    <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
+                                        <Setter Property="Background" Value="#27272a" />
+                                    </Style>
+                                    <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+                                        <Setter Property="Background" Value="#1e293b" />
+                                        <Setter Property="BorderBrush" Value="#3b82f6" />
+                                        <Setter Property="BorderThickness" Value="1" />
+                                    </Style>
+                                </ListBox.Styles>
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate DataType="vm:ProfileItemViewModel">
+                                        <Grid ColumnDefinitions="Auto,*,Auto" Margin="2,4">
+                                            <!-- Account Icon -->
+                                            <Border Grid.Column="0" Width="36" Height="36" CornerRadius="6" Background="#27272a" Margin="0,0,10,0" VerticalAlignment="Center">
+                                                <PathIcon Data="{StaticResource IconCloud}" Width="16" Height="16" Foreground="{Binding IconForeground}" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                                            </Border>
+
+                                            <!-- Account Name & Path (Vertical Stack with TextTrimming to prevent clipping) -->
+                                            <Grid Grid.Column="1" RowDefinitions="Auto,Auto" VerticalAlignment="Center" Margin="0,0,8,0">
+                                                <TextBlock Grid.Row="0" Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="13" Foreground="#f3f4f6" TextTrimming="CharacterEllipsis" MaxWidth="360" />
+                                                <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="6" Margin="0,2,0,0">
+                                                    <Border Background="{Binding BadgeBackground}" CornerRadius="3" Padding="5,1,5,1" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding AccountType}" FontSize="10.5" FontWeight="Medium" Foreground="{Binding BadgeForeground}" />
+                                                    </Border>
+                                                    <TextBlock Text="{Binding Path}" FontSize="11" Foreground="#9ca3af" TextTrimming="CharacterEllipsis" MaxWidth="280" VerticalAlignment="Center" />
+                                                </StackPanel>
+                                            </Grid>
+
+                                            <!-- Active Badge -->
+                                            <Border Grid.Column="2" IsVisible="{Binding IsActive}" Background="#064e3b" BorderBrush="#059669" BorderThickness="1" CornerRadius="10" Padding="8,2" VerticalAlignment="Center" Margin="4,0,2,0">
+                                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                                    <PathIcon Data="{StaticResource IconCheck}" Width="10" Height="10" Foreground="#34d399" VerticalAlignment="Center" />
+                                                    <TextBlock Text="Active" FontSize="11" FontWeight="SemiBold" Foreground="#34d399" VerticalAlignment="Center" />
+                                                </StackPanel>
+                                            </Border>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Border>
+
+                        <!-- Migration Checkbox -->
+                        <Border Grid.Row="2" Background="#1f1f23" BorderBrush="#374151" BorderThickness="1" CornerRadius="6" Padding="12,10" Margin="0,0,0,14">
+                            <CheckBox IsChecked="{Binding MigrateNotesOnSwitch, Mode=TwoWay}" HorizontalAlignment="Stretch">
+                                <StackPanel Spacing="2" Margin="6,0,0,0">
+                                    <TextBlock Text="Copy existing notes &amp; attachments to selected profile" FontWeight="Medium" FontSize="13" Foreground="#e5e7eb" />
+                                    <TextBlock Text="Copies all folders, notes, and .assets images from the current profile to the target folder." FontSize="11" Foreground="#9ca3af" TextWrapping="Wrap" />
+                                </StackPanel>
+                            </CheckBox>
+                        </Border>
+                    </Grid>
+
+                    <!-- TAB 2 CONTENT: Spell Check & Custom Dictionary -->
+                    <Grid Grid.Row="2" RowDefinitions="Auto,Auto,*" IsVisible="{Binding ProfileDialogTabIndex}">
+                        <!-- Spell Check Toggle Card -->
+                        <Border Grid.Row="0" Background="#1f1f23" BorderBrush="#374151" BorderThickness="1" CornerRadius="6" Padding="14,12" Margin="0,0,0,14">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <StackPanel Grid.Column="0" Spacing="3" VerticalAlignment="Center" Margin="0,0,12,0">
+                                    <TextBlock Text="Editor Spell Check" FontWeight="SemiBold" FontSize="13.5" Foreground="#f3f4f6" />
+                                    <TextBlock Text="Show red wavy squiggles for misspelled words. Turn off to avoid underlines on technical terms (WinRM, LDAPS, PowerShell)." FontSize="11.5" Foreground="#9ca3af" TextWrapping="Wrap" />
+                                </StackPanel>
+                                <ToggleSwitch Grid.Column="1"
+                                              IsChecked="{Binding IsSpellCheckEnabled, Mode=TwoWay}"
+                                              OnContent="Enabled"
+                                              OffContent="Disabled"
+                                              VerticalAlignment="Center" />
+                            </Grid>
+                        </Border>
+
+                        <!-- Add Ignored Word Input -->
+                        <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="0,0,0,12">
+                            <TextBox Grid.Column="0"
+                                     Text="{Binding NewIgnoredWordInput, Mode=TwoWay}"
+                                     PlaceholderText="Add word or technical term (e.g. WinRM, ldaps, kubectl)..."
+                                     Background="#18181b"
+                                     Foreground="#f3f4f6"
+                                     BorderBrush="#3f3f46"
+                                     BorderThickness="1"
+                                     CornerRadius="6,0,0,6"
+                                     Padding="10,7"
+                                     FontSize="13"
+                                     KeyDown="NewIgnoredWord_KeyDown" />
+                            <Button Grid.Column="1"
+                                    Command="{Binding AddIgnoredWordCommand}"
+                                    Content="Add to Dictionary"
+                                    Background="#2563eb"
+                                    Foreground="White"
+                                    BorderThickness="0"
+                                    CornerRadius="0,6,6,0"
+                                    Padding="14,7"
+                                    FontWeight="SemiBold"
+                                    FontSize="12.5"
+                                    Cursor="Hand" />
+                        </Grid>
+
+                        <!-- Custom Dictionary Words List -->
+                        <Border Grid.Row="2" Background="#18181b" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="6" Padding="12" MinHeight="140" MaxHeight="180" Margin="0,0,0,14">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <StackPanel Spacing="8">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <TextBlock Grid.Column="0" Text="CUSTOM IGNORED WORDS" FontWeight="Bold" FontSize="11" Foreground="#6b7280" />
+                                        <TextBlock Grid.Column="1" Text="{Binding IgnoredWords.Count, StringFormat='{}{0} words'}" FontSize="11" Foreground="#9ca3af" />
+                                    </Grid>
+
+                                    <TextBlock Text="No custom words added. Right-click any word in the editor to ignore it, or type words above."
+                                               Foreground="#6b7280" FontSize="12" FontStyle="Italic"
+                                               IsVisible="{Binding !IgnoredWords.Count}" Margin="0,8,0,0" />
+
+                                    <ItemsControl ItemsSource="{Binding IgnoredWords}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <WrapPanel Orientation="Horizontal" />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate DataType="x:String">
+                                                <Border Background="#27272a" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="12" Padding="8,3" Margin="0,0,6,6">
+                                                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding}" Foreground="#e5e7eb" FontSize="12" VerticalAlignment="Center" />
+                                                        <Button Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).RemoveIgnoredWordCommand}"
+                                                                CommandParameter="{Binding}"
+                                                                Content="✕"
+                                                                Background="Transparent"
+                                                                BorderThickness="0"
+                                                                Foreground="#ef4444"
+                                                                FontSize="10"
+                                                                Padding="2,0"
+                                                                Cursor="Hand"
+                                                                VerticalAlignment="Center"
+                                                                ToolTip.Tip="Remove from dictionary" />
+                                                    </StackPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Border>
+                    </Grid>
 
                     <!-- Action Buttons -->
-                    <StackPanel Grid.Row="4" Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+                    <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
                         <Button Content="Cancel" Command="{Binding CancelProfileDialogCommand}"
                                 Background="Transparent" Foreground="#9ca3af" BorderThickness="0" Padding="14,7" Cursor="Hand" />
                         <Button Content="Switch Profile" Command="{Binding ConfirmProfileSwitchCommand}"
+                                IsVisible="{Binding !ProfileDialogTabIndex}"
+                                Background="#2563eb" Foreground="White" BorderThickness="0" CornerRadius="5" Padding="18,7" FontWeight="SemiBold" Cursor="Hand" />
+                        <Button Content="Done" Command="{Binding CancelProfileDialogCommand}"
+                                IsVisible="{Binding ProfileDialogTabIndex}"
                                 Background="#2563eb" Foreground="White" BorderThickness="0" CornerRadius="5" Padding="18,7" FontWeight="SemiBold" Cursor="Hand" />
                     </StackPanel>
                 </Grid>

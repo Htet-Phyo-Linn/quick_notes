@@ -166,9 +166,41 @@ namespace QuickNote.Core.Services
         {
             if (Directory.Exists(folderPath))
             {
-                Directory.Delete(folderPath, recursive: true);
+                int retries = 5;
+                while (true)
+                {
+                    try
+                    {
+                        var dirInfo = new DirectoryInfo(folderPath);
+                        NormalizeAttributesRecursively(dirInfo);
+                        dirInfo.Delete(recursive: true);
+                        break;
+                    }
+                    catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+                    {
+                        if (--retries <= 0) throw;
+                        System.Threading.Thread.Sleep(150);
+                    }
+                }
             }
             return Task.CompletedTask;
+        }
+
+        private static void NormalizeAttributesRecursively(DirectoryInfo dir)
+        {
+            try
+            {
+                foreach (var file in dir.GetFiles())
+                {
+                    try { file.Attributes = FileAttributes.Normal; } catch { }
+                }
+                foreach (var subDir in dir.GetDirectories())
+                {
+                    NormalizeAttributesRecursively(subDir);
+                }
+                dir.Attributes = FileAttributes.Normal;
+            }
+            catch { }
         }
 
         public Task<string> MoveItemAsync(string sourcePath, string targetDirectoryPath)

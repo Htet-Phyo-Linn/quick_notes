@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "esbuild src/editor.js --bundle --outfile=dist/milkdown.bundle.js --format=iife --loader:.woff=dataurl --loader:.woff2=dataurl --loader:.ttf=dataurl",
+    "test": "node test_editor.js"
   },
   "keywords": [],
   "type": "commonjs",

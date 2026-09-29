@@ -546,6 +546,7 @@ async function init() {
     crepeInstance.editor.action((ctx) => {
       editorView = ctx.get(editorViewCtx);
     });
+    applySpellCheck(false);
   } catch (err) {
     console.error('Failed to create Crepe editor:', err);
   }
@@ -679,6 +680,10 @@ async function init() {
     }
   };
 
+  window.setSpellCheck = (enabled) => {
+    applySpellCheck(enabled);
+  };
+
   // If C# host invoked setMarkdown before Crepe finished creating, apply it now
   if (window.__pendingMarkdown !== undefined) {
     const pending = window.__pendingMarkdown;
@@ -688,6 +693,17 @@ async function init() {
 
   // Signal C# host that editor is loaded and ready
   sendMessage({ type: 'ready' });
+}
+
+function applySpellCheck(enabled) {
+  const isEnabled = !!enabled;
+  const pm = document.querySelector('.ProseMirror');
+  if (pm) pm.setAttribute('spellcheck', isEnabled ? 'true' : 'false');
+  const root = document.getElementById('editor');
+  if (root) root.setAttribute('spellcheck', isEnabled ? 'true' : 'false');
+  const container = document.getElementById('editor-container');
+  if (container) container.setAttribute('spellcheck', isEnabled ? 'true' : 'false');
+  document.body.setAttribute('spellcheck', isEnabled ? 'true' : 'false');
 }
 
 let contextMenuX = 0;
@@ -724,6 +740,23 @@ function setupContextMenu() {
 function showContextMenu(x, y) {
   const menu = document.getElementById('format-menu');
   if (!menu) return;
+
+  const sel = window.getSelection() ? window.getSelection().toString().trim() : '';
+  const ignoreBtn = document.getElementById('menu-ignore-word');
+  const ignoreDiv = document.getElementById('menu-ignore-divider');
+  if (ignoreBtn) {
+    if (sel && sel.length > 0 && sel.length <= 40 && !sel.includes('\n')) {
+      ignoreBtn.style.display = 'flex';
+      if (ignoreDiv) ignoreDiv.style.display = 'block';
+      const label = ignoreBtn.querySelector('.label');
+      if (label) label.textContent = `Ignore "${sel.length > 14 ? sel.substring(0, 14) + '...' : sel}"`;
+      ignoreBtn.dataset.word = sel;
+    } else {
+      ignoreBtn.style.display = 'none';
+      if (ignoreDiv) ignoreDiv.style.display = 'none';
+    }
+  }
+
   menu.style.display = 'block';
 
   const menuWidth = 230;
@@ -835,6 +868,13 @@ function executeAction(action) {
       break;
     case 'inline-code':
       toggleMark('code_inline', inlineCodeSchema);
+      break;
+    case 'ignore-word':
+      const ignoreBtn = document.getElementById('menu-ignore-word');
+      const wordToIgnore = (ignoreBtn && ignoreBtn.dataset.word) || (window.getSelection() ? window.getSelection().toString().trim() : '');
+      if (wordToIgnore) {
+        sendMessage({ type: 'ignoreWord', word: wordToIgnore });
+      }
       break;
   }
 }

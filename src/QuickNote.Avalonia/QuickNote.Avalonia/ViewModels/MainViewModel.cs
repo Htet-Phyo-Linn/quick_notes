@@ -89,6 +89,10 @@ namespace QuickNote.Avalonia.ViewModels
         [ObservableProperty] private ObservableCollection<ProfileItemViewModel> _availableProfiles = new();
         [ObservableProperty] private ProfileItemViewModel? _selectedProfile;
         [ObservableProperty] private bool _migrateNotesOnSwitch;
+        [ObservableProperty] private int _profileDialogTabIndex;
+        [ObservableProperty] private bool _isSpellCheckEnabled;
+        [ObservableProperty] private string _newIgnoredWordInput = string.Empty;
+        public ObservableCollection<string> IgnoredWords { get; } = new();
 
         // ── Multi-selection ──────────────────────────────────────────
         /// <summary>All currently selected nodes in the file tree (multi-select).</summary>
@@ -126,6 +130,49 @@ namespace QuickNote.Avalonia.ViewModels
         [RelayCommand] public void ToggleLeftSidebar()  => IsLeftSidebarVisible  = !IsLeftSidebarVisible;
         [RelayCommand] public void ToggleRightSidebar() => IsRightSidebarVisible = !IsRightSidebarVisible;
 
+        // ── Spell Check & Custom Dictionary Commands ───────────────────
+        [RelayCommand]
+        public async Task AddIgnoredWord(string? word)
+        {
+            var target = string.IsNullOrWhiteSpace(word) ? NewIgnoredWordInput : word;
+            if (string.IsNullOrWhiteSpace(target)) return;
+            var trimmed = target.Trim();
+            if (!IgnoredWords.Contains(trimmed, StringComparer.OrdinalIgnoreCase))
+            {
+                IgnoredWords.Add(trimmed);
+                _settingsService.Settings.IgnoredWords = IgnoredWords.ToList();
+                await _settingsService.SaveSettingsAsync();
+                NewIgnoredWordInput = string.Empty;
+                StatusText = $"Added \"{trimmed}\" to custom dictionary";
+            }
+        }
+
+        [RelayCommand]
+        public async Task RemoveIgnoredWord(string? word)
+        {
+            if (string.IsNullOrWhiteSpace(word)) return;
+            var existing = IgnoredWords.FirstOrDefault(w => string.Equals(w, word, StringComparison.OrdinalIgnoreCase));
+            if (existing != null)
+            {
+                IgnoredWords.Remove(existing);
+                _settingsService.Settings.IgnoredWords = IgnoredWords.ToList();
+                await _settingsService.SaveSettingsAsync();
+                StatusText = $"Removed \"{existing}\" from custom dictionary";
+            }
+        }
+
+        [RelayCommand]
+        public async Task ToggleSpellCheck()
+        {
+            IsSpellCheckEnabled = !IsSpellCheckEnabled;
+            _settingsService.Settings.IsSpellCheckEnabled = IsSpellCheckEnabled;
+            await _settingsService.SaveSettingsAsync();
+            StatusText = IsSpellCheckEnabled ? "Spell check enabled" : "Spell check disabled";
+        }
+
+        [RelayCommand] public void ShowProfileTab() => ProfileDialogTabIndex = 0;
+        [RelayCommand] public void ShowDictionaryTab() => ProfileDialogTabIndex = 1;
+
         // ── Constructor ───────────────────────────────────────────────
         public MainViewModel(
             INoteRepository noteRepository,
@@ -160,6 +207,18 @@ namespace QuickNote.Avalonia.ViewModels
                 _autoSaveTimer.Stop();
                 await SaveNoteAsync();
             };
+
+            _isSpellCheckEnabled = _settingsService.Settings.IsSpellCheckEnabled;
+            if (_settingsService.Settings.IgnoredWords != null)
+            {
+                foreach (var w in _settingsService.Settings.IgnoredWords)
+                {
+                    if (!string.IsNullOrWhiteSpace(w) && !IgnoredWords.Contains(w.Trim(), StringComparer.OrdinalIgnoreCase))
+                    {
+                        IgnoredWords.Add(w.Trim());
+                    }
+                }
+            }
 
             InitializeCloudSync();
             _ = InitializeAsync();

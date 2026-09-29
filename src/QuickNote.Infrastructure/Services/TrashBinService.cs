@@ -93,10 +93,35 @@ namespace QuickNote.Infrastructure.Services
             {
                 if (isDir)
                 {
-                    Directory.Move(path, trashPath);
+                    int retries = 3;
+                    while (true)
+                    {
+                        try
+                        {
+                            var dirInfo = new DirectoryInfo(path);
+                            NormalizeAttributes(dirInfo);
+                            Directory.Move(path, trashPath);
+                            break;
+                        }
+                        catch (Exception)
+                        {
+                            if (--retries <= 0)
+                            {
+                                // Fallback: copy and delete
+                                CopyAndClean(path, trashPath);
+                                break;
+                            }
+                            System.Threading.Thread.Sleep(100);
+                        }
+                    }
                 }
                 else
                 {
+                    try
+                    {
+                        File.SetAttributes(path, FileAttributes.Normal);
+                    }
+                    catch { }
                     File.Move(path, trashPath, overwrite: true);
                 }
 
@@ -118,6 +143,50 @@ namespace QuickNote.Infrastructure.Services
             {
                 return null;
             }
+        }
+
+        private static void NormalizeAttributes(DirectoryInfo dir)
+        {
+            try
+            {
+                foreach (var file in dir.GetFiles())
+                {
+                    try { file.Attributes = FileAttributes.Normal; } catch { }
+                }
+                foreach (var subDir in dir.GetDirectories())
+                {
+                    NormalizeAttributes(subDir);
+                }
+                dir.Attributes = FileAttributes.Normal;
+            }
+            catch { }
+        }
+
+        private static void CopyAndClean(string sourceDir, string targetDir)
+        {
+            var source = new DirectoryInfo(sourceDir);
+            var target = new DirectoryInfo(targetDir);
+            Directory.CreateDirectory(target.FullName);
+
+            foreach (var file in source.GetFiles())
+            {
+                var destFile = Path.Combine(target.FullName, file.Name);
+                file.CopyTo(destFile, true);
+                try { file.Attributes = FileAttributes.Normal; file.Delete(); } catch { }
+            }
+
+            foreach (var subDir in source.GetDirectories())
+            {
+                var nextTarget = target.CreateSubdirectory(subDir.Name);
+                CopyAndClean(subDir.FullName, nextTarget.FullName);
+            }
+
+            try
+            {
+                source.Attributes = FileAttributes.Normal;
+                source.Delete(true);
+            }
+            catch { }
         }
 
         public async Task<IEnumerable<TrashItem>> GetTrashItemsAsync()

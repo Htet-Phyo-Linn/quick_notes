@@ -55,6 +55,7 @@ namespace QuickNote.Avalonia.Views
                 {
                     NotionEditor.NotesRoot = _viewModel.NotesRoot;
                     NotionEditor.CurrentNoteFolderPath = _viewModel.CurrentNote?.FolderPath;
+                    NotionEditor.IsSpellCheckEnabled = _viewModel.IsSpellCheckEnabled;
                 }
 
                 if (_viewModel.EditorContent != null)
@@ -85,10 +86,12 @@ namespace QuickNote.Avalonia.Views
                 {
                     NotionEditor.NotesRoot = _viewModel.NotesRoot;
                     NotionEditor.CurrentNoteFolderPath = _viewModel.CurrentNote?.FolderPath;
+                    NotionEditor.IsSpellCheckEnabled = _viewModel.IsSpellCheckEnabled;
                 }
                 NotionEditor.MarkdownChanged      += NotionEditor_MarkdownChanged;
                 NotionEditor.ShortcutTriggered    += OnEditorShortcutTriggered;
                 NotionEditor.EditorFocused        += OnNotionEditorFocused;
+                NotionEditor.WordIgnored          += (word) => _ = _viewModel?.AddIgnoredWord(word);
                 if (_viewModel?.EditorContent != null)
                     NotionEditor.LoadMarkdown(_viewModel.EditorContent, force: true);
             }
@@ -167,6 +170,13 @@ namespace QuickNote.Avalonia.Views
                      e.PropertyName == nameof(MainViewModel.IsRightSidebarVisible))
             {
                 UpdateSidebarVisibility();
+            }
+            else if (e.PropertyName == nameof(MainViewModel.IsSpellCheckEnabled))
+            {
+                if (NotionEditor != null && _viewModel != null)
+                {
+                    _ = NotionEditor.SetSpellCheckAsync(_viewModel.IsSpellCheckEnabled);
+                }
             }
             else if (e.PropertyName == nameof(MainViewModel.IsRenameDialogVisible))
             {
@@ -411,6 +421,15 @@ namespace QuickNote.Avalonia.Views
                 await Task.Delay(150);
                 await NotionEditor.PrintOrExportPdfAsync();
                 if (_viewModel != null) _viewModel.StatusText = "Opened PDF Export / Print dialog.";
+            }
+        }
+
+        private void NewIgnoredWord_KeyDown(object? sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter && _viewModel != null)
+            {
+                e.Handled = true;
+                _ = _viewModel.AddIgnoredWord(null);
             }
         }
     }
