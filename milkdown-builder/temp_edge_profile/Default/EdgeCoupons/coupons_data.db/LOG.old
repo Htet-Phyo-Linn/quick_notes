@@ -1,10 +1,11 @@
-2026/09/28-16:38:48.071 7e8 Reusing MANIFEST D:\CODE\quick_notes\milkdown-builder\temp_edge_profile\Default\EdgeCoupons/coupons_data.db/MANIFEST-000001
-2026/09/28-16:38:48.072 7e8 Recovering log #29
-2026/09/28-16:38:48.073 7e8 Reusing old log D:\CODE\quick_notes\milkdown-builder\temp_edge_profile\Default\EdgeCoupons/coupons_data.db/000029.log 
-2026/09/28-16:38:48.237 66fc Level-0 table #33: started
-2026/09/28-16:38:48.240 66fc Level-0 table #33: 683444 bytes OK
-2026/09/28-16:38:48.246 66fc Delete type=0 #29
-2026/09/28-16:38:48.247 4c54 Compacting 4@0 + 1@1 files
-2026/09/28-16:38:48.253 4c54 Generated table #34@0: 4 keys, 683352 bytes
-2026/09/28-16:38:48.253 4c54 Compacted 4@0 + 1@1 files => 683352 bytes
-2026/09/28-16:38:48.254 4c54 compacted to: files[ 0 1 1 0 0 0 0 ]
+2026/09/28-16:52:44.826 25e8 Reusing MANIFEST D:\CODE\quick_notes\milkdown-builder\temp_edge_profile\Default\EdgeCoupons/coupons_data.db/MANIFEST-000001
+2026/09/28-16:52:44.827 25e8 Recovering log #32
+2026/09/28-16:52:44.828 25e8 Reusing old log D:\CODE\quick_notes\milkdown-builder\temp_edge_profile\Default\EdgeCoupons/coupons_data.db/000032.log 
+2026/09/28-16:52:44.828 25e8 Delete type=2 #21
+2026/09/28-16:52:44.828 25e8 Delete type=2 #24
+2026/09/28-16:52:44.828 25e8 Delete type=2 #27
+2026/09/28-16:52:44.828 25e8 Delete type=2 #30
+2026/09/28-16:52:44.828 25e8 Delete type=2 #33
+2026/09/28-16:52:45.051 196c Level-0 table #37: started
+2026/09/28-16:52:45.055 196c Level-0 table #37: 683444 bytes OK
+2026/09/28-16:52:45.057 196c Delete type=0 #32

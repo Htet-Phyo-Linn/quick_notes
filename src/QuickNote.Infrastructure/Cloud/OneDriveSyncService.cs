@@ -266,7 +266,13 @@ namespace QuickNote.Infrastructure.Cloud
 
             foreach (var file in source.GetFiles())
             {
-                if (file.Name.StartsWith(".") || file.Name.EndsWith(".tmp") || file.Name.EndsWith(".draft"))
+                if (file.Name.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase) ||
+                    file.Name.EndsWith(".draft", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (file.Name.StartsWith(".") && !string.Equals(source.Name, ".assets", StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
                 }
@@ -280,7 +286,14 @@ namespace QuickNote.Infrastructure.Cloud
 
             foreach (var subDir in source.GetDirectories())
             {
-                if (subDir.Name.StartsWith(".")) continue;
+                if (subDir.Name.Equals(".trash", StringComparison.OrdinalIgnoreCase) ||
+                    subDir.Name.Equals(".recovery", StringComparison.OrdinalIgnoreCase) ||
+                    subDir.Name.Equals(".git", StringComparison.OrdinalIgnoreCase) ||
+                    subDir.Name.Equals("bin", StringComparison.OrdinalIgnoreCase) ||
+                    subDir.Name.Equals("obj", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
 
                 var nextTargetSubDir = target.CreateSubdirectory(subDir.Name);
                 CopyAll(subDir, nextTargetSubDir);

@@ -31,7 +31,7 @@ namespace QuickNote.Avalonia.ViewModels
         private readonly ICloudSyncService _cloudSyncService;
         private readonly ISettingsService _settingsService;
         private readonly IMarkdownParser _markdownParser;
-        private readonly string _notesRoot;
+        private string _notesRoot;
 
         // ── Internal state ───────────────────────────────────────────
         private readonly DispatcherTimer _autoSaveTimer;
@@ -85,6 +85,10 @@ namespace QuickNote.Avalonia.ViewModels
         [ObservableProperty] private ObservableCollection<FolderDestinationItem> _availableFolders = new();
         [ObservableProperty] private FolderDestinationItem? _selectedDestinationFolder;
         [ObservableProperty] private FolderNode? _clipboardCutNode;
+        [ObservableProperty] private bool _isProfileDialogVisible;
+        [ObservableProperty] private ObservableCollection<ProfileItemViewModel> _availableProfiles = new();
+        [ObservableProperty] private ProfileItemViewModel? _selectedProfile;
+        [ObservableProperty] private bool _migrateNotesOnSwitch;
 
         // ── Multi-selection ──────────────────────────────────────────
         /// <summary>All currently selected nodes in the file tree (multi-select).</summary>
@@ -100,11 +104,12 @@ namespace QuickNote.Avalonia.ViewModels
         public bool HasCurrentNote => CurrentNote != null;
         public bool HasNoCurrentNote => CurrentNote == null;
 
-        public bool IsNotionEditorActive => IsNotionMode && !IsRenameDialogVisible && !IsMoveDialogVisible;
+        public bool IsNotionEditorActive => IsNotionMode && !IsRenameDialogVisible && !IsMoveDialogVisible && !IsProfileDialogVisible;
 
         partial void OnIsNotionModeChanged(bool value) => OnPropertyChanged(nameof(IsNotionEditorActive));
         partial void OnIsRenameDialogVisibleChanged(bool value) => OnPropertyChanged(nameof(IsNotionEditorActive));
         partial void OnIsMoveDialogVisibleChanged(bool value) => OnPropertyChanged(nameof(IsNotionEditorActive));
+        partial void OnIsProfileDialogVisibleChanged(bool value) => OnPropertyChanged(nameof(IsNotionEditorActive));
 
         public string CurrentModeDisplayName
         {

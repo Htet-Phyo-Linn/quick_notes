@@ -127,6 +127,36 @@ namespace QuickNote.Tests.Cloud
             Assert.Equal(CloudSyncState.Disabled, status.State);
         }
 
+        [Fact]
+        public async Task EnableOneDriveSyncAsync_WithAssetsDirectory_MigratesAssetsAndImages()
+        {
+            var sourceNotes = Path.Combine(_testBaseDir, "SourceWorkNotes");
+            var sourceAssets = Path.Combine(sourceNotes, ".assets");
+            Directory.CreateDirectory(sourceAssets);
+
+            var testImage = Path.Combine(sourceAssets, "diagram.png");
+            await File.WriteAllTextAsync(testImage, "fake_png_data");
+            await File.WriteAllTextAsync(Path.Combine(sourceNotes, "Architecture.md"), "# Architecture\n![Diagram](.assets/diagram.png)");
+
+            var targetOneDrive = Path.Combine(_testBaseDir, "PersonalOneDrive");
+            Directory.CreateDirectory(targetOneDrive);
+
+            var account = new OneDriveAccountInfo
+            {
+                AccountName = "OneDrive - Personal",
+                UserFolder = targetOneDrive,
+                IsBusiness = false
+            };
+
+            var success = await _syncService.EnableOneDriveSyncAsync(account, migrateExistingNotes: true, currentNotesRoot: sourceNotes);
+            Assert.True(success);
+
+            var expectedTargetRoot = Path.Combine(targetOneDrive, "QuickNote");
+            Assert.True(File.Exists(Path.Combine(expectedTargetRoot, "Architecture.md")));
+            Assert.True(File.Exists(Path.Combine(expectedTargetRoot, ".assets", "diagram.png")));
+            Assert.Equal("fake_png_data", await File.ReadAllTextAsync(Path.Combine(expectedTargetRoot, ".assets", "diagram.png")));
+        }
+
         private class FakeSettingsService : ISettingsService
         {
             public AppSettings Settings { get; } = new AppSettings();
