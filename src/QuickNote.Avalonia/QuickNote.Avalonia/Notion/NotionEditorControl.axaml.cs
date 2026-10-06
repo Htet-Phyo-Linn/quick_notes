@@ -19,7 +19,7 @@ namespace QuickNote.Avalonia.Notion
         public event Action? EditorFocused;
         public event Action<string>? WordIgnored;
 
-        public bool IsSpellCheckEnabled { get; set; } = false;
+        public bool IsSpellCheckEnabled { get; set; } = true;
 
         public NotionEditorControl()
         {
@@ -624,6 +624,19 @@ namespace QuickNote.Avalonia.Notion
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"[NotionEditorControl] Failed to set ignored words: {ex.Message}");
+            }
+        }
+
+        public async Task FocusEditorAsync()
+        {
+            if (WebViewControl == null || !_isEditorReady) return;
+            try
+            {
+                await WebViewControl.InvokeScript("if (window.focusEditor) { window.focusEditor(); }");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[NotionEditorControl] Failed to focus editor: {ex.Message}");
             }
         }
     }

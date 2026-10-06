@@ -106,6 +106,46 @@ const autoInlineCodePlugin = $prose(() => new Plugin({
       }
 
       return false;
+    },
+    handleKeyDown(view, event) {
+      if (!view || !view.state) return false;
+      const { state, dispatch } = view;
+      const { selection } = state;
+      const isImgNode = selection && selection.node && (selection.node.type.name === 'image-block' || selection.node.type.name === 'image');
+
+      if (event.key === 'Enter' && isImgNode) {
+        const pType = state.schema.nodes.paragraph;
+        if (pType) {
+          event.preventDefault();
+          const afterPos = selection.to;
+          let tr = state.tr;
+          const nodeAfter = selection.$to.nodeAfter;
+          if (!nodeAfter) {
+            tr = tr.insert(afterPos, pType.create());
+          }
+          tr = tr.setSelection(Selection.near(tr.doc.resolve(afterPos + 1))).scrollIntoView();
+          dispatch(tr);
+          view.focus();
+          return true;
+        }
+      }
+
+      if (event.key === 'ArrowDown' && isImgNode) {
+        const afterPos = selection.to;
+        if (afterPos >= state.doc.content.size) {
+          const pType = state.schema.nodes.paragraph;
+          if (pType) {
+            event.preventDefault();
+            let tr = state.tr.insert(afterPos, pType.create());
+            tr = tr.setSelection(Selection.near(tr.doc.resolve(afterPos + 1))).scrollIntoView();
+            dispatch(tr);
+            view.focus();
+            return true;
+          }
+        }
+      }
+
+      return false;
     }
   },
   appendTransaction(transactions, oldState, newState) {
@@ -113,39 +153,53 @@ const autoInlineCodePlugin = $prose(() => new Plugin({
     const docChanged = transactions.some(tr => tr.docChanged);
     if (!docChanged) return null;
 
+    let tr = null;
+
     const codeMarkType = newState.schema.marks.inlineCode || newState.schema.marks.code_inline;
-    if (!codeMarkType) return null;
+    if (codeMarkType) {
+      const matches = [];
+      newState.doc.descendants((node, pos, parent) => {
+        if (!node.isText) return;
+        if (parent && (parent.type.name.includes('code_block') || parent.type.name.includes('code_bracket') || parent.type.spec?.code)) return;
+        if (node.marks && node.marks.some(m => m.type === codeMarkType || m.type.name === 'inlineCode' || m.type.name === 'code_inline')) return;
 
-    const matches = [];
-    newState.doc.descendants((node, pos, parent) => {
-      if (!node.isText) return;
-      if (parent && (parent.type.name.includes('code_block') || parent.type.name.includes('code_bracket') || parent.type.spec?.code)) return;
-      if (node.marks && node.marks.some(m => m.type === codeMarkType || m.type.name === 'inlineCode' || m.type.name === 'code_inline')) return;
+        const text = node.text;
+        if (!text || !text.includes('`')) return;
 
-      const text = node.text;
-      if (!text || !text.includes('`')) return;
+        const regex = /`([^`\r\n]+)`/g;
+        let match;
+        while ((match = regex.exec(text)) !== null) {
+          matches.push({
+            from: pos + match.index,
+            to: pos + match.index + match[0].length,
+            code: match[1]
+          });
+        }
+      });
 
-      const regex = /`([^`\r\n]+)`/g;
-      let match;
-      while ((match = regex.exec(text)) !== null) {
-        matches.push({
-          from: pos + match.index,
-          to: pos + match.index + match[0].length,
-          code: match[1]
-        });
+      if (matches.length > 0) {
+        tr = newState.tr;
+        for (let i = matches.length - 1; i >= 0; i--) {
+          const m = matches[i];
+          const mark = codeMarkType.create();
+          tr.replaceWith(m.from, m.to, newState.schema.text(m.code, [mark]));
+        }
       }
-    });
-
-    if (matches.length === 0) return null;
-
-    const tr = newState.tr;
-    for (let i = matches.length - 1; i >= 0; i--) {
-      const m = matches[i];
-      const mark = codeMarkType.create();
-      tr.replaceWith(m.from, m.to, newState.schema.text(m.code, [mark]));
     }
 
-    return tr.docChanged ? tr : null;
+    // Ensure document does not end on a non-textblock (image-block, image, table, hr)
+    // so user can always place cursor, paste, and type below it
+    const currentDoc = tr ? tr.doc : newState.doc;
+    const lastChild = currentDoc.lastChild;
+    if (lastChild && (lastChild.type.name === 'image-block' || lastChild.type.name === 'image' || lastChild.type.name === 'table' || lastChild.type.name === 'hr' || !lastChild.isTextblock)) {
+      const pType = newState.schema.nodes.paragraph;
+      if (pType) {
+        if (!tr) tr = newState.tr;
+        tr = tr.insert(currentDoc.content.size, pType.create());
+      }
+    }
+
+    return tr && tr.docChanged ? tr : null;
   }
 }));
 
@@ -351,7 +405,7 @@ const headingFoldPlugin = $prose(() => {
 
 import { createTable, strikethroughSchema } from '@milkdown/kit/preset/gfm';
 import { clearTextInCurrentBlockCommand, addBlockTypeCommand, selectTextNearPosCommand, codeBlockSchema, hrSchema, setBlockTypeCommand, linkSchema, strongSchema, emphasisSchema, inlineCodeSchema } from '@milkdown/kit/preset/commonmark';
-import { Selection, Plugin, PluginKey } from '@milkdown/kit/prose/state';
+import { Selection, TextSelection, NodeSelection, Plugin, PluginKey } from '@milkdown/kit/prose/state';
 import { liftListItem } from '@milkdown/kit/prose/schema-list';
 import { lift } from '@milkdown/kit/prose/commands';
 import { liftTarget } from '@milkdown/kit/prose/transform';
@@ -370,6 +424,83 @@ try {
 }
 
 const ignoredWordsSet = new Set();
+let isSpellCheckActive = true;
+const spellCheckPluginKey = new PluginKey('spellCheckPlugin');
+
+function buildSpellCheckDecorations(doc) {
+  if (!isSpellCheckActive || !speller || !doc) return DecorationSet.empty;
+  const decos = [];
+
+  try {
+    doc.descendants((node, pos, parent) => {
+      if (parent && (parent.type.name.includes('code') || parent.type.name.includes('math'))) {
+        return false;
+      }
+      if (!node.isText) return true;
+      if (node.marks && node.marks.some(m => m.type.name.includes('code'))) {
+        return;
+      }
+      const text = node.text;
+      if (!text || text.length < 2) return;
+
+      const wordRegex = /\b[A-Za-z]+(?:'[A-Za-z]+)?\b/g;
+      let match;
+      while ((match = wordRegex.exec(text)) !== null) {
+        const rawWord = match[0];
+        if (rawWord.length >= 2 && isWordMisspelled(rawWord)) {
+          const from = pos + match.index;
+          const to = from + rawWord.length;
+          decos.push(Decoration.inline(from, to, {
+            class: 'misspelled-word',
+            'data-word': rawWord
+          }));
+        }
+      }
+    });
+  } catch (err) {
+    console.error('[SpellCheck] buildDecorations error:', err);
+  }
+
+  return DecorationSet.create(doc, decos);
+}
+
+const spellCheckPlugin = $prose(() => new Plugin({
+  key: spellCheckPluginKey,
+  state: {
+    init(config, instance) {
+      return buildSpellCheckDecorations(instance.doc);
+    },
+    apply(tr, oldDecoSet, oldState, newState) {
+      if (!isSpellCheckActive || !speller) {
+        return DecorationSet.empty;
+      }
+      const meta = tr.getMeta(spellCheckPluginKey);
+      if (meta || tr.docChanged) {
+        return buildSpellCheckDecorations(newState.doc);
+      }
+      return oldDecoSet.map(tr.mapping, newState.doc);
+    }
+  },
+  props: {
+    decorations(state) {
+      return this.getState(state);
+    },
+    handleClick(view, pos, event) {
+      const target = event.target;
+      if (target && target.classList && target.classList.contains('misspelled-word')) {
+        const wordInfo = getWordAtPos(view.state.doc, pos);
+        if (wordInfo && isWordMisspelled(wordInfo.word)) {
+          try {
+            const coords = view.coordsAtPos(wordInfo.from);
+            showSpellPopup(wordInfo, coords);
+            return true;
+          } catch (err) {}
+        }
+      }
+      return false;
+    }
+  }
+}));
 
 let crepeInstance = null;
 let editorView = null;
@@ -673,12 +804,19 @@ async function init() {
 
   window.flushContentChanged = flushContentChanged;
 
+  let lastMarkdownFromHost = null;
+
   // Listen to markdown changes and send back to host (150ms debounce for production standard typing performance)
   crepeInstance.on((listener) => {
     listener.markdownUpdated((ctx, markdown, prevMarkdown) => {
       if (isUpdatingFromHost) return;
+      if (lastMarkdownFromHost !== null) {
+        if ((markdown || '').trim() === lastMarkdownFromHost.trim()) {
+          return;
+        }
+        lastMarkdownFromHost = null;
+      }
       if (!hasReceivedInitialContent && !markdown) return;
-      hasReceivedInitialContent = true;
       pendingMarkdownToSend = markdown;
       if (contentChangedDebounceTimer) {
         clearTimeout(contentChangedDebounceTimer);
@@ -705,11 +843,12 @@ async function init() {
     crepeInstance.editor.use(remarkFixImageNodes);
     crepeInstance.editor.use(autoInlineCodePlugin);
     crepeInstance.editor.use(headingFoldPlugin);
+    crepeInstance.editor.use(spellCheckPlugin);
     await crepeInstance.create();
     crepeInstance.editor.action((ctx) => {
       editorView = ctx.get(editorViewCtx);
     });
-    applySpellCheck(false);
+    applySpellCheck(true);
   } catch (err) {
     console.error('Failed to create Crepe editor:', err);
   }
@@ -734,15 +873,19 @@ async function init() {
       return;
     }
 
-    // Protection: If user is actively typing/focused inside editor and force is false,
-    // never clobber their in-progress typing with delayed host state!
-    const activeEl = document.activeElement;
-    const isEditorActive = activeEl && (activeEl.closest('.ProseMirror') || activeEl.closest('.milkdown'));
-    if (!force && isEditorActive) {
-      return;
+    // Protection: If user is actively typing/focused inside editor,
+    // NEVER clobber their in-progress typing, caret, or newlines with delayed host state!
+    // However, if force is true (e.g. switching notes or creating a new note), we MUST update.
+    if (!force) {
+      const activeEl = document.activeElement;
+      const isEditorActive = document.hasFocus() && activeEl && (activeEl.closest('.ProseMirror') || activeEl.closest('.milkdown'));
+      if (isEditorActive) {
+        return;
+      }
     }
 
     const cleanMd = (markdown || '').replace(/(!\[.*?\]\([^\n\r]*?\))\r?\n(?=!\[)/g, '$1\n\n');
+    lastMarkdownFromHost = cleanMd;
 
     // Pre-scan markdown for images to request them early from host
     const md = cleanMd || '';
@@ -762,17 +905,39 @@ async function init() {
     isUpdatingFromHost = true;
     try {
       crepeInstance.editor.action(replaceAll(cleanMd));
+      crepeInstance.editor.action((ctx) => {
+        const view = ctx.get(editorViewCtx);
+        if (view && view.state) {
+          const doc = view.state.doc;
+          const lastChild = doc.lastChild;
+          if (lastChild && (lastChild.type.name === 'image-block' || lastChild.type.name === 'image' || lastChild.type.name === 'table' || lastChild.type.name === 'hr' || !lastChild.isTextblock)) {
+            const pType = view.state.schema.nodes.paragraph;
+            if (pType) {
+              view.dispatch(view.state.tr.insert(doc.content.size, pType.create()));
+            }
+          }
+          if (force) {
+            try {
+              const startSel = Selection.atStart(view.state.doc);
+              view.dispatch(view.state.tr.setSelection(startSel).scrollIntoView());
+            } catch (_) {}
+            const scrollContainer = document.querySelector('.milkdown') || document.documentElement;
+            if (scrollContainer) scrollContainer.scrollTop = 0;
+          }
+        }
+      });
       setTimeout(resolveAllImagesInDOM, 60);
       setTimeout(() => {
         if (window.updateHeadingFolds) window.updateHeadingFolds();
         if (window.refreshFindWidget) window.refreshFindWidget();
+        if (isSpellCheckActive) applySpellCheck(true);
       }, 30);
     } catch (e) {
       console.error('[setMarkdown] Failed to replace markdown:', e);
     } finally {
       setTimeout(() => {
         isUpdatingFromHost = false;
-      }, 150);
+      }, 300);
     }
   };
 
@@ -1416,7 +1581,7 @@ async function init() {
         lastBottom = pm.getBoundingClientRect().top;
       }
 
-      if (e.clientY > lastBottom) {
+      if (e.clientY >= lastBottom - 2 || e.target === pm || e.target === editorContainer || (e.target.classList && e.target.classList.contains('milkdown'))) {
         const { state, dispatch } = view;
         const lastChild = state.doc.lastChild;
         const hasTrailingEmptyP = lastChild && lastChild.type.name === 'paragraph' && lastChild.content.size === 0;
@@ -1428,7 +1593,7 @@ async function init() {
         }
 
         const targetPos = Math.max(0, tr.doc.content.size - 1);
-        tr = tr.setSelection(TextSelection.near(tr.doc.resolve(targetPos))).scrollIntoView();
+        tr = tr.setSelection(Selection.near(tr.doc.resolve(targetPos))).scrollIntoView();
         dispatch(tr);
         view.focus();
       }
@@ -1474,7 +1639,8 @@ async function init() {
 }
 
 function applySpellCheck(enabled) {
-  const isEnabled = !!enabled;
+  isSpellCheckActive = !!enabled;
+  const isEnabled = isSpellCheckActive;
   const pm = document.querySelector('.ProseMirror');
   if (pm) pm.setAttribute('spellcheck', isEnabled ? 'true' : 'false');
   const root = document.getElementById('editor');
@@ -1482,6 +1648,11 @@ function applySpellCheck(enabled) {
   const container = document.getElementById('editor-container');
   if (container) container.setAttribute('spellcheck', isEnabled ? 'true' : 'false');
   document.body.setAttribute('spellcheck', isEnabled ? 'true' : 'false');
+
+  const view = getEditorView();
+  if (view && view.state) {
+    view.dispatch(view.state.tr.setMeta(spellCheckPluginKey, { enabled: isEnabled }));
+  }
 }
 
 let contextMenuX = 0;
@@ -1496,6 +1667,10 @@ window.setIgnoredWords = (words) => {
         if (clean) ignoredWordsSet.add(clean);
       }
     });
+    const view = getEditorView();
+    if (view && view.state) {
+      view.dispatch(view.state.tr.setMeta(spellCheckPluginKey, { refresh: true }));
+    }
   }
 };
 
@@ -1606,6 +1781,10 @@ function showSpellPopup(wordInfo, coords) {
       e.stopPropagation();
       const lower = wordInfo.word.toLowerCase();
       ignoredWordsSet.add(lower);
+      const view = getEditorView();
+      if (view && view.state) {
+        view.dispatch(view.state.tr.setMeta(spellCheckPluginKey, { refresh: true }));
+      }
       sendMessage({ type: 'ignoreWord', word: wordInfo.word });
       hideSpellPopup();
     };
@@ -2631,9 +2810,34 @@ function resolveImageElement(img) {
   }
 }
 
+function updateResponsiveImages() {
+  const imageBlocks = document.querySelectorAll('.milkdown-image-block');
+  imageBlocks.forEach((block) => {
+    const wrapper = block.querySelector('.image-wrapper');
+    const img = block.querySelector('img');
+    if (!img) return;
+
+    img.style.maxWidth = '100%';
+    img.style.height = 'auto';
+    img.style.objectFit = 'contain';
+
+    const alt = img.getAttribute('alt');
+    const ratioNum = alt ? parseFloat(alt) : NaN;
+    if (!isNaN(ratioNum) && ratioNum > 0 && ratioNum < 1) {
+      const pct = Math.min(100, Math.max(10, Math.round(ratioNum * 100)));
+      if (wrapper) wrapper.style.maxWidth = `${pct}%`;
+    } else {
+      if (wrapper) wrapper.style.maxWidth = '100%';
+    }
+  });
+}
+
+window.addEventListener('resize', updateResponsiveImages);
+
 function resolveAllImagesInDOM() {
   const imgs = document.querySelectorAll('.milkdown img, .ProseMirror img, img');
   imgs.forEach(resolveImageElement);
+  updateResponsiveImages();
 }
 
 // Setup MutationObserver to automatically resolve images as they are mounted/rendered
@@ -2649,10 +2853,12 @@ const imgObserver = new MutationObserver((mutations) => {
           }
         }
       });
+      updateResponsiveImages();
     } else if (m.type === 'attributes' && m.attributeName === 'src') {
       if (m.target && m.target.tagName === 'IMG') {
         resolveImageElement(m.target);
       }
+      updateResponsiveImages();
     }
   }
 });
@@ -2723,7 +2929,16 @@ window.onImageSaved = (reqId, relPath, base64Data, altText) => {
         src: clean,
         alt: altText || 'image'
       });
-      const newTr = tr.replaceSelectionWith(node).scrollIntoView();
+      let newTr = tr.replaceSelectionWith(node);
+      const pType = schema.nodes.paragraph;
+      if (pType) {
+        const afterPos = newTr.selection.to;
+        const emptyPara = pType.create();
+        newTr = newTr.insert(afterPos, emptyPara);
+        const insidePos = afterPos + 1;
+        newTr = newTr.setSelection(Selection.near(newTr.doc.resolve(insidePos)));
+      }
+      newTr = newTr.scrollIntoView();
       view.dispatch(newTr);
       view.focus();
     } else {

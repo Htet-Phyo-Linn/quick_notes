@@ -37,7 +37,9 @@ namespace QuickNote.Avalonia.Views
                 _viewModel.ScrollToLineRequested    -= OnScrollToLineRequested;
                 _viewModel.HeadingNavigationRequested -= OnHeadingNavigationRequested;
                 _viewModel.MarkdownRenderRequested   -= OnMarkdownRenderRequested;
+                _viewModel.RightMarkdownRenderRequested -= OnRightMarkdownRenderRequested;
                 _viewModel.ExportRequested           -= OnExportRequested;
+                _viewModel.FocusEditorRequested      -= OnFocusEditorRequested;
                 _viewModel.PropertyChanged           -= OnViewModelPropertyChanged;
             }
 
@@ -48,7 +50,9 @@ namespace QuickNote.Avalonia.Views
                 _viewModel.ScrollToLineRequested    += OnScrollToLineRequested;
                 _viewModel.HeadingNavigationRequested += OnHeadingNavigationRequested;
                 _viewModel.MarkdownRenderRequested   += OnMarkdownRenderRequested;
+                _viewModel.RightMarkdownRenderRequested += OnRightMarkdownRenderRequested;
                 _viewModel.ExportRequested           += OnExportRequested;
+                _viewModel.FocusEditorRequested      += OnFocusEditorRequested;
                 _viewModel.PropertyChanged           += OnViewModelPropertyChanged;
 
                 if (NotionEditor != null)
@@ -56,6 +60,15 @@ namespace QuickNote.Avalonia.Views
                     NotionEditor.NotesRoot = _viewModel.NotesRoot;
                     NotionEditor.CurrentNoteFolderPath = _viewModel.CurrentNote?.FolderPath;
                     NotionEditor.IsSpellCheckEnabled = _viewModel.IsSpellCheckEnabled;
+                    NotionEditor.IgnoredWords = _viewModel.IgnoredWords;
+                }
+
+                if (NotionEditorRight != null)
+                {
+                    NotionEditorRight.NotesRoot = _viewModel.NotesRoot;
+                    NotionEditorRight.CurrentNoteFolderPath = _viewModel.RightCurrentNote?.FolderPath;
+                    NotionEditorRight.IsSpellCheckEnabled = _viewModel.IsSpellCheckEnabled;
+                    NotionEditorRight.IgnoredWords = _viewModel.IgnoredWords;
                 }
 
                 if (_viewModel.EditorContent != null)
@@ -70,8 +83,14 @@ namespace QuickNote.Avalonia.Views
                     finally { _isUpdatingEditorText = false; }
                 }
 
+                if (_viewModel.IsSplitViewActive && _viewModel.RightEditorContent != null)
+                {
+                    NotionEditorRight?.LoadMarkdown(_viewModel.RightEditorContent, force: true);
+                }
+
                 UpdatePreview(_viewModel.EditorContent ?? string.Empty);
                 UpdateLayoutModes();
+                UpdateSplitViewLayout();
                 UpdateSidebarVisibility();
             }
         }
@@ -96,10 +115,35 @@ namespace QuickNote.Avalonia.Views
                     if (_viewModel != null) {
                         await _viewModel.AddIgnoredWord(word);
                         await NotionEditor.SetIgnoredWordsAsync(_viewModel.IgnoredWords);
+                        if (NotionEditorRight != null)
+                            await NotionEditorRight.SetIgnoredWordsAsync(_viewModel.IgnoredWords);
                     }
                 };
                 if (_viewModel?.EditorContent != null)
                     NotionEditor.LoadMarkdown(_viewModel.EditorContent, force: true);
+            }
+
+            if (NotionEditorRight != null)
+            {
+                if (_viewModel != null)
+                {
+                    NotionEditorRight.NotesRoot = _viewModel.NotesRoot;
+                    NotionEditorRight.CurrentNoteFolderPath = _viewModel.RightCurrentNote?.FolderPath;
+                    NotionEditorRight.IsSpellCheckEnabled = _viewModel.IsSpellCheckEnabled;
+                    NotionEditorRight.IgnoredWords = _viewModel.IgnoredWords;
+                }
+                NotionEditorRight.MarkdownChanged      += NotionEditorRight_MarkdownChanged;
+                NotionEditorRight.ShortcutTriggered    += OnEditorRightShortcutTriggered;
+                NotionEditorRight.EditorFocused        += OnNotionEditorRightFocused;
+                NotionEditorRight.WordIgnored          += async (word) => {
+                    if (_viewModel != null) {
+                        await _viewModel.AddIgnoredWord(word);
+                        if (NotionEditor != null) await NotionEditor.SetIgnoredWordsAsync(_viewModel.IgnoredWords);
+                        if (NotionEditorRight != null) await NotionEditorRight.SetIgnoredWordsAsync(_viewModel.IgnoredWords);
+                    }
+                };
+                if (_viewModel?.RightEditorContent != null)
+                    NotionEditorRight.LoadMarkdown(_viewModel.RightEditorContent, force: true);
             }
 
             if (TextEditor != null)
@@ -107,6 +151,7 @@ namespace QuickNote.Avalonia.Views
                 TextEditor.TextChanged += TextEditor_TextChanged;
                 TextEditor.GotFocus    += async (s, e) => {
                     if (_viewModel != null) {
+                        _viewModel.ActiveEditorPane = EditorPane.Left;
                         await _viewModel.CommitAllEditingTags();
                         await CommitAllInlineTreeRenames();
                     }
@@ -123,6 +168,18 @@ namespace QuickNote.Avalonia.Views
             {
                 TitleBox.GotFocus += async (s, e) => {
                     if (_viewModel != null) {
+                        _viewModel.ActiveEditorPane = EditorPane.Left;
+                        await _viewModel.CommitAllEditingTags();
+                        await CommitAllInlineTreeRenames();
+                    }
+                };
+            }
+
+            if (RightTitleBox != null)
+            {
+                RightTitleBox.GotFocus += async (s, e) => {
+                    if (_viewModel != null) {
+                        _viewModel.ActiveEditorPane = EditorPane.Right;
                         await _viewModel.CommitAllEditingTags();
                         await CommitAllInlineTreeRenames();
                     }
@@ -166,7 +223,9 @@ namespace QuickNote.Avalonia.Views
                     if (_viewModel != null)
                     {
                         if (NotionEditor != null) await NotionEditor.FlushPendingChangesAsync();
-                        await _viewModel.SaveNoteAsync();
+                        if (NotionEditorRight != null) await NotionEditorRight.FlushPendingChangesAsync();
+                        if (_viewModel.IsModified) await _viewModel.SaveNoteAsync();
+                        if (_viewModel.IsSplitViewActive && _viewModel.IsRightModified) await _viewModel.SaveRightNoteAsync();
                     }
                 };
                 window.Closing += async (s, e) =>
@@ -174,7 +233,9 @@ namespace QuickNote.Avalonia.Views
                     if (_viewModel != null)
                     {
                         if (NotionEditor != null) await NotionEditor.FlushPendingChangesAsync();
-                        await _viewModel.SaveNoteAsync();
+                        if (NotionEditorRight != null) await NotionEditorRight.FlushPendingChangesAsync();
+                        if (_viewModel.IsModified) await _viewModel.SaveNoteAsync();
+                        if (_viewModel.IsSplitViewActive && _viewModel.IsRightModified) await _viewModel.SaveRightNoteAsync();
                     }
                 };
             }
@@ -183,14 +244,24 @@ namespace QuickNote.Avalonia.Views
         // ── Property-change routing ─────────────────────────────────
         private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
-            if (e.PropertyName == nameof(MainViewModel.IsSplitMode)    ||
-                e.PropertyName == nameof(MainViewModel.IsReadingMode)  ||
+            if (e.PropertyName == nameof(MainViewModel.IsReadingMode)  ||
                 e.PropertyName == nameof(MainViewModel.IsNotionMode))
             {
                 UpdateLayoutModes();
-                if (_viewModel?.IsReadingMode == true || _viewModel?.IsSplitMode == true)
+                if (_viewModel?.IsReadingMode == true)
                 {
                     UpdatePreview(_viewModel.EditorContent ?? _viewModel.CurrentNote?.Content ?? string.Empty);
+                }
+            }
+            else if (e.PropertyName == nameof(MainViewModel.IsSplitViewActive))
+            {
+                UpdateSplitViewLayout();
+                if (_viewModel?.IsSplitViewActive == true && NotionEditorRight != null && _viewModel.RightEditorContent != null)
+                {
+                    NotionEditorRight.NotesRoot = _viewModel.NotesRoot;
+                    NotionEditorRight.CurrentNoteFolderPath = _viewModel.RightCurrentNote?.FolderPath;
+                    NotionEditorRight.CurrentNotePath = _viewModel.RightCurrentNote?.FullPath;
+                    NotionEditorRight.LoadMarkdown(_viewModel.RightEditorContent, force: true);
                 }
             }
             else if (e.PropertyName == nameof(MainViewModel.IsLeftSidebarVisible)  ||
@@ -200,9 +271,10 @@ namespace QuickNote.Avalonia.Views
             }
             else if (e.PropertyName == nameof(MainViewModel.IsSpellCheckEnabled))
             {
-                if (NotionEditor != null && _viewModel != null)
+                if (_viewModel != null)
                 {
-                    _ = NotionEditor.SetSpellCheckAsync(_viewModel.IsSpellCheckEnabled);
+                    if (NotionEditor != null) _ = NotionEditor.SetSpellCheckAsync(_viewModel.IsSpellCheckEnabled);
+                    if (NotionEditorRight != null) _ = NotionEditorRight.SetSpellCheckAsync(_viewModel.IsSpellCheckEnabled);
                 }
             }
             else if (e.PropertyName == nameof(MainViewModel.IsRenameDialogVisible))
@@ -297,12 +369,36 @@ namespace QuickNote.Avalonia.Views
             }
             else
             {
+                // Normal Editor Mode: TextEditor visible with preview side-by-side or full
                 editorCol.Width  = new GridLength(1, GridUnitType.Star);
-                splitterCol.Width = new GridLength(0);
-                previewCol.Width = new GridLength(0);
+                splitterCol.Width = GridLength.Auto;
+                previewCol.Width = new GridLength(1, GridUnitType.Star);
                 if (TextEditor         != null) TextEditor.IsVisible         = true;
-                if (EditorSplitter     != null) EditorSplitter.IsVisible     = false;
-                if (PreviewScrollViewer != null) PreviewScrollViewer.IsVisible = false;
+                if (EditorSplitter     != null) EditorSplitter.IsVisible     = true;
+                if (PreviewScrollViewer != null) PreviewScrollViewer.IsVisible = true;
+            }
+        }
+
+        private void UpdateSplitViewLayout()
+        {
+            if (_viewModel == null || VisualEditorsGrid == null || VisualEditorsGrid.ColumnDefinitions.Count < 3) return;
+
+            var splitterCol = VisualEditorsGrid.ColumnDefinitions[1];
+            var rightCol    = VisualEditorsGrid.ColumnDefinitions[2];
+
+            if (_viewModel.IsSplitViewActive)
+            {
+                splitterCol.Width = GridLength.Auto;
+                rightCol.Width    = new GridLength(1, GridUnitType.Star);
+                if (VisualSplitter  != null) VisualSplitter.IsVisible  = true;
+                if (RightEditorPane != null) RightEditorPane.IsVisible = true;
+            }
+            else
+            {
+                splitterCol.Width = new GridLength(0);
+                rightCol.Width    = new GridLength(0);
+                if (VisualSplitter  != null) VisualSplitter.IsVisible  = false;
+                if (RightEditorPane != null) RightEditorPane.IsVisible = false;
             }
         }
 
@@ -323,6 +419,23 @@ namespace QuickNote.Avalonia.Views
             else if (e.KeyModifiers == KeyModifiers.Control && e.Key == Key.B)
             {
                 _viewModel?.ToggleLeftSidebar();
+                e.Handled = true;
+            }
+            else if (e.KeyModifiers == KeyModifiers.Control && (e.Key == Key.OemBackslash || e.Key == Key.Oem5))
+            {
+                _viewModel?.ToggleSplitView();
+                e.Handled = true;
+            }
+            else if (e.KeyModifiers == KeyModifiers.Control && e.Key == Key.W)
+            {
+                if (_viewModel?.IsSplitViewActive == true && _viewModel.ActiveEditorPane == EditorPane.Right)
+                {
+                    _viewModel.CloseActiveRightTab();
+                }
+                else
+                {
+                    _viewModel?.CloseActiveTab();
+                }
                 e.Handled = true;
             }
         }

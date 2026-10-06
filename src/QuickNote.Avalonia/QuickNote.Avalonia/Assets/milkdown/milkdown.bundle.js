@@ -77341,7 +77341,7 @@
   }
   function findSelectionIn(doc6, node2, pos, index2, dir, text11 = false) {
     if (node2.inlineContent)
-      return TextSelection2.create(doc6, pos);
+      return TextSelection.create(doc6, pos);
     for (let i4 = index2 - (dir > 0 ? 0 : 1); dir > 0 ? i4 < node2.childCount : i4 >= 0; i4 += dir) {
       let child = node2.child(i4);
       if (!child.isAtom) {
@@ -77389,7 +77389,7 @@
     keys2[name2] = 0;
     return name2 + "$";
   }
-  var classesById, Selection, SelectionRange2, warnedAboutTextSelection, TextSelection2, TextBookmark, NodeSelection, NodeBookmark, AllSelection, AllBookmark, UPDATED_SEL, UPDATED_MARKS, UPDATED_SCROLL, Transaction2, FieldDesc, baseFields, Configuration2, EditorState2, Plugin, keys2, PluginKey;
+  var classesById, Selection, SelectionRange2, warnedAboutTextSelection, TextSelection, TextBookmark, NodeSelection, NodeBookmark, AllSelection, AllBookmark, UPDATED_SEL, UPDATED_MARKS, UPDATED_SCROLL, Transaction2, FieldDesc, baseFields, Configuration2, EditorState2, Plugin, keys2, PluginKey;
   var init_dist48 = __esm({
     "node_modules/prosemirror-state/dist/index.js"() {
       init_dist46();
@@ -77501,7 +77501,7 @@
         found.
         */
         static findFrom($pos, dir, textOnly = false) {
-          let inner2 = $pos.parent.inlineContent ? new TextSelection2($pos) : findSelectionIn($pos.node(0), $pos.parent, $pos.pos, $pos.index(), dir, textOnly);
+          let inner2 = $pos.parent.inlineContent ? new TextSelection($pos) : findSelectionIn($pos.node(0), $pos.parent, $pos.pos, $pos.index(), dir, textOnly);
           if (inner2)
             return inner2;
           for (let depth = $pos.depth - 1; depth >= 0; depth--) {
@@ -77570,7 +77570,7 @@
         returns the bookmark for that.
         */
         getBookmark() {
-          return TextSelection2.between(this.$anchor, this.$head).getBookmark();
+          return TextSelection.between(this.$anchor, this.$head).getBookmark();
         }
       };
       Selection.prototype.visible = true;
@@ -77584,7 +77584,7 @@
         }
       };
       warnedAboutTextSelection = false;
-      TextSelection2 = class _TextSelection extends Selection {
+      TextSelection = class _TextSelection extends Selection {
         /**
         Construct a text selection between the given points.
         */
@@ -77670,7 +77670,7 @@
           return new _TextSelection($anchor, $head);
         }
       };
-      Selection.jsonID("text", TextSelection2);
+      Selection.jsonID("text", TextSelection);
       TextBookmark = class _TextBookmark {
         constructor(anchor, head) {
           this.anchor = anchor;
@@ -77680,7 +77680,7 @@
           return new _TextBookmark(mapping.map(this.anchor), mapping.map(this.head));
         }
         resolve(doc6) {
-          return TextSelection2.between(doc6.resolve(this.anchor), doc6.resolve(this.head));
+          return TextSelection.between(doc6.resolve(this.anchor), doc6.resolve(this.head));
         }
       };
       NodeSelection = class _NodeSelection extends Selection {
@@ -78296,7 +78296,7 @@
       return false;
     if (dispatch) {
       let tr = state.tr.step(step);
-      tr.setSelection(TextSelection2.create(tr.doc, beforePos));
+      tr.setSelection(TextSelection.create(tr.doc, beforePos));
       dispatch(tr.scrollIntoView());
     }
     return true;
@@ -78358,7 +78358,7 @@
       if (!state.selection.$from.depth)
         return false;
       let tr = state.tr;
-      if (!state.selection.empty && (state.selection instanceof TextSelection2 || state.selection instanceof AllSelection))
+      if (!state.selection.empty && (state.selection instanceof TextSelection || state.selection instanceof AllSelection))
         tr.deleteSelection();
       let { $from } = tr.selection, mapFrom = tr.steps.length;
       let types8 = [];
@@ -78477,7 +78477,7 @@
       if (!$pos.node(depth).isTextblock)
         return false;
       if (dispatch)
-        dispatch(state.tr.setSelection(TextSelection2.create(state.doc, side < 0 ? $pos.start(depth) : $pos.end(depth))));
+        dispatch(state.tr.setSelection(TextSelection.create(state.doc, side < 0 ? $pos.start(depth) : $pos.end(depth))));
       return true;
     };
   }
@@ -78773,7 +78773,7 @@
         if (dispatch) {
           let side = (!$from.parentOffset && $to.index() < $to.parent.childCount ? $from : $to).pos;
           let tr = state.tr.insert(side, type7.createAndFill());
-          tr.setSelection(TextSelection2.create(tr.doc, side + 1));
+          tr.setSelection(TextSelection.create(tr.doc, side + 1));
           dispatch(tr.scrollIntoView());
         }
         return true;
@@ -80749,7 +80749,7 @@
       selectCursorWrapper(view);
     } else {
       let { anchor, head } = sel, resetEditableFrom, resetEditableTo;
-      if (brokenSelectBetweenUneditable && !(sel instanceof TextSelection2)) {
+      if (brokenSelectBetweenUneditable && !(sel instanceof TextSelection)) {
         if (!sel.$from.parent.inlineContent)
           resetEditableFrom = temporarilyEditableNear(view, sel.from);
         if (!sel.empty && !sel.$from.parent.inlineContent)
@@ -80851,7 +80851,7 @@
     }
   }
   function selectionBetween(view, $anchor, $head, bias) {
-    return view.someProp("createSelectionBetween", (f) => f(view, $anchor, $head)) || TextSelection2.between($anchor, $head, bias);
+    return view.someProp("createSelectionBetween", (f) => f(view, $anchor, $head)) || TextSelection.between($anchor, $head, bias);
   }
   function hasFocusAndSelection(view) {
     if (view.editable && !view.hasFocus())
@@ -80885,13 +80885,13 @@
   }
   function selectHorizontally(view, dir, mods) {
     let sel = view.state.selection;
-    if (sel instanceof TextSelection2) {
+    if (sel instanceof TextSelection) {
       if (mods.indexOf("s") > -1) {
         let { $head } = sel, node2 = $head.textOffset ? null : dir < 0 ? $head.nodeBefore : $head.nodeAfter;
         if (!node2 || node2.isText || !node2.isLeaf)
           return false;
         let $newHead = view.state.doc.resolve($head.pos + node2.nodeSize * (dir < 0 ? -1 : 1));
-        return apply2(view, new TextSelection2(sel.$anchor, $newHead));
+        return apply2(view, new TextSelection(sel.$anchor, $newHead));
       } else if (!sel.empty) {
         return false;
       } else if (view.endOfTextblock(dir > 0 ? "forward" : "backward")) {
@@ -80909,13 +80909,13 @@
         if (NodeSelection.isSelectable(node2)) {
           return apply2(view, new NodeSelection(dir < 0 ? view.state.doc.resolve($head.pos - node2.nodeSize) : $head));
         } else if (webkit3) {
-          return apply2(view, new TextSelection2(view.state.doc.resolve(dir < 0 ? nodePos : nodePos + node2.nodeSize)));
+          return apply2(view, new TextSelection(view.state.doc.resolve(dir < 0 ? nodePos : nodePos + node2.nodeSize)));
         } else {
           return false;
         }
       }
     } else if (sel instanceof NodeSelection && sel.node.isInline) {
-      return apply2(view, new TextSelection2(dir > 0 ? sel.$to : sel.$from));
+      return apply2(view, new TextSelection(dir > 0 ? sel.$to : sel.$from));
     } else {
       let next2 = moveSelectionBlock(view.state, dir);
       if (next2)
@@ -81108,7 +81108,7 @@
   }
   function selectVertically(view, dir, mods) {
     let sel = view.state.selection;
-    if (sel instanceof TextSelection2 && !sel.empty || mods.indexOf("s") > -1)
+    if (sel instanceof TextSelection && !sel.empty || mods.indexOf("s") > -1)
       return false;
     if (mac5 && mods.indexOf("m") > -1)
       return false;
@@ -81126,7 +81126,7 @@
     return false;
   }
   function stopNativeHorizontalDelete(view, dir) {
-    if (!(view.state.selection instanceof TextSelection2))
+    if (!(view.state.selection instanceof TextSelection))
       return true;
     let { $head, $anchor, empty: empty4 } = view.state.selection;
     if (!$head.sameParent($anchor))
@@ -81579,20 +81579,20 @@
     if (!selection2)
       return false;
     updateSelection(view, selection2, "pointer");
-    if (selection2 instanceof TextSelection2 && doc6.eq(view.state.doc))
+    if (selection2 instanceof TextSelection && doc6.eq(view.state.doc))
       view.input.mouseDown = new TripleClickDrag(view, selection2);
     return true;
   }
   function selectionForTripleClick(view, inside, selectNodes) {
     let doc6 = view.state.doc;
     if (inside == -1)
-      return doc6.inlineContent ? TextSelection2.create(doc6, 0, doc6.content.size) : null;
+      return doc6.inlineContent ? TextSelection.create(doc6, 0, doc6.content.size) : null;
     let $pos = doc6.resolve(inside);
     for (let i4 = $pos.depth + 1; i4 > 0; i4--) {
       let node2 = i4 > $pos.depth ? $pos.nodeAfter : $pos.node(i4);
       let nodePos = $pos.before(i4);
       if (node2.inlineContent)
-        return TextSelection2.create(doc6, nodePos + 1, nodePos + 1 + node2.content.size);
+        return TextSelection.create(doc6, nodePos + 1, nodePos + 1 + node2.content.size);
       else if (selectNodes && NodeSelection.isSelectable(node2))
         return NodeSelection.create(doc6, nodePos);
     }
@@ -82137,7 +82137,7 @@
       return;
     }
     if (!change) {
-      if (typeOver && sel instanceof TextSelection2 && !sel.empty && sel.$head.sameParent(sel.$anchor) && !view.composing && !(parse2.sel && parse2.sel.anchor != parse2.sel.head)) {
+      if (typeOver && sel instanceof TextSelection && !sel.empty && sel.$head.sameParent(sel.$anchor) && !view.composing && !(parse2.sel && parse2.sel.anchor != parse2.sel.head)) {
         change = { start: sel.from, endA: sel.to, endB: sel.to };
       } else {
         if (parse2.sel) {
@@ -82152,7 +82152,7 @@
         return;
       }
     }
-    if (view.state.selection.from < view.state.selection.to && change.start == change.endB && view.state.selection instanceof TextSelection2) {
+    if (view.state.selection.from < view.state.selection.to && change.start == change.endB && view.state.selection instanceof TextSelection) {
       if (change.start > view.state.selection.from && change.start <= view.state.selection.from + 2 && view.state.selection.from >= parse2.from) {
         change.start = view.state.selection.from;
       } else if (change.endA < view.state.selection.to && change.endA >= view.state.selection.to - 2 && view.state.selection.to <= parse2.to) {
@@ -83099,7 +83099,7 @@
         }
         localCompositionInfo(view, pos) {
           let { from: from4, to } = view.state.selection;
-          if (!(view.state.selection instanceof TextSelection2) || from4 < pos || to > pos + this.node.content.size)
+          if (!(view.state.selection instanceof TextSelection) || from4 < pos || to > pos + this.node.content.size)
             return null;
           let textNode = view.input.compositionNode;
           if (!textNode || !this.dom.contains(textNode.parentNode))
@@ -83608,7 +83608,7 @@
           return;
         }
         let sel = view.state.selection;
-        if (!(sel instanceof TextSelection2) || !sel.$from.sameParent(sel.$to)) {
+        if (!(sel instanceof TextSelection) || !sel.$from.sameParent(sel.$to)) {
           let text11 = String.fromCharCode(event.charCode);
           let deflt = () => view.state.tr.insertText(text11).scrollIntoView();
           if (!/[\r\n]/.test(text11) && !view.someProp("handleTextInput", (f) => f(view, sel.$from.pos, sel.$to.pos, text11, deflt)))
@@ -83787,7 +83787,7 @@
             return;
           let { doc: doc6 } = this.view.state, start2 = this.startSelection;
           let [anchor, head] = target.from < start2.from ? [start2.to, target.from] : [start2.from, target.to];
-          updateSelection(this.view, TextSelection2.create(doc6, anchor, head), "pointer");
+          updateSelection(this.view, TextSelection.create(doc6, anchor, head), "pointer");
         }
       };
       handlers2.touchstart = (view) => {
@@ -83805,7 +83805,7 @@
         if (!view.composing) {
           view.domObserver.flush();
           let { state } = view, $pos = state.selection.$to;
-          if (state.selection instanceof TextSelection2 && state.selection.empty && (state.storedMarks || !$pos.textOffset && $pos.parentOffset && $pos.nodeBefore.marks.some((m) => m.type.spec.inclusive === false) || chrome3 && windows3 && selectionBeforeUneditable(view))) {
+          if (state.selection instanceof TextSelection && state.selection.empty && (state.storedMarks || !$pos.textOffset && $pos.parentOffset && $pos.nodeBefore.marks.some((m) => m.type.spec.inclusive === false) || chrome3 && windows3 && selectionBeforeUneditable(view))) {
             view.markCursor = view.state.storedMarks || $pos.marks();
             endComposition(view, true);
             view.markCursor = null;
@@ -91646,7 +91646,7 @@
           this.#_shouldShow = (view) => {
             const { doc: doc6, selection: selection2 } = view.state;
             const { empty: empty4, from: from4, to } = selection2;
-            const isEmptyTextBlock = !doc6.textBetween(from4, to).length && view.state.selection instanceof TextSelection2;
+            const isEmptyTextBlock = !doc6.textBetween(from4, to).length && view.state.selection instanceof TextSelection;
             const isTooltipChildren = this.element.contains(document.activeElement);
             const notHasFocus = !view.hasFocus() && !isTooltipChildren;
             const isReadonly2 = !view.editable;
@@ -100707,7 +100707,7 @@ Expected function or array of functions, received type ${typeof value}.`
   function liftFirstListItem(ctx) {
     return (state, dispatch, view) => {
       const { selection: selection2 } = state;
-      if (!(selection2 instanceof TextSelection2)) return false;
+      if (!(selection2 instanceof TextSelection)) return false;
       const { empty: empty4, $from } = selection2;
       if (!empty4 || $from.parentOffset !== 0) return false;
       if ($from.node(-1).type !== listItemSchema.type(ctx)) return false;
@@ -101094,7 +101094,7 @@ Expected function or array of functions, received type ${typeof value}.`
           ...payload
         });
         if (!linkMark) return false;
-        dispatch(tr.removeMark(start2, end2, mark).addMark(start2, end2, linkMark).setSelection(new TextSelection2(tr.selection.$anchor)).scrollIntoView());
+        dispatch(tr.removeMark(start2, end2, mark).addMark(start2, end2, linkMark).setSelection(new TextSelection(tr.selection.$anchor)).scrollIntoView());
         return true;
       });
       withMeta6(updateLinkCommand, {
@@ -101740,7 +101740,7 @@ Expected function or array of functions, received type ${typeof value}.`
       });
       insertHardbreakCommand = $command("InsertHardbreak", (ctx) => () => (state, dispatch) => {
         const { selection: selection2, tr } = state;
-        if (!(selection2 instanceof TextSelection2)) return false;
+        if (!(selection2 instanceof TextSelection)) return false;
         if (selection2.empty) {
           const node2 = selection2.$from.node();
           if (node2.childCount > 0 && node2.lastChild?.type.name === "hardbreak") {
@@ -102328,7 +102328,7 @@ Expected function or array of functions, received type ${typeof value}.`
         const tr = state.tr;
         try {
           const $pos = state.doc.resolve(clamp2(pos, 0, state.doc.content.size));
-          tr.setSelection(TextSelection2.near($pos));
+          tr.setSelection(TextSelection.near($pos));
         } catch {
           return false;
         }
@@ -102834,7 +102834,7 @@ Expected function or array of functions, received type ${typeof value}.`
           this.getContent = (view, matchNode = (node2) => node2.type.name === "paragraph") => {
             const { selection: selection2 } = view.state;
             const { empty: empty4, $from } = selection2;
-            const isTextBlock = view.state.selection instanceof TextSelection2;
+            const isTextBlock = view.state.selection instanceof TextSelection;
             if (typeof document === "undefined") return;
             const isSlashChildren = this.element.contains(document.activeElement);
             const notHasFocus = !view.hasFocus() && !isSlashChildren;
@@ -103902,8 +103902,8 @@ Expected function or array of functions, received type ${typeof value}.`
         const lastCell = start2 + map6.map[map6.width * map6.height - 1];
         normalize3 = CellSelection.create(doc6, start2 + 1, lastCell);
       }
-    } else if (sel instanceof TextSelection2 && isCellBoundarySelection(sel)) normalize3 = TextSelection2.create(doc6, sel.from);
-    else if (sel instanceof TextSelection2 && isTextSelectionAcrossCells(sel)) normalize3 = TextSelection2.create(doc6, sel.$from.start(), sel.$from.end());
+    } else if (sel instanceof TextSelection && isCellBoundarySelection(sel)) normalize3 = TextSelection.create(doc6, sel.from);
+    else if (sel instanceof TextSelection && isTextSelectionAcrossCells(sel)) normalize3 = TextSelection.create(doc6, sel.$from.start(), sel.$from.end());
     if (normalize3) (tr || (tr = state.tr)).setSelection(normalize3);
     return tr;
   }
@@ -104549,7 +104549,7 @@ Expected function or array of functions, received type ${typeof value}.`
       if (cell == null) return false;
       if (dispatch) {
         const $cell = state.doc.resolve(cell);
-        dispatch(state.tr.setSelection(TextSelection2.between($cell, moveCellForward($cell))).scrollIntoView());
+        dispatch(state.tr.setSelection(TextSelection.between($cell, moveCellForward($cell))).scrollIntoView());
       }
       return true;
     };
@@ -104912,7 +104912,7 @@ Expected function or array of functions, received type ${typeof value}.`
     view.root.addEventListener("mousemove", move);
   }
   function atEndOfCell(view, axis, dir) {
-    if (!(view.state.selection instanceof TextSelection2)) return null;
+    if (!(view.state.selection instanceof TextSelection)) return null;
     const { $head } = view.state.selection;
     for (let d3 = $head.depth - 1; d3 >= 0; d3--) {
       const parent = $head.node(d3);
@@ -105342,7 +105342,7 @@ Expected function or array of functions, received type ${typeof value}.`
             else if (tableChanged && this.isColSelection()) return CellSelection2.colSelection($anchorCell, $headCell);
             else return new CellSelection2($anchorCell, $headCell);
           }
-          return TextSelection2.between($anchorCell, $headCell);
+          return TextSelection.between($anchorCell, $headCell);
         }
         content() {
           const table2 = this.$anchorCell.node(-1);
@@ -108496,7 +108496,7 @@ Expected function or array of functions, received type ${typeof value}.`
         if (!$start.node(-1).canReplaceWith($start.index(-1), $start.indexAfter(-1), tableSchema.type(ctx))) return null;
         const tableNode = createTable(ctx, Math.max(Number(match2.groups?.row ?? 0), 2), Number(match2.groups?.col));
         const tr = state.tr.replaceRangeWith(start2, end2, tableNode);
-        return tr.setSelection(TextSelection2.create(tr.doc, start2 + 3)).scrollIntoView();
+        return tr.setSelection(TextSelection.create(tr.doc, start2 + 3)).scrollIntoView();
       }));
       withMeta8(insertTableInputRule, {
         displayName: "InputRule<insertTableInputRule>",
@@ -111251,7 +111251,7 @@ Expected function or array of functions, received type ${typeof value}.`
                 else tr.delete(offset3 + fromA, offset3 + toA);
                 offset3 += toB - fromB - (toA - fromA);
               });
-              tr.setSelection(TextSelection2.create(tr.doc, selFrom, selTo));
+              tr.setSelection(TextSelection.create(tr.doc, selFrom, selTo));
               this.view.dispatch(tr);
             }
           };
@@ -111302,7 +111302,7 @@ Expected function or array of functions, received type ${typeof value}.`
                     pos + this.node.nodeSize,
                     state.schema.nodes.paragraph.createChecked({}, this.node.content)
                   );
-                  tr.setSelection(TextSelection2.near(tr.doc.resolve(pos)));
+                  tr.setSelection(TextSelection.near(tr.doc.resolve(pos)));
                   this.view.dispatch(tr);
                   this.view.focus();
                   return true;
@@ -111318,7 +111318,7 @@ Expected function or array of functions, received type ${typeof value}.`
             if (unit === "line") main2 = state.doc.lineAt(main2.head);
             if (dir < 0 ? main2.from > 0 : main2.to < state.doc.length) return false;
             const targetPos = ((_a3 = this.getPos()) != null ? _a3 : 0) + (dir < 0 ? 0 : this.node.nodeSize);
-            const selection2 = TextSelection2.near(
+            const selection2 = TextSelection.near(
               this.view.state.doc.resolve(targetPos),
               dir
             );
@@ -113450,7 +113450,7 @@ Expected function or array of functions, received type ${typeof value}.`
     });
   }
   function selectionBetween2(view, $anchor, $head, bias) {
-    return view.someProp("createSelectionBetween", (f) => f(view, $anchor, $head)) || TextSelection2.between($anchor, $head, bias);
+    return view.someProp("createSelectionBetween", (f) => f(view, $anchor, $head)) || TextSelection.between($anchor, $head, bias);
   }
   function createDropIndicatorView(view, getTarget, options) {
     const dom = view.dom;
@@ -113570,7 +113570,7 @@ Expected function or array of functions, received type ${typeof value}.`
     return function(state, dispatch, view) {
       let sel = state.selection;
       let $start = dir > 0 ? sel.$to : sel.$from, mustMove = sel.empty;
-      if (sel instanceof TextSelection2) {
+      if (sel instanceof TextSelection) {
         if (!view.endOfTextblock(dirStr) || $start.depth == 0)
           return false;
         mustMove = false;
@@ -113607,7 +113607,7 @@ Expected function or array of functions, received type ${typeof value}.`
     for (let i4 = insert2.length - 1; i4 >= 0; i4--)
       frag = Fragment.from(insert2[i4].createAndFill(null, frag));
     let tr = view.state.tr.replace($from.pos, $from.pos, new Slice2(frag, 0, 0));
-    tr.setSelection(TextSelection2.near(tr.doc.resolve($from.pos + 1)));
+    tr.setSelection(TextSelection.near(tr.doc.resolve($from.pos + 1)));
     view.dispatch(tr);
     return false;
   }
@@ -113916,13 +113916,13 @@ Expected function or array of functions, received type ${typeof value}.`
           }
           if (event.key === "ArrowLeft" && $pos.textOffset === 1) {
             view.dispatch(
-              view.state.tr.setSelection(TextSelection2.create(view.state.doc, $pos.pos - 1)).setStoredMarks($pos.marks())
+              view.state.tr.setSelection(TextSelection.create(view.state.doc, $pos.pos - 1)).setStoredMarks($pos.marks())
             );
             return true;
           }
           if (event.key === "ArrowRight" && $pos.textOffset + 1 === ((_a22 = $pos.parent.maybeChild($pos.index())) == null ? void 0 : _a22.nodeSize)) {
             view.dispatch(
-              view.state.tr.setSelection(TextSelection2.create(view.state.doc, $pos.pos + 1)).setStoredMarks($pos.marks())
+              view.state.tr.setSelection(TextSelection.create(view.state.doc, $pos.pos + 1)).setStoredMarks($pos.marks())
             );
             return true;
           }
@@ -129512,7 +129512,7 @@ Expected function or array of functions, received type ${typeof value}.`
             }));
             const view2 = this.ctx.get(editorViewCtx);
             view2.dispatch(
-              view2.state.tr.setSelection(TextSelection2.create(view2.state.doc, from4, to))
+              view2.state.tr.setSelection(TextSelection.create(view2.state.doc, from4, to))
             );
             __privateGet$1(this, _provider$1).show(
               { getBoundingClientRect: () => posToDOMRect(view2, from4, to) },
@@ -129527,7 +129527,7 @@ Expected function or array of functions, received type ${typeof value}.`
           this.update = (view2) => {
             const { state } = view2;
             const { selection: selection2 } = state;
-            if (!(selection2 instanceof TextSelection2)) return;
+            if (!(selection2 instanceof TextSelection)) return;
             const { from: from4, to } = selection2;
             if (from4 === __privateGet$1(this, _data).from && to === __privateGet$1(this, _data).to) return;
             __privateGet$1(this, _reset).call(this);
@@ -130035,7 +130035,7 @@ Expected function or array of functions, received type ${typeof value}.`
                 if (anchor > docSize || head > docSize) return;
                 const anchorPos = state.doc.resolve(anchor);
                 const headPos = state.doc.resolve(head);
-                const selection2 = TextSelection2.between(anchorPos, headPos);
+                const selection2 = TextSelection.between(anchorPos, headPos);
                 view.dispatch(state.tr.setSelection(selection2));
               });
             };
@@ -131167,7 +131167,7 @@ Expected function or array of functions, received type ${typeof value}.`
           (node22) => node22.type.name === "table_cell" || node22.type.name === "table_header"
         )($pos);
         if (!node2) return false;
-        if (state.selection instanceof TextSelection2) {
+        if (state.selection instanceof TextSelection) {
           const currentNode = findParent(
             (node22) => node22.type.name === "table_cell" || node22.type.name === "table_header"
           )(state.selection.$from);
@@ -131281,7 +131281,7 @@ Expected function or array of functions, received type ${typeof value}.`
                 if (text11 && language2) {
                   const { tr } = view.state;
                   const codeBlock = getNodeFromSchema("code_block", schema4);
-                  tr.replaceSelectionWith(codeBlock.create({ language: language2 })).setSelection(TextSelection2.near(tr.doc.resolve(Math.max(0, tr.selection.from - 2)))).insertText(text11.replace(/\r\n?/g, "\n"));
+                  tr.replaceSelectionWith(codeBlock.create({ language: language2 })).setSelection(TextSelection.near(tr.doc.resolve(Math.max(0, tr.selection.from - 2)))).insertText(text11.replace(/\r\n?/g, "\n"));
                   view.dispatch(tr);
                   return true;
                 }
@@ -131385,7 +131385,7 @@ Expected function or array of functions, received type ${typeof value}.`
   function updateIndent(tr, options) {
     const { doc: doc6, selection: selection2 } = tr;
     if (!doc6 || !selection2) return tr;
-    if (!(selection2 instanceof TextSelection2 || selection2 instanceof AllSelection)) return tr;
+    if (!(selection2 instanceof TextSelection || selection2 instanceof AllSelection)) return tr;
     const { to } = selection2;
     const text11 = options.type === "space" ? Array(options.size).fill(" ").join("") : "	";
     return tr.insertText(text11, to);
@@ -132465,7 +132465,7 @@ Expected function or array of functions, received type ${typeof value}.`
     });
   }
   function isSelectionAtEndOfNode(selection2) {
-    if (!(selection2 instanceof TextSelection2)) return false;
+    if (!(selection2 instanceof TextSelection)) return false;
     const { $head } = selection2;
     const parent = $head.parent;
     const offset3 = $head.parentOffset;
@@ -132769,7 +132769,7 @@ Expected function or array of functions, received type ${typeof value}.`
     if (state.storedMarks) {
       return state.storedMarks.some((m) => m.type === markType);
     }
-    if (state.selection instanceof TextSelection2) {
+    if (state.selection instanceof TextSelection) {
       const { $cursor } = state.selection;
       if ($cursor) {
         return $cursor.marks().some((m) => m.type === markType);
@@ -134025,7 +134025,7 @@ Expected function or array of functions, received type ${typeof value}.`
             const to = Math.min(Math.max(session.lastTo, 0), doc6.content.size);
             editorView2.dispatch(
               editorView2.state.tr.setSelection(
-                TextSelection2.create(editorView2.state.doc, from4, to)
+                TextSelection.create(editorView2.state.doc, from4, to)
               )
             );
             commands4.call(runAICmd.key, {
@@ -134526,7 +134526,7 @@ Expected function or array of functions, received type ${typeof value}.`
           };
           this.update = (view2, prevState) => {
             const { selection: selection2 } = view2.state;
-            const isTextSelection2 = selection2 instanceof TextSelection2;
+            const isTextSelection2 = selection2 instanceof TextSelection;
             const movedRange = selection2.from !== __privateGet$8(this, _from) || selection2.to !== __privateGet$8(this, _to);
             if (!isTextSelection2 || movedRange) {
               __privateSet$8(this, _wantsShow, false);
@@ -135126,7 +135126,7 @@ Expected function or array of functions, received type ${typeof value}.`
             const $pos = active.$pos;
             const pos = $pos.pos + active.node.nodeSize;
             let tr = state.tr.insert(pos, paragraphSchema.type(ctx2).create());
-            tr = tr.setSelection(TextSelection2.near(tr.doc.resolve(pos)));
+            tr = tr.setSelection(TextSelection.near(tr.doc.resolve(pos)));
             dispatch(tr.scrollIntoView());
             __privateGet$4(this, _provider$12).hide();
             ctx2.get(menuAPI.key).show(tr.selection.from);
@@ -135370,7 +135370,7 @@ Expected function or array of functions, received type ${typeof value}.`
           if (dispatch) {
             dispatch(
               _tr.setSelection(
-                TextSelection2.create(_tr.doc, from4, to + content5.length - 1)
+                TextSelection.create(_tr.doc, from4, to + content5.length - 1)
               )
             );
           }
@@ -135797,8 +135797,8 @@ Expected function or array of functions, received type ${typeof value}.`
             shouldShow(view2) {
               const { doc: doc6, selection: selection2 } = view2.state;
               const { empty: empty4, from: from4, to } = selection2;
-              const isEmptyTextBlock = !doc6.textBetween(from4, to).length && selection2 instanceof TextSelection2;
-              const isNotTextBlock = !(selection2 instanceof TextSelection2);
+              const isEmptyTextBlock = !doc6.textBetween(from4, to).length && selection2 instanceof TextSelection;
+              const isNotTextBlock = !(selection2 instanceof TextSelection);
               const activeElement = view2.dom.getRootNode().activeElement;
               const isTooltipChildren = content5.contains(activeElement);
               const notHasFocus = !view2.hasFocus() && !isTooltipChildren;
@@ -137305,39 +137305,88 @@ Expected function or array of functions, received type ${typeof value}.`
               }
             }
             return false;
+          },
+          handleKeyDown(view, event) {
+            if (!view || !view.state) return false;
+            const { state, dispatch } = view;
+            const { selection: selection2 } = state;
+            const isImgNode = selection2 && selection2.node && (selection2.node.type.name === "image-block" || selection2.node.type.name === "image");
+            if (event.key === "Enter" && isImgNode) {
+              const pType = state.schema.nodes.paragraph;
+              if (pType) {
+                event.preventDefault();
+                const afterPos = selection2.to;
+                let tr = state.tr;
+                const nodeAfter = selection2.$to.nodeAfter;
+                if (!nodeAfter) {
+                  tr = tr.insert(afterPos, pType.create());
+                }
+                tr = tr.setSelection(Selection.near(tr.doc.resolve(afterPos + 1))).scrollIntoView();
+                dispatch(tr);
+                view.focus();
+                return true;
+              }
+            }
+            if (event.key === "ArrowDown" && isImgNode) {
+              const afterPos = selection2.to;
+              if (afterPos >= state.doc.content.size) {
+                const pType = state.schema.nodes.paragraph;
+                if (pType) {
+                  event.preventDefault();
+                  let tr = state.tr.insert(afterPos, pType.create());
+                  tr = tr.setSelection(Selection.near(tr.doc.resolve(afterPos + 1))).scrollIntoView();
+                  dispatch(tr);
+                  view.focus();
+                  return true;
+                }
+              }
+            }
+            return false;
           }
         },
         appendTransaction(transactions, oldState, newState) {
           if (isUpdatingFromHost) return null;
           const docChanged = transactions.some((tr2) => tr2.docChanged);
           if (!docChanged) return null;
+          let tr = null;
           const codeMarkType = newState.schema.marks.inlineCode || newState.schema.marks.code_inline;
-          if (!codeMarkType) return null;
-          const matches2 = [];
-          newState.doc.descendants((node2, pos, parent) => {
-            if (!node2.isText) return;
-            if (parent && (parent.type.name.includes("code_block") || parent.type.name.includes("code_bracket") || parent.type.spec?.code)) return;
-            if (node2.marks && node2.marks.some((m) => m.type === codeMarkType || m.type.name === "inlineCode" || m.type.name === "code_inline")) return;
-            const text11 = node2.text;
-            if (!text11 || !text11.includes("`")) return;
-            const regex = /`([^`\r\n]+)`/g;
-            let match2;
-            while ((match2 = regex.exec(text11)) !== null) {
-              matches2.push({
-                from: pos + match2.index,
-                to: pos + match2.index + match2[0].length,
-                code: match2[1]
-              });
+          if (codeMarkType) {
+            const matches2 = [];
+            newState.doc.descendants((node2, pos, parent) => {
+              if (!node2.isText) return;
+              if (parent && (parent.type.name.includes("code_block") || parent.type.name.includes("code_bracket") || parent.type.spec?.code)) return;
+              if (node2.marks && node2.marks.some((m) => m.type === codeMarkType || m.type.name === "inlineCode" || m.type.name === "code_inline")) return;
+              const text11 = node2.text;
+              if (!text11 || !text11.includes("`")) return;
+              const regex = /`([^`\r\n]+)`/g;
+              let match2;
+              while ((match2 = regex.exec(text11)) !== null) {
+                matches2.push({
+                  from: pos + match2.index,
+                  to: pos + match2.index + match2[0].length,
+                  code: match2[1]
+                });
+              }
+            });
+            if (matches2.length > 0) {
+              tr = newState.tr;
+              for (let i4 = matches2.length - 1; i4 >= 0; i4--) {
+                const m = matches2[i4];
+                const mark = codeMarkType.create();
+                tr.replaceWith(m.from, m.to, newState.schema.text(m.code, [mark]));
+              }
             }
-          });
-          if (matches2.length === 0) return null;
-          const tr = newState.tr;
-          for (let i4 = matches2.length - 1; i4 >= 0; i4--) {
-            const m = matches2[i4];
-            const mark = codeMarkType.create();
-            tr.replaceWith(m.from, m.to, newState.schema.text(m.code, [mark]));
           }
-          return tr.docChanged ? tr : null;
+          const currentDoc = tr ? tr.doc : newState.doc;
+          const lastChild = currentDoc.lastChild;
+          if (lastChild && (lastChild.type.name === "image-block" || lastChild.type.name === "image" || lastChild.type.name === "table" || lastChild.type.name === "hr" || !lastChild.isTextblock)) {
+            const pType = newState.schema.nodes.paragraph;
+            if (pType) {
+              if (!tr) tr = newState.tr;
+              tr = tr.insert(currentDoc.content.size, pType.create());
+            }
+          }
+          return tr && tr.docChanged ? tr : null;
         }
       }));
       var headingFoldPluginKey = new PluginKey("headingFoldPlugin");
@@ -137523,6 +137572,79 @@ Expected function or array of functions, received type ${typeof value}.`
         console.error("[Speller initialization failed]", e);
       }
       var ignoredWordsSet = /* @__PURE__ */ new Set();
+      var isSpellCheckActive = true;
+      var spellCheckPluginKey = new PluginKey("spellCheckPlugin");
+      function buildSpellCheckDecorations(doc6) {
+        if (!isSpellCheckActive || !speller || !doc6) return DecorationSet.empty;
+        const decos = [];
+        try {
+          doc6.descendants((node2, pos, parent) => {
+            if (parent && (parent.type.name.includes("code") || parent.type.name.includes("math"))) {
+              return false;
+            }
+            if (!node2.isText) return true;
+            if (node2.marks && node2.marks.some((m) => m.type.name.includes("code"))) {
+              return;
+            }
+            const text11 = node2.text;
+            if (!text11 || text11.length < 2) return;
+            const wordRegex = /\b[A-Za-z]+(?:'[A-Za-z]+)?\b/g;
+            let match2;
+            while ((match2 = wordRegex.exec(text11)) !== null) {
+              const rawWord = match2[0];
+              if (rawWord.length >= 2 && isWordMisspelled(rawWord)) {
+                const from4 = pos + match2.index;
+                const to = from4 + rawWord.length;
+                decos.push(Decoration2.inline(from4, to, {
+                  class: "misspelled-word",
+                  "data-word": rawWord
+                }));
+              }
+            }
+          });
+        } catch (err) {
+          console.error("[SpellCheck] buildDecorations error:", err);
+        }
+        return DecorationSet.create(doc6, decos);
+      }
+      var spellCheckPlugin = $prose(() => new Plugin({
+        key: spellCheckPluginKey,
+        state: {
+          init(config3, instance) {
+            return buildSpellCheckDecorations(instance.doc);
+          },
+          apply(tr, oldDecoSet, oldState, newState) {
+            if (!isSpellCheckActive || !speller) {
+              return DecorationSet.empty;
+            }
+            const meta2 = tr.getMeta(spellCheckPluginKey);
+            if (meta2 || tr.docChanged) {
+              return buildSpellCheckDecorations(newState.doc);
+            }
+            return oldDecoSet.map(tr.mapping, newState.doc);
+          }
+        },
+        props: {
+          decorations(state) {
+            return this.getState(state);
+          },
+          handleClick(view, pos, event) {
+            const target = event.target;
+            if (target && target.classList && target.classList.contains("misspelled-word")) {
+              const wordInfo = getWordAtPos(view.state.doc, pos);
+              if (wordInfo && isWordMisspelled(wordInfo.word)) {
+                try {
+                  const coords = view.coordsAtPos(wordInfo.from);
+                  showSpellPopup(wordInfo, coords);
+                  return true;
+                } catch (err) {
+                }
+              }
+            }
+            return false;
+          }
+        }
+      }));
       var crepeInstance = null;
       var editorView2 = null;
       var isUpdatingFromHost = false;
@@ -137782,11 +137904,17 @@ Expected function or array of functions, received type ${typeof value}.`
           }
         }
         window.flushContentChanged = flushContentChanged;
+        let lastMarkdownFromHost = null;
         crepeInstance.on((listener2) => {
           listener2.markdownUpdated((ctx, markdown2, prevMarkdown) => {
             if (isUpdatingFromHost) return;
+            if (lastMarkdownFromHost !== null) {
+              if ((markdown2 || "").trim() === lastMarkdownFromHost.trim()) {
+                return;
+              }
+              lastMarkdownFromHost = null;
+            }
             if (!hasReceivedInitialContent && !markdown2) return;
-            hasReceivedInitialContent = true;
             pendingMarkdownToSend = markdown2;
             if (contentChangedDebounceTimer) {
               clearTimeout(contentChangedDebounceTimer);
@@ -137811,11 +137939,12 @@ Expected function or array of functions, received type ${typeof value}.`
           crepeInstance.editor.use(remarkFixImageNodes);
           crepeInstance.editor.use(autoInlineCodePlugin);
           crepeInstance.editor.use(headingFoldPlugin);
+          crepeInstance.editor.use(spellCheckPlugin);
           await crepeInstance.create();
           crepeInstance.editor.action((ctx) => {
             editorView2 = ctx.get(editorViewCtx);
           });
-          applySpellCheck(false);
+          applySpellCheck(true);
         } catch (err) {
           console.error("Failed to create Crepe editor:", err);
         }
@@ -137833,12 +137962,15 @@ Expected function or array of functions, received type ${typeof value}.`
           if ((current || "").trim() === (markdown2 || "").trim()) {
             return;
           }
-          const activeEl = document.activeElement;
-          const isEditorActive = activeEl && (activeEl.closest(".ProseMirror") || activeEl.closest(".milkdown"));
-          if (!force && isEditorActive) {
-            return;
+          if (!force) {
+            const activeEl = document.activeElement;
+            const isEditorActive = document.hasFocus() && activeEl && (activeEl.closest(".ProseMirror") || activeEl.closest(".milkdown"));
+            if (isEditorActive) {
+              return;
+            }
           }
           const cleanMd = (markdown2 || "").replace(/(!\[.*?\]\([^\n\r]*?\))\r?\n(?=!\[)/g, "$1\n\n");
+          lastMarkdownFromHost = cleanMd;
           const md = cleanMd || "";
           const imgRegex = /!\[.*?\]\(\s*<?([^\s>)]+)>?\s*\)/g;
           let match2;
@@ -137855,17 +137987,40 @@ Expected function or array of functions, received type ${typeof value}.`
           isUpdatingFromHost = true;
           try {
             crepeInstance.editor.action(replaceAll(cleanMd));
+            crepeInstance.editor.action((ctx) => {
+              const view = ctx.get(editorViewCtx);
+              if (view && view.state) {
+                const doc6 = view.state.doc;
+                const lastChild = doc6.lastChild;
+                if (lastChild && (lastChild.type.name === "image-block" || lastChild.type.name === "image" || lastChild.type.name === "table" || lastChild.type.name === "hr" || !lastChild.isTextblock)) {
+                  const pType = view.state.schema.nodes.paragraph;
+                  if (pType) {
+                    view.dispatch(view.state.tr.insert(doc6.content.size, pType.create()));
+                  }
+                }
+                if (force) {
+                  try {
+                    const startSel = Selection.atStart(view.state.doc);
+                    view.dispatch(view.state.tr.setSelection(startSel).scrollIntoView());
+                  } catch (_) {
+                  }
+                  const scrollContainer = document.querySelector(".milkdown") || document.documentElement;
+                  if (scrollContainer) scrollContainer.scrollTop = 0;
+                }
+              }
+            });
             setTimeout(resolveAllImagesInDOM, 60);
             setTimeout(() => {
               if (window.updateHeadingFolds) window.updateHeadingFolds();
               if (window.refreshFindWidget) window.refreshFindWidget();
+              if (isSpellCheckActive) applySpellCheck(true);
             }, 30);
           } catch (e) {
             console.error("[setMarkdown] Failed to replace markdown:", e);
           } finally {
             setTimeout(() => {
               isUpdatingFromHost = false;
-            }, 150);
+            }, 300);
           }
         };
         window.getMarkdown = () => {
@@ -138433,7 +138588,7 @@ Expected function or array of functions, received type ${typeof value}.`
             } else {
               lastBottom = pm.getBoundingClientRect().top;
             }
-            if (e.clientY > lastBottom) {
+            if (e.clientY >= lastBottom - 2 || e.target === pm || e.target === editorContainer || e.target.classList && e.target.classList.contains("milkdown")) {
               const { state, dispatch } = view;
               const lastChild = state.doc.lastChild;
               const hasTrailingEmptyP = lastChild && lastChild.type.name === "paragraph" && lastChild.content.size === 0;
@@ -138443,7 +138598,7 @@ Expected function or array of functions, received type ${typeof value}.`
                 tr = tr.insert(state.doc.content.size, emptyPara);
               }
               const targetPos = Math.max(0, tr.doc.content.size - 1);
-              tr = tr.setSelection(TextSelection.near(tr.doc.resolve(targetPos))).scrollIntoView();
+              tr = tr.setSelection(Selection.near(tr.doc.resolve(targetPos))).scrollIntoView();
               dispatch(tr);
               view.focus();
             }
@@ -138481,7 +138636,8 @@ Expected function or array of functions, received type ${typeof value}.`
         sendMessage({ type: "ready" });
       }
       function applySpellCheck(enabled) {
-        const isEnabled = !!enabled;
+        isSpellCheckActive = !!enabled;
+        const isEnabled = isSpellCheckActive;
         const pm = document.querySelector(".ProseMirror");
         if (pm) pm.setAttribute("spellcheck", isEnabled ? "true" : "false");
         const root3 = document.getElementById("editor");
@@ -138489,6 +138645,10 @@ Expected function or array of functions, received type ${typeof value}.`
         const container = document.getElementById("editor-container");
         if (container) container.setAttribute("spellcheck", isEnabled ? "true" : "false");
         document.body.setAttribute("spellcheck", isEnabled ? "true" : "false");
+        const view = getEditorView();
+        if (view && view.state) {
+          view.dispatch(view.state.tr.setMeta(spellCheckPluginKey, { enabled: isEnabled }));
+        }
       }
       var contextMenuX = 0;
       var contextMenuY = 0;
@@ -138501,6 +138661,10 @@ Expected function or array of functions, received type ${typeof value}.`
               if (clean2) ignoredWordsSet.add(clean2);
             }
           });
+          const view = getEditorView();
+          if (view && view.state) {
+            view.dispatch(view.state.tr.setMeta(spellCheckPluginKey, { refresh: true }));
+          }
         }
       };
       function isWordMisspelled(word) {
@@ -138590,6 +138754,10 @@ Expected function or array of functions, received type ${typeof value}.`
             e.stopPropagation();
             const lower = wordInfo.word.toLowerCase();
             ignoredWordsSet.add(lower);
+            const view = getEditorView();
+            if (view && view.state) {
+              view.dispatch(view.state.tr.setMeta(spellCheckPluginKey, { refresh: true }));
+            }
             sendMessage({ type: "ignoreWord", word: wordInfo.word });
             hideSpellPopup();
           };
@@ -139452,9 +139620,30 @@ Expected function or array of functions, received type ${typeof value}.`
           }
         }
       }
+      function updateResponsiveImages() {
+        const imageBlocks = document.querySelectorAll(".milkdown-image-block");
+        imageBlocks.forEach((block4) => {
+          const wrapper = block4.querySelector(".image-wrapper");
+          const img = block4.querySelector("img");
+          if (!img) return;
+          img.style.maxWidth = "100%";
+          img.style.height = "auto";
+          img.style.objectFit = "contain";
+          const alt = img.getAttribute("alt");
+          const ratioNum = alt ? parseFloat(alt) : NaN;
+          if (!isNaN(ratioNum) && ratioNum > 0 && ratioNum < 1) {
+            const pct = Math.min(100, Math.max(10, Math.round(ratioNum * 100)));
+            if (wrapper) wrapper.style.maxWidth = `${pct}%`;
+          } else {
+            if (wrapper) wrapper.style.maxWidth = "100%";
+          }
+        });
+      }
+      window.addEventListener("resize", updateResponsiveImages);
       function resolveAllImagesInDOM() {
         const imgs = document.querySelectorAll(".milkdown img, .ProseMirror img, img");
         imgs.forEach(resolveImageElement);
+        updateResponsiveImages();
       }
       var imgObserver = new MutationObserver((mutations) => {
         for (const m of mutations) {
@@ -139468,10 +139657,12 @@ Expected function or array of functions, received type ${typeof value}.`
                 }
               }
             });
+            updateResponsiveImages();
           } else if (m.type === "attributes" && m.attributeName === "src") {
             if (m.target && m.target.tagName === "IMG") {
               resolveImageElement(m.target);
             }
+            updateResponsiveImages();
           }
         }
       });
@@ -139535,7 +139726,16 @@ Expected function or array of functions, received type ${typeof value}.`
               src: clean2,
               alt: altText || "image"
             });
-            const newTr = tr.replaceSelectionWith(node2).scrollIntoView();
+            let newTr = tr.replaceSelectionWith(node2);
+            const pType = schema4.nodes.paragraph;
+            if (pType) {
+              const afterPos = newTr.selection.to;
+              const emptyPara = pType.create();
+              newTr = newTr.insert(afterPos, emptyPara);
+              const insidePos = afterPos + 1;
+              newTr = newTr.setSelection(Selection.near(newTr.doc.resolve(insidePos)));
+            }
+            newTr = newTr.scrollIntoView();
             view.dispatch(newTr);
             view.focus();
           } else {

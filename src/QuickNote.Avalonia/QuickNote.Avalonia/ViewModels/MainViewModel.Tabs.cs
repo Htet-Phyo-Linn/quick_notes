@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Linq;
 using CommunityToolkit.Mvvm.Input;
 using QuickNote.Core.Models;
@@ -49,6 +50,7 @@ namespace QuickNote.Avalonia.ViewModels
         {
             if (tab?.Note == null) return;
             SelectNote(tab.Note);
+            ActiveEditorPane = EditorPane.Left;
         }
 
         public void CloseTab(NoteTabViewModel tab)
@@ -67,6 +69,31 @@ namespace QuickNote.Avalonia.ViewModels
 
             int index = OpenTabs.IndexOf(tab);
             OpenTabs.Remove(tab);
+
+            // Clean up orphan file if closing an untouched, empty Untitled note
+            if (tab.Note != null &&
+                Path.GetFileNameWithoutExtension(tab.Note.FileName).StartsWith("Untitled", StringComparison.OrdinalIgnoreCase) &&
+                string.IsNullOrWhiteSpace(tab.Note.Title) &&
+                (tab != ActiveTab || !_isModified) &&
+                !tab.IsModified)
+            {
+                try
+                {
+                    if (File.Exists(tab.Note.FullPath))
+                    {
+                        var fi = new FileInfo(tab.Note.FullPath);
+                        if (fi.Length == 0)
+                        {
+                            File.Delete(tab.Note.FullPath);
+                            Notes.Remove(tab.Note);
+                            _ = _noteRepository.DeleteNoteAsync(tab.Note.Id);
+                            NotesCountText = $"{Notes.Count} notes";
+                            _ = RefreshFolderTreeAsync();
+                        }
+                    }
+                }
+                catch { }
+            }
 
             if (ActiveTab == tab)
             {
@@ -159,6 +186,23 @@ namespace QuickNote.Avalonia.ViewModels
                 ActiveTab.IsModified = true;
             }
 
+            // If same file is open in Right pane, sync title
+            if (IsSplitViewActive && RightCurrentNote != null && string.Equals(RightCurrentNote.FullPath, CurrentNote.FullPath, StringComparison.OrdinalIgnoreCase))
+            {
+                if (!string.Equals(RightNoteTitle, value, StringComparison.Ordinal))
+                {
+                    _isRightInternalChange = true;
+                    RightNoteTitle = value;
+                    _isRightInternalChange = false;
+                    _isRightModified = true;
+                    if (RightActiveTab != null)
+                    {
+                        RightActiveTab.Title = value;
+                        RightActiveTab.IsModified = true;
+                    }
+                }
+            }
+
             UpdateTreeNodeTitle(FolderNodes, CurrentNote.FullPath, value);
             _isModified = true;
             StatusText  = "Editing...";
@@ -178,6 +222,21 @@ namespace QuickNote.Avalonia.ViewModels
             if (ActiveTab != null) ActiveTab.IsModified = true;
             StatusText = "Editing...";
             UpdateOutline(value);
+
+            // If same file is open in Right pane, sync content ONLY if Left pane is active editor
+            if (IsSplitViewActive && ActiveEditorPane == EditorPane.Left && RightCurrentNote != null && string.Equals(RightCurrentNote.FullPath, CurrentNote.FullPath, StringComparison.OrdinalIgnoreCase))
+            {
+                if (!string.Equals(RightEditorContent, value, StringComparison.Ordinal))
+                {
+                    _isRightInternalChange = true;
+                    RightEditorContent = value;
+                    _isRightInternalChange = false;
+                    _isRightModified = true;
+                    if (RightActiveTab != null) RightActiveTab.IsModified = true;
+                    RightMarkdownRenderRequested?.Invoke(value);
+                }
+            }
+
             TriggerDebouncedSave();
         }
 
@@ -188,7 +247,17 @@ namespace QuickNote.Avalonia.ViewModels
             if (value == null || value.IsDirectory) return;
             var matchingNote = Notes.FirstOrDefault(n =>
                 string.Equals(n.FullPath, value.FullPath, StringComparison.OrdinalIgnoreCase));
-            if (matchingNote != null) SelectNote(matchingNote);
+            if (matchingNote != null)
+            {
+                if (IsSplitViewActive && ActiveEditorPane == EditorPane.Right)
+                {
+                    SelectRightNote(matchingNote);
+                }
+                else
+                {
+                    SelectNote(matchingNote);
+                }
+            }
         }
 
         // ── Search ───────────────────────────────────────────────────

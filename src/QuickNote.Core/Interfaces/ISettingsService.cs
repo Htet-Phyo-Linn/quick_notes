@@ -11,7 +11,7 @@ namespace QuickNote.Core.Interfaces
         public bool IsOneDriveSyncEnabled { get; set; }
         public string? OneDriveNotesPath { get; set; }
         public string? SelectedOneDriveAccountName { get; set; }
-        public bool IsSpellCheckEnabled { get; set; } = false;
+        public bool IsSpellCheckEnabled { get; set; } = true;
         public System.Collections.Generic.List<string> IgnoredWords { get; set; } = new();
 
         private System.Collections.Generic.Dictionary<string, bool> _folderExpandedStates = new(System.StringComparer.OrdinalIgnoreCase);

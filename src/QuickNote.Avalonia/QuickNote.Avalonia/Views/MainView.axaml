@@ -75,7 +75,7 @@
         </Style>
     </UserControl.Styles>
 
-    <Grid RowDefinitions="Auto,Auto,*,Auto">
+    <Grid RowDefinitions="Auto,*,Auto">
         <!-- 1. TOP TOOLBAR -->
         <Border Grid.Row="0" Background="#202020" BorderBrush="#2d2d2d" BorderThickness="0,0,0,1" Padding="10,6">
             <Grid ColumnDefinitions="Auto,*,Auto">
@@ -162,12 +162,12 @@
                                         <PathIcon Data="{StaticResource IconVisualEdit}" Width="13" Height="13" Foreground="#3b82f6" />
                                     </MenuItem.Icon>
                                 </MenuItem>
-                                <MenuItem Header="Markdown Source" Command="{Binding SetEditModeCommand}">
+                                <MenuItem Header="Normal Editor" Command="{Binding SetNormalEditorModeCommand}">
                                     <MenuItem.Icon>
                                         <PathIcon Data="{StaticResource IconMarkdown}" Width="13" Height="13" Foreground="#9ca3af" />
                                     </MenuItem.Icon>
                                 </MenuItem>
-                                <MenuItem Header="Split View" Command="{Binding SetSplitModeCommand}">
+                                <MenuItem Header="Split View" Command="{Binding ToggleSplitViewCommand}">
                                     <MenuItem.Icon>
                                         <PathIcon Data="{StaticResource IconSplit}" Width="13" Height="13" Foreground="#9ca3af" />
                                     </MenuItem.Icon>
@@ -230,54 +230,8 @@
             </Grid>
         </Border>
 
-        <!-- 2. TAB STRIP -->
-        <Border Grid.Row="1" Background="#1c1c1c" BorderBrush="#2d2d2d" BorderThickness="0,0,0,1" Padding="8,4,8,3">
-            <ScrollViewer x:Name="TabScrollViewer"
-                          Classes="tab-scroll-viewer"
-                          HorizontalScrollBarVisibility="Auto"
-                          VerticalScrollBarVisibility="Disabled"
-                          PointerWheelChanged="TabScrollViewer_PointerWheelChanged">
-                <ItemsControl ItemsSource="{Binding OpenTabs}">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <StackPanel Orientation="Horizontal" Spacing="2" />
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate DataType="vm:NoteTabViewModel">
-                            <Border Classes="tab-item"
-                                     Classes.tab-active="{Binding IsActive}"
-                                     BorderThickness="1,1,1,0"
-                                     CornerRadius="6,6,0,0"
-                                     Padding="10,6"
-                                     Margin="0,0,2,4"
-                                     PointerPressed="OnTabPointerPressed">
-                                <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                    <Ellipse Width="6" Height="6" Fill="#f59e0b" IsVisible="{Binding IsModified}" VerticalAlignment="Center" Margin="0,0,2,0" />
-                                    <TextBlock Text="{Binding DisplayTitle}"
-                                               Classes="tab-title"
-                                               Classes.tab-title-active="{Binding IsActive}"
-                                               FontSize="13"
-                                               VerticalAlignment="Center" />
-                                    <Button Command="{Binding CloseCommand}"
-                                            Content="✕"
-                                            Background="Transparent"
-                                            BorderThickness="0"
-                                            Foreground="#9ca3af"
-                                            FontSize="10"
-                                            Padding="4,2"
-                                            Margin="4,0,0,0"
-                                            VerticalAlignment="Center" />
-                                </StackPanel>
-                            </Border>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </ScrollViewer>
-        </Border>
-
-        <!-- 3. MAIN 3-COLUMN WORKSPACE -->
-        <Grid x:Name="MainWorkspaceGrid" Grid.Row="2" ColumnDefinitions="240,Auto,*,Auto,220">
+        <!-- 2. MAIN 3-COLUMN WORKSPACE -->
+        <Grid x:Name="MainWorkspaceGrid" Grid.Row="1" ColumnDefinitions="240,Auto,*,Auto,220">
             <!-- COLUMN 0: SIDEBAR (Notes & Folders) -->
             <Border x:Name="LeftSidebarBorder" Grid.Column="0" Background="#1e1e1e" BorderBrush="#2d2d2d" BorderThickness="0,0,1,0" IsVisible="{Binding IsLeftSidebarVisible}">
                 <Grid RowDefinitions="Auto,*,Auto">
@@ -510,10 +464,85 @@
             <!-- SPLITTER 1 -->
             <GridSplitter x:Name="LeftGridSplitter" Grid.Column="1" Width="3" Background="#2d2d2d" ResizeDirection="Columns" IsVisible="{Binding IsLeftSidebarVisible}" />
 
-            <!-- COLUMN 2: CENTER EDITOR (SEAMLESS NOTION CANVAS) -->
-            <Grid Grid.Column="2" RowDefinitions="Auto,Auto,*">
-                <!-- Note Title Input -->
-                <Border Grid.Row="0" Padding="28,14,28,4" Background="#191919" BorderBrush="#2d2d2d" BorderThickness="0,0,0,0">
+            <!-- COLUMN 2: CENTER EDITOR WORKSPACE (VISUAL EDITORS OR NORMAL EDITOR) -->
+            <Grid Grid.Column="2">
+                <!-- 1. VISUAL EDITORS (Single Pane OR Side-by-Side Split Visual Editors) -->
+                <Grid x:Name="VisualEditorsGrid" IsVisible="{Binding IsNotionMode}">
+                    <Grid.ColumnDefinitions>
+                        <!-- Column 0: Left Visual Editor Pane -->
+                        <ColumnDefinition Width="*" MinWidth="200" />
+                        <!-- Column 1: Splitter (Width Auto when split, 0 when not) -->
+                        <ColumnDefinition Width="0" />
+                        <!-- Column 2: Right Visual Editor Pane (Width 1* when split, 0 when not) -->
+                        <ColumnDefinition Width="0" MinWidth="0" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- === LEFT VISUAL EDITOR PANE === -->
+                    <Border Grid.Column="0" Background="#191919">
+                        <Grid RowDefinitions="Auto,Auto,Auto,*">
+                            <!-- Left Tab Strip -->
+                            <Border Grid.Row="0" Background="#1c1c1c" BorderBrush="#2d2d2d" BorderThickness="0,0,0,1" Padding="4,3,4,0">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <ScrollViewer x:Name="LeftTabScrollViewer"
+                                                  Classes="tab-scroll-viewer"
+                                                  HorizontalScrollBarVisibility="Auto"
+                                                  VerticalScrollBarVisibility="Disabled"
+                                                  PointerWheelChanged="TabScrollViewer_PointerWheelChanged">
+                                        <ItemsControl ItemsSource="{Binding OpenTabs}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <StackPanel Orientation="Horizontal" Spacing="2" />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate DataType="vm:NoteTabViewModel">
+                                                    <Border Classes="tab-item"
+                                                            Classes.tab-active="{Binding IsActive}"
+                                                            BorderThickness="1,1,1,0"
+                                                            CornerRadius="4,4,0,0"
+                                                            Padding="10,6"
+                                                            Margin="0,0,2,0"
+                                                            PointerPressed="OnTabPointerPressed">
+                                                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                                            <Ellipse Width="6" Height="6" Fill="#f59e0b" IsVisible="{Binding IsModified}" VerticalAlignment="Center" Margin="0,0,2,0" />
+                                                            <TextBlock Text="{Binding DisplayTitle}"
+                                                                       Classes="tab-title"
+                                                                       Classes.tab-title-active="{Binding IsActive}"
+                                                                       FontSize="12"
+                                                                       VerticalAlignment="Center" />
+                                                            <Button Command="{Binding CloseCommand}"
+                                                                    Content="✕"
+                                                                    Background="Transparent"
+                                                                    BorderThickness="0"
+                                                                    Foreground="#9ca3af"
+                                                                    FontSize="10"
+                                                                    Padding="4,2"
+                                                                    Margin="4,0,0,0"
+                                                                    VerticalAlignment="Center" />
+                                                        </StackPanel>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </ScrollViewer>
+
+                                    <!-- Split Editor Right Button on Left Tab Strip -->
+                                    <Button Grid.Column="1"
+                                            Command="{Binding SplitEditorRightCommand}"
+                                            Background="Transparent"
+                                            BorderThickness="0"
+                                            Padding="6,4"
+                                            Margin="4,0,4,3"
+                                            CornerRadius="4"
+                                            VerticalAlignment="Center"
+                                            ToolTip.Tip="Split Editor Right (Ctrl+\)">
+                                        <PathIcon Data="{StaticResource IconSplit}" Width="13" Height="13" Foreground="#9ca3af" />
+                                    </Button>
+                                </Grid>
+                            </Border>
+
+                            <!-- Left Note Title Input -->
+                            <Border Grid.Row="1" Padding="28,14,28,4" Background="#191919" BorderBrush="#2d2d2d" BorderThickness="0,0,0,0">
                     <TextBox x:Name="TitleBox"
                              Text="{Binding NoteTitle, Mode=TwoWay}"
                              PlaceholderText="Untitled Note"
@@ -545,7 +574,7 @@
                 </Border>
 
                 <!-- Tags Row (Modern Notion/GitHub Pill Chips) -->
-                <Border Grid.Row="1" Padding="28,4,28,10" Background="#191919" BorderBrush="#262626" BorderThickness="0,0,0,1" IsVisible="{Binding HasCurrentNote}">
+                <Border Grid.Row="2" Padding="28,4,28,10" Background="#191919" BorderBrush="#262626" BorderThickness="0,0,0,1" IsVisible="{Binding HasCurrentNote}">
                     <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                         <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center" Margin="0,0,2,0">
                             <PathIcon Data="{StaticResource IconTag}" Width="12" Height="12" Foreground="#6b7280" VerticalAlignment="Center" />
@@ -767,16 +796,226 @@
                     </StackPanel>
                 </Border>
 
-                <!-- WORKSPACE AREA: Notion Mode OR Raw Markdown Mode -->
-                <Grid Grid.Row="2">
-                    <!-- 1. SEAMLESS NOTION CANVAS (Default!) -->
-                    <notion:NotionEditorControl x:Name="NotionEditor"
-                                                IsVisible="{Binding IsNotionEditorActive}"
-                                                HorizontalAlignment="Stretch"
-                                                VerticalAlignment="Stretch" />
+                            <!-- Left Visual Editor Canvas -->
+                            <notion:NotionEditorControl x:Name="NotionEditor"
+                                                        Grid.Row="3"
+                                                        HorizontalAlignment="Stretch"
+                                                        VerticalAlignment="Stretch" />
+                        </Grid>
+                    </Border>
 
-                    <!-- 2. RAW MARKDOWN & SPLIT VIEW MODES -->
-                    <Grid x:Name="EditorWorkspaceGrid" IsVisible="{Binding !IsNotionMode}">
+                    <!-- === SPLITTER BETWEEN LEFT & RIGHT === -->
+                    <GridSplitter x:Name="VisualSplitter"
+                                  Grid.Column="1"
+                                  Width="3"
+                                  Background="#2d2d2d"
+                                  ResizeDirection="Columns"
+                                  IsVisible="{Binding IsSplitViewActive}" />
+
+                    <!-- === RIGHT VISUAL EDITOR PANE === -->
+                    <Border x:Name="RightEditorPane"
+                            Grid.Column="2"
+                            Background="#191919"
+                            BorderBrush="#2d2d2d"
+                            BorderThickness="1,0,0,0"
+                            IsVisible="{Binding IsSplitViewActive}">
+                        <Grid RowDefinitions="Auto,Auto,Auto,*">
+                            <!-- Right Tab Strip -->
+                            <Border Grid.Row="0" Background="#1c1c1c" BorderBrush="#2d2d2d" BorderThickness="0,0,0,1" Padding="4,3,4,0">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <ScrollViewer x:Name="RightTabScrollViewer"
+                                                  Classes="tab-scroll-viewer"
+                                                  HorizontalScrollBarVisibility="Auto"
+                                                  VerticalScrollBarVisibility="Disabled"
+                                                  PointerWheelChanged="TabScrollViewer_PointerWheelChanged">
+                                        <ItemsControl ItemsSource="{Binding RightOpenTabs}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <StackPanel Orientation="Horizontal" Spacing="2" />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate DataType="vm:NoteTabViewModel">
+                                                    <Border Classes="tab-item"
+                                                            Classes.tab-active="{Binding IsActive}"
+                                                            BorderThickness="1,1,1,0"
+                                                            CornerRadius="4,4,0,0"
+                                                            Padding="10,6"
+                                                            Margin="0,0,2,0"
+                                                            PointerPressed="OnRightTabPointerPressed">
+                                                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                                            <Ellipse Width="6" Height="6" Fill="#f59e0b" IsVisible="{Binding IsModified}" VerticalAlignment="Center" Margin="0,0,2,0" />
+                                                            <TextBlock Text="{Binding DisplayTitle}"
+                                                                       Classes="tab-title"
+                                                                       Classes.tab-title-active="{Binding IsActive}"
+                                                                       FontSize="12"
+                                                                       VerticalAlignment="Center" />
+                                                            <Button Command="{Binding CloseCommand}"
+                                                                    Content="✕"
+                                                                    Background="Transparent"
+                                                                    BorderThickness="0"
+                                                                    Foreground="#9ca3af"
+                                                                    FontSize="10"
+                                                                    Padding="4,2"
+                                                                    Margin="4,0,0,0"
+                                                                    VerticalAlignment="Center" />
+                                                        </StackPanel>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </ScrollViewer>
+
+                                    <!-- Close Split Button on Right Tab Strip -->
+                                    <Button Grid.Column="1"
+                                            Command="{Binding CloseSplitEditorCommand}"
+                                            Background="Transparent"
+                                            BorderThickness="0"
+                                            Padding="6,4"
+                                            Margin="4,0,4,3"
+                                            CornerRadius="4"
+                                            VerticalAlignment="Center"
+                                            ToolTip.Tip="Close Split Editor">
+                                        <PathIcon Data="{StaticResource IconClose}" Width="10" Height="10" Foreground="#9ca3af" />
+                                    </Button>
+                                </Grid>
+                            </Border>
+
+                            <!-- Right Note Title Input -->
+                            <Border Grid.Row="1" Padding="28,14,28,4" Background="#191919" BorderBrush="#2d2d2d" BorderThickness="0,0,0,0">
+                                <TextBox x:Name="RightTitleBox"
+                                         Text="{Binding RightNoteTitle, Mode=TwoWay}"
+                                         PlaceholderText="Untitled Note"
+                                         FontSize="24"
+                                         FontWeight="Bold"
+                                         Background="Transparent"
+                                         Foreground="#f9fafb"
+                                         BorderThickness="0"
+                                         Padding="0,4"
+                                         KeyDown="RightTitleBox_KeyDown">
+                                    <TextBox.Styles>
+                                        <Style Selector="TextBox">
+                                            <Setter Property="Background" Value="Transparent" />
+                                            <Setter Property="BorderBrush" Value="Transparent" />
+                                            <Setter Property="BorderThickness" Value="0" />
+                                        </Style>
+                                        <Style Selector="TextBox:focus /template/ Border#PART_BorderElement">
+                                            <Setter Property="Background" Value="Transparent" />
+                                            <Setter Property="BorderBrush" Value="Transparent" />
+                                            <Setter Property="BorderThickness" Value="0" />
+                                        </Style>
+                                        <Style Selector="TextBox:pointerover /template/ Border#PART_BorderElement">
+                                            <Setter Property="Background" Value="Transparent" />
+                                            <Setter Property="BorderBrush" Value="Transparent" />
+                                            <Setter Property="BorderThickness" Value="0" />
+                                        </Style>
+                                    </TextBox.Styles>
+                                </TextBox>
+                            </Border>
+
+                            <!-- Right Tags Row (Pill Chips) -->
+                            <Border Grid.Row="2" Padding="28,4,28,10" Background="#191919" BorderBrush="#262626" BorderThickness="0,0,0,1" IsVisible="{Binding HasRightCurrentNote}">
+                                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center" Margin="0,0,2,0">
+                                        <PathIcon Data="{StaticResource IconTag}" Width="12" Height="12" Foreground="#6b7280" VerticalAlignment="Center" />
+                                        <TextBlock Text="Tags" Foreground="#6b7280" FontSize="12" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                    <ItemsControl ItemsSource="{Binding RightCurrentNoteTags}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <StackPanel Orientation="Horizontal" Spacing="6" />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate DataType="vm:TagItemViewModel">
+                                                <Border Background="#21262d"
+                                                        BorderBrush="#30363d"
+                                                        BorderThickness="1"
+                                                        CornerRadius="12"
+                                                        Height="24"
+                                                        Padding="8,0"
+                                                        VerticalAlignment="Center">
+                                                    <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                                        <TextBlock Text="#" Foreground="#58a6ff" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                                        <TextBlock Text="{Binding Name}" Foreground="#c9d1d9" FontSize="11" VerticalAlignment="Center" />
+                                                    </StackPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Right Visual Editor Canvas -->
+                            <notion:NotionEditorControl x:Name="NotionEditorRight"
+                                                        Grid.Row="3"
+                                                        HorizontalAlignment="Stretch"
+                                                        VerticalAlignment="Stretch" />
+                        </Grid>
+                    </Border>
+                </Grid>
+
+                <!-- 2. RAW MARKDOWN / NORMAL EDITOR MODE -->
+                <Grid x:Name="EditorWorkspaceGrid" IsVisible="{Binding !IsNotionMode}" RowDefinitions="Auto,Auto,*">
+                    <!-- Normal Editor Tab Strip -->
+                    <Border Grid.Row="0" Background="#1c1c1c" BorderBrush="#2d2d2d" BorderThickness="0,0,0,1" Padding="4,3,4,0">
+                        <ScrollViewer Classes="tab-scroll-viewer"
+                                      HorizontalScrollBarVisibility="Auto"
+                                      VerticalScrollBarVisibility="Disabled"
+                                      PointerWheelChanged="TabScrollViewer_PointerWheelChanged">
+                            <ItemsControl ItemsSource="{Binding OpenTabs}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel Orientation="Horizontal" Spacing="2" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="vm:NoteTabViewModel">
+                                        <Border Classes="tab-item"
+                                                Classes.tab-active="{Binding IsActive}"
+                                                BorderThickness="1,1,1,0"
+                                                CornerRadius="4,4,0,0"
+                                                Padding="10,6"
+                                                Margin="0,0,2,0"
+                                                PointerPressed="OnTabPointerPressed">
+                                            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                                <Ellipse Width="6" Height="6" Fill="#f59e0b" IsVisible="{Binding IsModified}" VerticalAlignment="Center" Margin="0,0,2,0" />
+                                                <TextBlock Text="{Binding DisplayTitle}"
+                                                           Classes="tab-title"
+                                                           Classes.tab-title-active="{Binding IsActive}"
+                                                           FontSize="12"
+                                                           VerticalAlignment="Center" />
+                                                <Button Command="{Binding CloseCommand}"
+                                                        Content="✕"
+                                                        Background="Transparent"
+                                                        BorderThickness="0"
+                                                        Foreground="#9ca3af"
+                                                        FontSize="10"
+                                                        Padding="4,2"
+                                                        Margin="4,0,0,0"
+                                                        VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Border>
+
+                    <!-- Normal Editor Title Input -->
+                    <Border Grid.Row="1" Padding="28,14,28,4" Background="#191919" BorderBrush="#2d2d2d" BorderThickness="0,0,0,0">
+                        <TextBox Text="{Binding NoteTitle, Mode=TwoWay}"
+                                 PlaceholderText="Untitled Note"
+                                 FontSize="24"
+                                 FontWeight="Bold"
+                                 Background="Transparent"
+                                 Foreground="#f9fafb"
+                                 BorderThickness="0"
+                                 Padding="0,4" />
+                    </Border>
+
+                    <!-- TextEditor and Preview Grid -->
+                    <Grid Grid.Row="2">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
@@ -871,8 +1110,8 @@
             </Border>
         </Grid>
 
-        <!-- 4. BOTTOM STATUS BAR -->
-        <Border Grid.Row="3" Background="#181818" BorderBrush="#2d2d2d" BorderThickness="0,1,0,0" Padding="16,6">
+        <!-- 3. BOTTOM STATUS BAR -->
+        <Border Grid.Row="2" Background="#181818" BorderBrush="#2d2d2d" BorderThickness="0,1,0,0" Padding="16,6">
             <Grid ColumnDefinitions="Auto,*,Auto,Auto">
                 <TextBlock Grid.Column="0" Text="{Binding StatusText}" Foreground="#9ca3af" FontSize="12" VerticalAlignment="Center" />
 

@@ -39,11 +39,14 @@ namespace QuickNote.Avalonia.ViewModels
         private bool _isModified;
         private bool _isCreatingNote;
 
+        public bool IsModified => _isModified;
+
         // ── Events ───────────────────────────────────────────────────
         public event Action<int>? ScrollToLineRequested;
         public event Action<Heading>? HeadingNavigationRequested;
         public event Action<string>? MarkdownRenderRequested;
         public event Action<string>? ExportRequested;
+        public event Action? FocusEditorRequested;
 
         // ── Collections ──────────────────────────────────────────────
         public ObservableCollection<NoteDocument> Notes { get; } = new();
@@ -90,7 +93,7 @@ namespace QuickNote.Avalonia.ViewModels
         [ObservableProperty] private ProfileItemViewModel? _selectedProfile;
         [ObservableProperty] private bool _migrateNotesOnSwitch;
         [ObservableProperty] private int _profileDialogTabIndex;
-        [ObservableProperty] private bool _isSpellCheckEnabled;
+        [ObservableProperty] private bool _isSpellCheckEnabled = true;
         [ObservableProperty] private string _newIgnoredWordInput = string.Empty;
         public ObservableCollection<string> IgnoredWords { get; } = new();
 
@@ -129,10 +132,12 @@ namespace QuickNote.Avalonia.ViewModels
         {
             get
             {
-                if (IsNotionMode) return "Visual Editor";
-                if (IsSplitMode) return "Split View";
-                if (IsReadingMode) return "Preview";
-                return "Markdown Editor";
+                if (IsNotionMode)
+                {
+                    return IsSplitViewActive ? "Visual Editor (Split)" : "Visual Editor";
+                }
+                if (IsReadingMode) return "Reading View";
+                return "Normal Editor";
             }
         }
 
@@ -217,6 +222,10 @@ namespace QuickNote.Avalonia.ViewModels
             {
                 _autoSaveTimer.Stop();
                 await SaveNoteAsync();
+                if (IsSplitViewActive && _isRightModified && RightCurrentNote != null)
+                {
+                    await SaveRightNoteAsync();
+                }
             };
 
             _isSpellCheckEnabled = _settingsService.Settings.IsSpellCheckEnabled;

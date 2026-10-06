@@ -94,5 +94,35 @@ def foo():
             Assert.Single(tree[0].Children);
             Assert.Equal("Real Heading 2", tree[0].Children[0].Text);
         }
+
+        [Fact]
+        public void BuildOutline_StripsMarkdownFormattingFromHeadings()
+        {
+            var markdown = @"# ***hello world***
+## **Bold Heading**
+### *Italic Heading*
+#### `Code Heading`
+##### ~~Strikethrough~~
+###### [Link Heading](https://example.com)
+";
+            var tree = _builder.BuildOutline(markdown);
+            Assert.Single(tree);
+            Assert.Equal("hello world", tree[0].Text);
+
+            var h2 = tree[0].Children[0];
+            Assert.Equal("Bold Heading", h2.Text);
+
+            var h3 = h2.Children[0];
+            Assert.Equal("Italic Heading", h3.Text);
+
+            var h4 = h3.Children[0];
+            Assert.Equal("Code Heading", h4.Text);
+
+            var h5 = h4.Children[0];
+            Assert.Equal("Strikethrough", h5.Text);
+
+            var h6 = h5.Children[0];
+            Assert.Equal("Link Heading", h6.Text);
+        }
     }
 }

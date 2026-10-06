@@ -120,6 +120,47 @@
       pointer-events: none !important;
       visibility: hidden !important;
     }
+
+    /* Responsive image blocks */
+    .milkdown .milkdown-image-block {
+      max-width: 100% !important;
+      width: 100% !important;
+      box-sizing: border-box !important;
+      margin: 12px 0 !important;
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: center !important;
+    }
+    .milkdown .milkdown-image-block > .image-wrapper {
+      max-width: 100% !important;
+      width: fit-content !important;
+      margin: 0 auto !important;
+      box-sizing: border-box !important;
+      position: relative !important;
+      display: flex !important;
+      justify-content: center !important;
+      align-items: center !important;
+      overflow: hidden !important;
+      border-radius: 6px !important;
+    }
+    .milkdown .milkdown-image-block > .image-wrapper img,
+    .milkdown .ProseMirror img,
+    .milkdown img {
+      max-width: 100% !important;
+      width: auto !important;
+      height: auto !important;
+      max-height: 85vh !important;
+      object-fit: contain !important;
+      display: block !important;
+      border-radius: 6px !important;
+    }
+    .milkdown .milkdown-image-block > .caption-input {
+      max-width: 100% !important;
+      box-sizing: border-box !important;
+      margin-top: 6px !important;
+      text-align: center !important;
+    }
+
     /* Obsidian & Word Heading Folding Styles and Compact Margins */
     .milkdown .ProseMirror h1 {
       position: relative;
@@ -495,6 +536,16 @@
       .heading-fold-btn {
         display: none !important;
       }
+    }
+
+    /* Misspelled word red squiggly/wavy underline (MS Word style) */
+    .misspelled-word {
+      text-decoration-line: underline !important;
+      text-decoration-style: wavy !important;
+      text-decoration-color: #ef4444 !important;
+      text-decoration-thickness: 1.5px !important;
+      text-underline-offset: 3.5px !important;
+      cursor: text;
     }
 
     /* Teams-style Spell Check Suggestion Popup */

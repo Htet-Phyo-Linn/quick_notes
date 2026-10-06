@@ -53,13 +53,79 @@ namespace QuickNote.Avalonia.ViewModels
                     ? targetDirectory
                     : _notesRoot;
 
+                // 1. If current note is already an untitled empty note, don't spawn another one!
+                if (CurrentNote != null &&
+                    string.Equals(CurrentNote.FolderPath, dir, StringComparison.OrdinalIgnoreCase) &&
+                    Path.GetFileNameWithoutExtension(CurrentNote.FileName).StartsWith("Untitled", StringComparison.OrdinalIgnoreCase) &&
+                    string.IsNullOrWhiteSpace(CurrentNote.Title) &&
+                    string.IsNullOrWhiteSpace(EditorContent) &&
+                    !_isModified)
+                {
+                    FocusEditorRequested?.Invoke();
+                    return;
+                }
+
+                // 2. If an open tab in the same folder is already an empty untitled note, switch to it
+                var existingBlankTab = OpenTabs.FirstOrDefault(t =>
+                    t.Note != null &&
+                    string.Equals(t.Note.FolderPath, dir, StringComparison.OrdinalIgnoreCase) &&
+                    Path.GetFileNameWithoutExtension(t.Note.FileName).StartsWith("Untitled", StringComparison.OrdinalIgnoreCase) &&
+                    string.IsNullOrWhiteSpace(t.Note.Title) &&
+                    string.IsNullOrWhiteSpace(t.Note.Content) &&
+                    !t.IsModified);
+
+                if (existingBlankTab != null && existingBlankTab.Note != null)
+                {
+                    SelectNote(existingBlankTab.Note);
+                    FocusEditorRequested?.Invoke();
+                    return;
+                }
+
+                // 3. Find file name: Check if there is an existing 0-byte orphan Untitled file on disk
                 string baseName = "Untitled";
                 string fullPath = Path.Combine(dir, $"{baseName}.md");
-                int counter = 1;
-                while (File.Exists(fullPath))
+
+                // Check if Untitled.md or Untitled (N).md exists on disk with 0 bytes and not currently open/used
+                NoteDocument? noteToUse = null;
+                if (File.Exists(fullPath))
                 {
-                    fullPath = Path.Combine(dir, $"{baseName} ({counter}).md");
-                    counter++;
+                    try
+                    {
+                        var fi = new FileInfo(fullPath);
+                        if (fi.Length == 0 && !OpenTabs.Any(t => string.Equals(t.FullPath, fullPath, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            noteToUse = Notes.FirstOrDefault(n => string.Equals(n.FullPath, fullPath, StringComparison.OrdinalIgnoreCase));
+                        }
+                    }
+                    catch { }
+                }
+
+                if (noteToUse == null)
+                {
+                    int counter = 1;
+                    while (File.Exists(fullPath))
+                    {
+                        try
+                        {
+                            var fi = new FileInfo(fullPath);
+                            if (fi.Length == 0 && !OpenTabs.Any(t => string.Equals(t.FullPath, fullPath, StringComparison.OrdinalIgnoreCase)))
+                            {
+                                noteToUse = Notes.FirstOrDefault(n => string.Equals(n.FullPath, fullPath, StringComparison.OrdinalIgnoreCase));
+                                if (noteToUse != null) break;
+                            }
+                        }
+                        catch { }
+
+                        fullPath = Path.Combine(dir, $"{baseName} ({counter}).md");
+                        counter++;
+                    }
+                }
+
+                if (noteToUse != null)
+                {
+                    SelectNote(noteToUse);
+                    FocusEditorRequested?.Invoke();
+                    return;
                 }
 
                 var note = new NoteDocument
@@ -80,6 +146,7 @@ namespace QuickNote.Avalonia.ViewModels
                 _searchEngine.IndexDocument(note);
                 await RefreshFolderTreeAsync();
                 SelectNote(note);
+                FocusEditorRequested?.Invoke();
             }
             catch (Exception ex)
             {
@@ -160,13 +227,25 @@ namespace QuickNote.Avalonia.ViewModels
                 if (renamed)
                     await RefreshFolderTreeAsync();
 
-                if (targetNote == null || targetNote == CurrentNote)
+                if (targetNote == null || targetNote == CurrentNote || (CurrentNote != null && string.Equals(CurrentNote.FullPath, noteToSave.FullPath, StringComparison.OrdinalIgnoreCase)))
                 {
                     _isModified = false;
                     if (ActiveTab != null)
                     {
                         ActiveTab.IsModified = false;
                         ActiveTab.Title = !string.IsNullOrWhiteSpace(noteToSave.Title)
+                            ? noteToSave.Title
+                            : noteToSave.FileName;
+                    }
+                }
+
+                if (targetNote == RightCurrentNote || (RightCurrentNote != null && string.Equals(RightCurrentNote.FullPath, noteToSave.FullPath, StringComparison.OrdinalIgnoreCase)))
+                {
+                    _isRightModified = false;
+                    if (RightActiveTab != null)
+                    {
+                        RightActiveTab.IsModified = false;
+                        RightActiveTab.Title = !string.IsNullOrWhiteSpace(noteToSave.Title)
                             ? noteToSave.Title
                             : noteToSave.FileName;
                     }

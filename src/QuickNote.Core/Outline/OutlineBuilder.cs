@@ -71,12 +71,13 @@ namespace QuickNote.Core.Outline
                     if (match.Success)
                     {
                         int level = match.Groups[1].Value.Length;
-                        string text = match.Groups[2].Value.Trim();
+                        string rawText = match.Groups[2].Value.Trim();
+                        string cleanText = StripMarkdownFormatting(rawText);
 
                         flatHeadings.Add(new Heading
                         {
                             Level = level,
-                            Text = text,
+                            Text = cleanText,
                             LineNumber = i + 1,
                             StartOffset = currentOffset,
                             EndOffset = currentOffset + cleanLine.Length
@@ -143,6 +144,42 @@ namespace QuickNote.Core.Outline
                     FlattenOutline(h.Children, flat);
                 }
             }
+        }
+
+        public static string StripMarkdownFormatting(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return string.Empty;
+
+            var s = text.Trim();
+
+            // 1. Remove links: [label](url) -> label
+            s = Regex.Replace(s, @"\[([^\]]+)\]\([^\)]*\)", "$1");
+
+            // 2. Remove images: ![alt](url) -> alt
+            s = Regex.Replace(s, @"!\[([^\]]*)\]\([^\)]*\)", "$1");
+
+            // 3. Remove inline code: `code` -> code
+            s = Regex.Replace(s, @"`([^`]+)`", "$1");
+
+            // 4. Remove strikethrough: ~~text~~ -> text
+            s = Regex.Replace(s, @"~~([^~]+)~~", "$1");
+
+            // 5. Remove highlights: ==text== -> text
+            s = Regex.Replace(s, @"==([^=]+)==", "$1");
+
+            // 6. Remove HTML tags: <tag> -> empty
+            s = Regex.Replace(s, @"<[^>]+>", "");
+
+            // 7. Remove bold and italic formatting (supports nested like **_text_** and ***text***)
+            for (int i = 0; i < 3; i++)
+            {
+                s = Regex.Replace(s, @"(\*{1,3}|_{1,3})(.*?)\1", "$2");
+            }
+
+            // 8. Trim any leftover stray formatting markers at boundaries
+            s = s.Trim('*', '_', '~', '`', ' ');
+
+            return s;
         }
     }
 }

@@ -20,18 +20,26 @@ namespace QuickNote.Avalonia.ViewModels
 
         // ── Editor mode ────────────────────────────────────────────
         [RelayCommand]
-        public void SetNotionMode()  { IsNotionMode = true;  IsSplitMode = false; IsReadingMode = false; }
+        public void SetNotionMode()  { IsNotionMode = true;  IsReadingMode = false; }
 
         [RelayCommand]
-        public void SetEditMode()    { IsNotionMode = false; IsSplitMode = false; IsReadingMode = false; }
+        public void SetNormalEditorMode() { IsNotionMode = false; IsReadingMode = false; IsSplitViewActive = false; }
 
         [RelayCommand]
-        public void SetSplitMode()   { IsNotionMode = false; IsSplitMode = true;  IsReadingMode = false; }
+        public void SetEditMode() => SetNormalEditorMode();
 
         [RelayCommand]
-        public void SetPreviewMode() { IsNotionMode = false; IsSplitMode = false; IsReadingMode = true;  }
+        public void SetSplitMode() => SplitEditorRight();
 
-        [RelayCommand] public void ToggleSplit()   => IsSplitMode   = !IsSplitMode;
+        [RelayCommand]
+        public void SetPreviewMode() { IsNotionMode = false; IsReadingMode = true; IsSplitViewActive = false; }
+
+        [RelayCommand] public void ToggleSplit() => ToggleSplitView();
+        [RelayCommand] public void ToggleSplitView()
+        {
+            if (IsSplitViewActive) CloseSplitEditor();
+            else SplitEditorRight();
+        }
         [RelayCommand] public void ToggleReading() => IsReadingMode = !IsReadingMode;
         [RelayCommand] public void ToggleTheme()   => IsDarkMode    = !IsDarkMode;
 

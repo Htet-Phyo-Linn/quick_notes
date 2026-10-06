@@ -19,6 +19,7 @@ namespace QuickNote.Avalonia.Views
     {
         // ── Editor content sync ─────────────────────────────────────
         private bool _isOriginatingFromNotion;
+        private bool _isOriginatingFromNotionRight;
 
         private void NotionEditor_MarkdownChanged(string markdown)
         {
@@ -35,6 +36,22 @@ namespace QuickNote.Avalonia.Views
             {
                 _isUpdatingEditorText = false;
                 _isOriginatingFromNotion = false;
+            }
+        }
+
+        private void NotionEditorRight_MarkdownChanged(string markdown)
+        {
+            if (_viewModel == null || _isUpdatingEditorText) return;
+            _isUpdatingEditorText = true;
+            _isOriginatingFromNotionRight = true;
+            try
+            {
+                _viewModel.RightEditorContent = markdown;
+            }
+            finally
+            {
+                _isUpdatingEditorText = false;
+                _isOriginatingFromNotionRight = false;
             }
         }
 
@@ -56,7 +73,7 @@ namespace QuickNote.Avalonia.Views
             // never echo it back to NotionEditor! It already contains the authoritative state.
             if (_isOriginatingFromNotion)
             {
-                if (_viewModel?.IsSplitMode == true || _viewModel?.IsReadingMode == true)
+                if (_viewModel?.IsReadingMode == true)
                 {
                     UpdatePreview(markdown);
                 }
@@ -73,15 +90,35 @@ namespace QuickNote.Avalonia.Views
                     {
                         NotionEditor.NotesRoot = _viewModel.NotesRoot;
                         NotionEditor.CurrentNoteFolderPath = _viewModel.CurrentNote?.FolderPath;
-                        bool isNoteSwitch = !string.Equals(NotionEditor.CurrentNotePath, _viewModel.CurrentNote?.FullPath, StringComparison.OrdinalIgnoreCase);
                         NotionEditor.CurrentNotePath = _viewModel.CurrentNote?.FullPath;
-                        NotionEditor.LoadMarkdown(markdown, force: isNoteSwitch);
+                        NotionEditor.LoadMarkdown(markdown, force: true);
                     }
                     if (TextEditor != null && TextEditor.Text != markdown)
                         TextEditor.Text = markdown;
                 }
                 finally { _isUpdatingEditorText = false; }
                 UpdatePreview(markdown);
+            }, DispatcherPriority.Render);
+        }
+
+        private void OnRightMarkdownRenderRequested(string markdown)
+        {
+            // If the render request was triggered by NotionEditorRight's own keystroke,
+            // never echo it back to NotionEditorRight! It already contains the authoritative state.
+            if (_isOriginatingFromNotionRight) return;
+
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (_viewModel == null || NotionEditorRight == null) return;
+                _isUpdatingEditorText = true;
+                try
+                {
+                    NotionEditorRight.NotesRoot = _viewModel.NotesRoot;
+                    NotionEditorRight.CurrentNoteFolderPath = _viewModel.RightCurrentNote?.FolderPath;
+                    NotionEditorRight.CurrentNotePath = _viewModel.RightCurrentNote?.FullPath;
+                    NotionEditorRight.LoadMarkdown(markdown, force: true);
+                }
+                finally { _isUpdatingEditorText = false; }
             }, DispatcherPriority.Render);
         }
 
@@ -94,14 +131,43 @@ namespace QuickNote.Avalonia.Views
                     _viewModel?.NotesRoot);
         }
 
+        private async void OnFocusEditorRequested()
+        {
+            Dispatcher.UIThread.Post(async () =>
+            {
+                if (_viewModel?.IsNotionMode == true)
+                {
+                    if (_viewModel.IsSplitViewActive && _viewModel.ActiveEditorPane == EditorPane.Right && NotionEditorRight != null)
+                    {
+                        await NotionEditorRight.FocusEditorAsync();
+                    }
+                    else if (NotionEditor != null)
+                    {
+                        await NotionEditor.FocusEditorAsync();
+                    }
+                }
+                else if (TextEditor != null)
+                {
+                    TextEditor.Focus();
+                }
+            });
+        }
+
         // ── Heading / outline navigation ────────────────────────────
         private async void OnHeadingNavigationRequested(Heading heading)
         {
             if (heading == null) return;
 
-            if (_viewModel?.IsNotionMode == true && NotionEditor != null)
+            if (_viewModel?.IsNotionMode == true)
             {
-                await NotionEditor.ScrollToHeadingAsync(heading.Text, heading.Level);
+                if (_viewModel.IsSplitViewActive && _viewModel.ActiveEditorPane == EditorPane.Right && NotionEditorRight != null)
+                {
+                    await NotionEditorRight.ScrollToHeadingAsync(heading.Text, heading.Level);
+                }
+                else if (NotionEditor != null)
+                {
+                    await NotionEditor.ScrollToHeadingAsync(heading.Text, heading.Level);
+                }
             }
             else if (TextEditor != null &&
                      heading.LineNumber > 0 &&
@@ -153,15 +219,42 @@ namespace QuickNote.Avalonia.Views
         private void OnTabPointerPressed(object? sender, PointerPressedEventArgs e)
         {
             if (sender is Control control && control.DataContext is NoteTabViewModel tab)
-                _viewModel?.SelectTab(tab);
+            {
+                if (_viewModel != null)
+                {
+                    _viewModel.ActiveEditorPane = EditorPane.Left;
+                    _viewModel.SelectTab(tab);
+                }
+            }
+        }
+
+        private void OnRightTabPointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            if (sender is Control control && control.DataContext is NoteTabViewModel tab)
+            {
+                if (_viewModel != null)
+                {
+                    _viewModel.ActiveEditorPane = EditorPane.Right;
+                    _viewModel.SelectRightTab(tab);
+                }
+            }
         }
 
         // ── Title box ───────────────────────────────────────────────
         private void TitleBox_KeyDown(object? sender, KeyEventArgs e)
         {
             if (e.Key != Key.Enter) return;
+            if (_viewModel != null) _viewModel.ActiveEditorPane = EditorPane.Left;
             if (_viewModel?.IsNotionMode == true) NotionEditor?.Focus();
             else                                  TextEditor?.Focus();
+            e.Handled = true;
+        }
+
+        private void RightTitleBox_KeyDown(object? sender, KeyEventArgs e)
+        {
+            if (e.Key != Key.Enter) return;
+            if (_viewModel != null) _viewModel.ActiveEditorPane = EditorPane.Right;
+            NotionEditorRight?.Focus();
             e.Handled = true;
         }
 
@@ -171,12 +264,42 @@ namespace QuickNote.Avalonia.Views
             if (_viewModel == null) return;
             switch (action)
             {
-                case "save":       await _viewModel.SaveNoteAsync(); break;
+                case "save":
+                    if (NotionEditor != null) await NotionEditor.FlushPendingChangesAsync();
+                    await _viewModel.SaveNoteAsync();
+                    if (_viewModel.IsSplitViewActive && _viewModel.HasRightCurrentNote &&
+                        string.Equals(_viewModel.CurrentNote?.FullPath, _viewModel.RightCurrentNote?.FullPath, StringComparison.OrdinalIgnoreCase))
+                    {
+                        await _viewModel.SaveRightNoteAsync();
+                    }
+                    break;
                 case "newNote":    await _viewModel.NewNoteAsync();  break;
                 case "newFolder":  await _viewModel.NewFolderAsync(); break;
                 case "closeTab":   _viewModel.CloseActiveTab();       break;
                 case "search":     FocusGlobalSearch();               break;
                 case "findInNote": ShowInNoteFindBar();               break;
+            }
+        }
+
+        private async void OnEditorRightShortcutTriggered(string action)
+        {
+            if (_viewModel == null) return;
+            switch (action)
+            {
+                case "save":
+                    if (NotionEditorRight != null) await NotionEditorRight.FlushPendingChangesAsync();
+                    await _viewModel.SaveRightNoteAsync();
+                    if (_viewModel.IsSplitViewActive && _viewModel.HasCurrentNote &&
+                        string.Equals(_viewModel.CurrentNote?.FullPath, _viewModel.RightCurrentNote?.FullPath, StringComparison.OrdinalIgnoreCase))
+                    {
+                        await _viewModel.SaveNoteAsync();
+                    }
+                    break;
+                case "newNote":    await _viewModel.NewNoteAsync();       break;
+                case "newFolder":  await _viewModel.NewFolderAsync();     break;
+                case "closeTab":   _viewModel.CloseActiveRightTab();      break;
+                case "search":     FocusGlobalSearch();                   break;
+                case "findInNote": ShowInNoteFindBar();                   break;
             }
         }
 
@@ -209,17 +332,31 @@ namespace QuickNote.Avalonia.Views
 
         public async void ShowInNoteFindBar()
         {
-            if (_viewModel?.IsNotionMode == true && NotionEditor != null)
+            if (_viewModel?.IsNotionMode == true)
             {
-                await NotionEditor.OpenFindWidgetAsync();
+                if (_viewModel.IsSplitViewActive && _viewModel.ActiveEditorPane == EditorPane.Right && NotionEditorRight != null)
+                {
+                    await NotionEditorRight.OpenFindWidgetAsync();
+                }
+                else if (NotionEditor != null)
+                {
+                    await NotionEditor.OpenFindWidgetAsync();
+                }
             }
         }
 
         public async void CloseInNoteFind()
         {
-            if (_viewModel?.IsNotionMode == true && NotionEditor != null)
+            if (_viewModel?.IsNotionMode == true)
             {
-                await NotionEditor.CloseFindWidgetAsync();
+                if (_viewModel.IsSplitViewActive && _viewModel.ActiveEditorPane == EditorPane.Right && NotionEditorRight != null)
+                {
+                    await NotionEditorRight.CloseFindWidgetAsync();
+                }
+                else if (NotionEditor != null)
+                {
+                    await NotionEditor.CloseFindWidgetAsync();
+                }
             }
         }
 
@@ -361,6 +498,17 @@ namespace QuickNote.Avalonia.Views
         {
             if (_viewModel != null)
             {
+                _viewModel.ActiveEditorPane = EditorPane.Left;
+                await _viewModel.CommitAllEditingTags();
+                await CommitAllInlineTreeRenames();
+            }
+        }
+
+        private async void OnNotionEditorRightFocused()
+        {
+            if (_viewModel != null)
+            {
+                _viewModel.ActiveEditorPane = EditorPane.Right;
                 await _viewModel.CommitAllEditingTags();
                 await CommitAllInlineTreeRenames();
             }
