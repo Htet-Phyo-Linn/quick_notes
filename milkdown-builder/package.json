@@ -4,12 +4,14 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build": "esbuild src/editor.js --bundle --outfile=dist/milkdown.bundle.js --format=iife --loader:.woff=dataurl --loader:.woff2=dataurl --loader:.ttf=dataurl",
+    "build": "esbuild src/editor.js --bundle --outfile=dist/milkdown.bundle.js --format=iife --loader:.woff=dataurl --loader:.woff2=dataurl --loader:.ttf=dataurl --loader:.aff=text --loader:.dic=text",
     "test": "node test_editor.js"
   },
   "keywords": [],
   "type": "commonjs",
   "dependencies": {
-    "@milkdown/crepe": "^7.22.2"
+    "@milkdown/crepe": "^7.22.2",
+    "dictionary-en": "^4.0.0",
+    "nspell": "^2.1.5"
   }
 }

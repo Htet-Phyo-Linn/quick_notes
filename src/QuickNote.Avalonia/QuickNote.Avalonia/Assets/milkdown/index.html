@@ -86,10 +86,17 @@
     .milkdown th, .milkdown td {
       border: 1px solid #374151;
       padding: 8px 12px;
+      font-weight: normal;
+      background-color: transparent;
+      color: #e5e7eb;
     }
     .milkdown th {
-      background-color: #262626;
-      font-weight: 600;
+      background-color: transparent;
+      font-weight: normal;
+    }
+    .milkdown th p, .milkdown td p {
+      margin: 0;
+      font-weight: normal;
     }
     .milkdown blockquote {
       border-left: 3px solid #3b82f6;
@@ -437,6 +444,96 @@
         display: none !important;
       }
     }
+
+    /* Teams-style Spell Check Suggestion Popup */
+    .spell-popup {
+      position: fixed;
+      background: #202020;
+      border: 1px solid #383838;
+      border-radius: 8px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
+      padding: 6px;
+      z-index: 10001;
+      min-width: 140px;
+      max-width: 240px;
+      user-select: none;
+      -webkit-user-select: none;
+      animation: fadeIn 0.12s ease-out;
+    }
+    .spell-popup-header {
+      font-size: 11px;
+      font-weight: 600;
+      color: #9ca3af;
+      padding: 4px 8px 6px 8px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .spell-suggestion-item {
+      display: flex;
+      align-items: center;
+      width: 100%;
+      background: transparent;
+      border: none;
+      color: #f3f4f6;
+      font-size: 13.5px;
+      font-weight: 600;
+      padding: 6px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      text-align: left;
+      transition: background-color 0.15s;
+    }
+    .spell-suggestion-item:hover {
+      background-color: #2e3035;
+      color: #60a5fa;
+    }
+    .spell-popup-divider {
+      height: 1px;
+      background-color: #374151;
+      margin: 4px 0;
+    }
+    .spell-popup-actions {
+      display: flex;
+      align-items: center;
+      padding-top: 2px;
+    }
+    .spell-action-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: transparent;
+      border: none;
+      color: #9ca3af;
+      font-size: 12px;
+      padding: 5px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      width: 100%;
+      transition: background-color 0.15s, color 0.15s;
+    }
+    .spell-action-btn:hover {
+      background-color: #2e3035;
+      color: #e5e7eb;
+    }
+    .menu-spell-item {
+      display: flex;
+      align-items: center;
+      width: 100%;
+      background: transparent;
+      border: none;
+      color: #f3f4f6;
+      font-size: 13.5px;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      text-align: left;
+      transition: background-color 0.15s;
+    }
+    .menu-spell-item:hover {
+      background-color: #2e3035;
+      color: #60a5fa;
+    }
   </style>
 </head>
 <body>
@@ -445,6 +542,11 @@
   </div>
 
   <div id="format-menu" class="format-menu" style="display: none;">
+    <div id="menu-spell-section" class="menu-spell-section" style="display: none;">
+      <div class="menu-section-title">Spelling</div>
+      <div id="menu-spell-list" class="menu-spell-list"></div>
+      <div class="menu-divider"></div>
+    </div>
     <button type="button" class="menu-item" id="menu-ignore-word" data-action="ignore-word" style="display: none;">
       <span class="icon">
         <svg viewBox="0 0 24 24" width="16" height="16"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -551,6 +653,18 @@
       <div style="flex: 1;"></div>
       <button type="button" class="link-btn-cancel" id="link-dialog-cancel">Cancel</button>
       <button type="button" class="link-btn-apply" id="link-dialog-apply">Insert</button>
+    </div>
+  </div>
+
+  <div id="spell-popup" class="spell-popup" style="display: none;">
+    <div class="spell-popup-header">Spelling</div>
+    <div id="spell-suggestions-list" class="spell-suggestions-list"></div>
+    <div class="spell-popup-divider"></div>
+    <div class="spell-popup-actions">
+      <button type="button" id="spell-ignore-btn" class="spell-action-btn" title="Ignore this word">
+        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+        <span>Ignore</span>
+      </button>
     </div>
   </div>
 

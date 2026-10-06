@@ -292,8 +292,21 @@ import { Selection, Plugin, PluginKey } from '@milkdown/kit/prose/state';
 import { liftListItem } from '@milkdown/kit/prose/schema-list';
 import { lift } from '@milkdown/kit/prose/commands';
 import { liftTarget } from '@milkdown/kit/prose/transform';
+import { isInTable, goToNextCell, addRowAfter } from '@milkdown/kit/prose/tables';
+import nspell from 'nspell';
+import aff from '../node_modules/dictionary-en/index.aff';
+import dic from '../node_modules/dictionary-en/index.dic';
 import '@milkdown/crepe/theme/common/style.css';
 import '@milkdown/crepe/theme/frame-dark.css';
+
+let speller = null;
+try {
+  speller = nspell(aff, dic);
+} catch (e) {
+  console.error('[Speller initialization failed]', e);
+}
+
+const ignoredWordsSet = new Set();
 
 let crepeInstance = null;
 let editorView = null;
@@ -421,8 +434,41 @@ function handleWordStyleEnter(view) {
   return false;
 }
 
+function handleTableTab(view, shiftKey) {
+  if (!view || !view.state) return false;
+  const { state, dispatch } = view;
+  if (!isInTable(state)) return false;
+
+  if (shiftKey) {
+    return goToNextCell(-1)(state, dispatch);
+  }
+
+  if (goToNextCell(1)(state, dispatch)) {
+    return true;
+  }
+
+  // Last cell of table reached! Add a new row to the table:
+  if (addRowAfter(state, dispatch)) {
+    // Focus into the first cell of the newly added row:
+    goToNextCell(1)(view.state, view.dispatch);
+    return true;
+  }
+
+  return false;
+}
+
 // Keyboard shortcut forwarding & browser hotkey prevention
 window.addEventListener('keydown', (e) => {
+  if (e.key === 'Tab' && !e.ctrlKey && !e.altKey && !e.metaKey) {
+    const view = getEditorView();
+    if (view && handleTableTab(view, e.shiftKey)) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      return;
+    }
+  }
+
   if (e.key === 'Enter' && !e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey) {
     const view = getEditorView();
     if (view && handleWordStyleEnter(view)) {
@@ -709,6 +755,177 @@ function applySpellCheck(enabled) {
 let contextMenuX = 0;
 let contextMenuY = 0;
 
+window.setIgnoredWords = (words) => {
+  if (Array.isArray(words)) {
+    ignoredWordsSet.clear();
+    words.forEach((w) => {
+      if (w && typeof w === 'string') {
+        const clean = w.trim().toLowerCase();
+        if (clean) ignoredWordsSet.add(clean);
+      }
+    });
+  }
+};
+
+function isWordMisspelled(word) {
+  if (!word || !speller) return false;
+  const clean = word.trim().replace(/^['"-]+|['"-]+$/g, '');
+  if (!clean || clean.length < 2) return false;
+  if (/\d/.test(clean)) return false;
+  if (clean.includes('/') || clean.includes('\\') || clean.includes('_') || clean.includes(':') || clean.includes('@')) return false;
+
+  const lower = clean.toLowerCase();
+  if (ignoredWordsSet.has(lower)) return false;
+
+  if (speller.correct(clean) || speller.correct(lower)) {
+    return false;
+  }
+
+  return true;
+}
+
+function getSpellSuggestions(word) {
+  if (!speller) return [];
+  const clean = word.trim().replace(/^['"-]+|['"-]+$/g, '');
+  const suggestions = speller.suggest(clean);
+  return suggestions.slice(0, 4);
+}
+
+function getWordAtPos(doc, pos) {
+  if (!doc || pos < 0 || pos > doc.content.size) return null;
+  const $pos = doc.resolve(pos);
+  if (!$pos.parent || !$pos.parent.isTextblock) return null;
+
+  const text = $pos.parent.textContent;
+  const offset = $pos.parentOffset;
+
+  let start = offset;
+  let end = offset;
+
+  if ((offset === text.length || /\s|[^\w']/.test(text[offset])) && offset > 0 && !/\s|[^\w']/.test(text[offset - 1])) {
+    start = offset - 1;
+    end = offset;
+  }
+
+  while (start > 0 && !/\s|[^\w']/.test(text[start - 1])) {
+    start--;
+  }
+  while (end < text.length && !/\s|[^\w']/.test(text[end])) {
+    end++;
+  }
+
+  let rawWord = text.slice(start, end).replace(/^[']+|[']+$/g, '');
+  if (!rawWord || rawWord.length < 2) return null;
+
+  const from = $pos.start() + start;
+  const to = $pos.start() + end;
+
+  return { word: rawWord, from, to };
+}
+
+function replaceWord(from, to, replacement) {
+  const view = getEditorView();
+  if (!view || !view.state) return;
+  const tr = view.state.tr.replaceWith(from, to, view.state.schema.text(replacement));
+  const newPos = from + replacement.length;
+  tr.setSelection(Selection.near(tr.doc.resolve(newPos))).scrollIntoView();
+  view.dispatch(tr);
+  view.focus();
+}
+
+let currentSpellWordInfo = null;
+let spellPopupTimer = null;
+
+function showSpellPopup(wordInfo, coords) {
+  const popup = document.getElementById('spell-popup');
+  if (!popup) return;
+
+  const list = document.getElementById('spell-suggestions-list');
+  if (!list) return;
+
+  const suggestions = getSpellSuggestions(wordInfo.word);
+  if (!suggestions || suggestions.length === 0) {
+    hideSpellPopup();
+    return;
+  }
+
+  currentSpellWordInfo = wordInfo;
+  list.innerHTML = '';
+
+  suggestions.forEach((sugg) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'spell-suggestion-item';
+    btn.textContent = sugg;
+    btn.addEventListener('pointerdown', (e) => e.preventDefault());
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      replaceWord(wordInfo.from, wordInfo.to, sugg);
+      hideSpellPopup();
+    });
+    list.appendChild(btn);
+  });
+
+  const ignoreBtn = document.getElementById('spell-ignore-btn');
+  if (ignoreBtn) {
+    ignoreBtn.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const lower = wordInfo.word.toLowerCase();
+      ignoredWordsSet.add(lower);
+      sendMessage({ type: 'ignoreWord', word: wordInfo.word });
+      hideSpellPopup();
+    };
+  }
+
+  popup.style.display = 'block';
+
+  const popupWidth = popup.offsetWidth || 150;
+  const popupHeight = popup.offsetHeight || 130;
+
+  let left = coords.left;
+  let top = coords.top - popupHeight - 6;
+  if (top < 10) {
+    top = coords.bottom + 6;
+  }
+  if (left + popupWidth > window.innerWidth - 10) {
+    left = Math.max(10, window.innerWidth - popupWidth - 10);
+  }
+
+  popup.style.left = left + 'px';
+  popup.style.top = top + 'px';
+}
+
+function hideSpellPopup() {
+  const popup = document.getElementById('spell-popup');
+  if (popup) popup.style.display = 'none';
+  currentSpellWordInfo = null;
+}
+
+function checkCaretSpelling() {
+  const view = getEditorView();
+  if (!view || !view.state) return;
+  const { selection } = view.state;
+  if (!selection || !selection.empty) {
+    hideSpellPopup();
+    return;
+  }
+
+  const wordInfo = getWordAtPos(view.state.doc, selection.from);
+  if (!wordInfo || !isWordMisspelled(wordInfo.word)) {
+    hideSpellPopup();
+    return;
+  }
+
+  try {
+    const coords = view.coordsAtPos(wordInfo.from);
+    showSpellPopup(wordInfo, coords);
+  } catch (err) {
+    hideSpellPopup();
+  }
+}
+
 // Custom Right-Click & Touchpad Context Formatting Menu
 function setupContextMenu() {
   const menu = document.getElementById('format-menu');
@@ -716,19 +933,69 @@ function setupContextMenu() {
 
   window.addEventListener('contextmenu', (e) => {
     e.preventDefault();
+    hideSpellPopup();
     contextMenuX = e.clientX;
     contextMenuY = e.clientY;
+
+    const view = getEditorView();
+    if (view && view.state) {
+      try {
+        const posInfo = view.posAtCoords({ left: e.clientX, top: e.clientY });
+        if (posInfo && typeof posInfo.pos === 'number') {
+          const { from, to, empty } = view.state.selection;
+          const isInsideSelection = !empty && posInfo.pos >= from && posInfo.pos <= to;
+          if (!isInsideSelection) {
+            const targetPos = Math.max(0, Math.min(posInfo.pos, view.state.doc.content.size));
+            const $pos = view.state.doc.resolve(targetPos);
+            const newSel = Selection.near($pos);
+            view.dispatch(view.state.tr.setSelection(newSel));
+          }
+        }
+        view.focus();
+      } catch (err) {
+        console.error('[contextmenu posAtCoords error]', err);
+      }
+    }
+
     showContextMenu(e.clientX, e.clientY);
   });
 
   window.addEventListener('pointerdown', (e) => {
+    const spellPopup = document.getElementById('spell-popup');
+    if (spellPopup && !spellPopup.contains(e.target)) {
+      hideSpellPopup();
+    }
     if (!menu.contains(e.target)) {
       hideContextMenu();
     }
   });
 
+  window.addEventListener('pointerup', (e) => {
+    const spellPopup = document.getElementById('spell-popup');
+    if (spellPopup && spellPopup.contains(e.target)) return;
+    if (menu && menu.style.display === 'block') return;
+    clearTimeout(spellPopupTimer);
+    spellPopupTimer = setTimeout(checkCaretSpelling, 120);
+  });
+
+  window.addEventListener('keyup', (e) => {
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      clearTimeout(spellPopupTimer);
+      spellPopupTimer = setTimeout(checkCaretSpelling, 150);
+    } else if (e.key === 'Escape') {
+      hideSpellPopup();
+    }
+  });
+
   menu.querySelectorAll('[data-action]').forEach((btn) => {
+    btn.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+    });
+    btn.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+    });
     btn.addEventListener('click', (e) => {
+      e.preventDefault();
       e.stopPropagation();
       const action = btn.getAttribute('data-action');
       executeAction(action);
@@ -741,19 +1008,59 @@ function showContextMenu(x, y) {
   const menu = document.getElementById('format-menu');
   if (!menu) return;
 
+  const view = getEditorView();
   const sel = window.getSelection() ? window.getSelection().toString().trim() : '';
   const ignoreBtn = document.getElementById('menu-ignore-word');
   const ignoreDiv = document.getElementById('menu-ignore-divider');
-  if (ignoreBtn) {
-    if (sel && sel.length > 0 && sel.length <= 40 && !sel.includes('\n')) {
+  const spellSection = document.getElementById('menu-spell-section');
+  const spellList = document.getElementById('menu-spell-list');
+
+  let activeWordInfo = null;
+  if (view && view.state) {
+    activeWordInfo = getWordAtPos(view.state.doc, view.state.selection.from);
+  }
+
+  if (activeWordInfo && isWordMisspelled(activeWordInfo.word)) {
+    const suggestions = getSpellSuggestions(activeWordInfo.word);
+    if (spellSection && spellList && suggestions.length > 0) {
+      spellSection.style.display = 'block';
+      spellList.innerHTML = '';
+      suggestions.forEach((sugg) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'menu-spell-item';
+        btn.textContent = sugg;
+        btn.addEventListener('pointerdown', (e) => e.preventDefault());
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          replaceWord(activeWordInfo.from, activeWordInfo.to, sugg);
+          hideContextMenu();
+        });
+        spellList.appendChild(btn);
+      });
+    }
+
+    if (ignoreBtn) {
       ignoreBtn.style.display = 'flex';
       if (ignoreDiv) ignoreDiv.style.display = 'block';
       const label = ignoreBtn.querySelector('.label');
-      if (label) label.textContent = `Ignore "${sel.length > 14 ? sel.substring(0, 14) + '...' : sel}"`;
-      ignoreBtn.dataset.word = sel;
-    } else {
-      ignoreBtn.style.display = 'none';
-      if (ignoreDiv) ignoreDiv.style.display = 'none';
+      if (label) label.textContent = `Ignore "${activeWordInfo.word}"`;
+      ignoreBtn.dataset.word = activeWordInfo.word;
+    }
+  } else {
+    if (spellSection) spellSection.style.display = 'none';
+    if (ignoreBtn) {
+      if (sel && sel.length > 0 && sel.length <= 40 && !sel.includes('\n')) {
+        ignoreBtn.style.display = 'flex';
+        if (ignoreDiv) ignoreDiv.style.display = 'block';
+        const label = ignoreBtn.querySelector('.label');
+        if (label) label.textContent = `Ignore "${sel.length > 14 ? sel.substring(0, 14) + '...' : sel}"`;
+        ignoreBtn.dataset.word = sel;
+      } else {
+        ignoreBtn.style.display = 'none';
+        if (ignoreDiv) ignoreDiv.style.display = 'none';
+      }
     }
   }
 
@@ -773,6 +1080,202 @@ function hideContextMenu() {
   if (menu) menu.style.display = 'none';
 }
 
+function convertBlock(view, targetType) {
+  if (!view || !view.state) return false;
+  const { state, dispatch } = view;
+  const { schema, selection } = state;
+  let $from = selection.$from;
+
+  // Find nearest textblock
+  let textblock = $from.parent;
+  let textblockDepth = $from.depth;
+  while (textblock && !textblock.isTextblock && textblockDepth > 0) {
+    textblockDepth--;
+    textblock = $from.node(textblockDepth);
+  }
+
+  if (!textblock || !textblock.isTextblock) {
+    const near = Selection.near($from);
+    if (near && near.$from.parent && near.$from.parent.isTextblock) {
+      $from = near.$from;
+      textblock = $from.parent;
+      textblockDepth = $from.depth;
+    } else {
+      return false;
+    }
+  }
+
+  // 1. Find enclosing list_item and blockquote
+  let listItemDepth = -1;
+  let blockquoteDepth = -1;
+  for (let d = $from.depth; d > 0; d--) {
+    const node = $from.node(d);
+    if (node.type === schema.nodes.list_item && listItemDepth < 0) {
+      listItemDepth = d;
+    }
+    if (node.type === schema.nodes.blockquote && blockquoteDepth < 0) {
+      blockquoteDepth = d;
+    }
+  }
+
+  let text = textblock.textContent || '';
+  // Strip leading manual markdown syntax if user typed or pasted raw markers
+  text = text.replace(/^[-*+]\s*\[\s*[xX]?\s*\]\s*|^[-*+]\s*\\\[\s*\\\]\s*|^\[\s*\]\s*|^[-*+]\s+|^>\s*|^\d+\.\s*|^#{1,6}\s+/, '');
+
+  const textNode = text ? schema.text(text) : null;
+  const paraNode = schema.nodes.paragraph.create(null, textNode);
+
+  let tr = state.tr;
+
+  if (targetType === 'todo') {
+    if (listItemDepth > 0) {
+      const itemNode = $from.node(listItemDepth);
+      const itemPos = $from.before(listItemDepth);
+      if (itemNode.attrs.checked !== null && itemNode.attrs.checked !== undefined) {
+        // Toggle checked state
+        tr.setNodeMarkup(itemPos, undefined, { ...itemNode.attrs, checked: !itemNode.attrs.checked, listType: 'bullet' });
+      } else {
+        // Convert existing bullet item to todo
+        tr.setNodeMarkup(itemPos, undefined, { ...itemNode.attrs, checked: false, listType: 'bullet' });
+      }
+      if (text !== textblock.textContent) {
+        tr.replaceWith($from.start(textblockDepth), $from.end(textblockDepth), textNode ? [textNode] : []);
+      }
+      dispatch(tr.scrollIntoView());
+      view.focus();
+      return true;
+    }
+
+    // Replace current block or blockquote with bullet_list containing task item
+    const replaceFrom = blockquoteDepth > 0 ? $from.before(blockquoteDepth) : $from.before(textblockDepth);
+    const replaceTo = blockquoteDepth > 0 ? $from.after(blockquoteDepth) : $from.after(textblockDepth);
+
+    const itemNode = schema.nodes.list_item.create({ checked: false, listType: 'bullet', spread: false }, paraNode);
+    const listNode = schema.nodes.bullet_list.create({ spread: false }, itemNode);
+    tr.replaceRangeWith(replaceFrom, replaceTo, listNode);
+    const newSelPos = Math.min(replaceFrom + 2, tr.doc.content.size);
+    tr.setSelection(Selection.near(tr.doc.resolve(newSelPos))).scrollIntoView();
+    dispatch(tr);
+    view.focus();
+    return true;
+  }
+
+  if (targetType === 'quote') {
+    if (blockquoteDepth > 0) {
+      // Already in blockquote: toggle off to paragraph
+      const bqPos = $from.before(blockquoteDepth);
+      const bqEnd = $from.after(blockquoteDepth);
+      tr.replaceRangeWith(bqPos, bqEnd, paraNode);
+      const newSelPos = Math.min(bqPos + 1, tr.doc.content.size);
+      tr.setSelection(Selection.near(tr.doc.resolve(newSelPos))).scrollIntoView();
+      dispatch(tr);
+      view.focus();
+      return true;
+    }
+
+    const replaceFrom = listItemDepth > 0 ? $from.before(listItemDepth) : $from.before(textblockDepth);
+    const replaceTo = listItemDepth > 0 ? $from.after(listItemDepth) : $from.after(textblockDepth);
+    const bqNode = schema.nodes.blockquote.create(null, paraNode);
+    tr.replaceRangeWith(replaceFrom, replaceTo, bqNode);
+    const newSelPos = Math.min(replaceFrom + 2, tr.doc.content.size);
+    tr.setSelection(Selection.near(tr.doc.resolve(newSelPos))).scrollIntoView();
+    dispatch(tr);
+    view.focus();
+    return true;
+  }
+
+  if (targetType === 'bullet') {
+    if (listItemDepth > 0) {
+      const itemNode = $from.node(listItemDepth);
+      const itemPos = $from.before(listItemDepth);
+      const parentList = $from.node(listItemDepth - 1);
+      if (parentList && parentList.type === schema.nodes.bullet_list && itemNode.attrs.checked === null) {
+        // Already regular bullet list: toggle off to paragraph
+        const listPos = $from.before(listItemDepth - 1);
+        const listEnd = $from.after(listItemDepth - 1);
+        tr.replaceRangeWith(listPos, listEnd, paraNode);
+        const newSelPos = Math.min(listPos + 1, tr.doc.content.size);
+        tr.setSelection(Selection.near(tr.doc.resolve(newSelPos))).scrollIntoView();
+      } else {
+        tr.setNodeMarkup(itemPos, undefined, { ...itemNode.attrs, checked: null, listType: 'bullet' });
+      }
+      if (text !== textblock.textContent) {
+        tr.replaceWith($from.start(textblockDepth), $from.end(textblockDepth), textNode ? [textNode] : []);
+      }
+      dispatch(tr.scrollIntoView());
+      view.focus();
+      return true;
+    }
+
+    const replaceFrom = blockquoteDepth > 0 ? $from.before(blockquoteDepth) : $from.before(textblockDepth);
+    const replaceTo = blockquoteDepth > 0 ? $from.after(blockquoteDepth) : $from.after(textblockDepth);
+    const itemNode = schema.nodes.list_item.create({ checked: null, listType: 'bullet', spread: false }, paraNode);
+    const listNode = schema.nodes.bullet_list.create({ spread: false }, itemNode);
+    tr.replaceRangeWith(replaceFrom, replaceTo, listNode);
+    const newSelPos = Math.min(replaceFrom + 2, tr.doc.content.size);
+    tr.setSelection(Selection.near(tr.doc.resolve(newSelPos))).scrollIntoView();
+    dispatch(tr);
+    view.focus();
+    return true;
+  }
+
+  if (targetType === 'number') {
+    if (listItemDepth > 0) {
+      const itemNode = $from.node(listItemDepth);
+      const itemPos = $from.before(listItemDepth);
+      const parentList = $from.node(listItemDepth - 1);
+      if (parentList && parentList.type === schema.nodes.ordered_list) {
+        // Already ordered list: toggle off to paragraph
+        const listPos = $from.before(listItemDepth - 1);
+        const listEnd = $from.after(listItemDepth - 1);
+        tr.replaceRangeWith(listPos, listEnd, paraNode);
+        const newSelPos = Math.min(listPos + 1, tr.doc.content.size);
+        tr.setSelection(Selection.near(tr.doc.resolve(newSelPos))).scrollIntoView();
+      } else {
+        tr.setNodeMarkup(itemPos, undefined, { ...itemNode.attrs, checked: null, listType: 'ordered' });
+      }
+      if (text !== textblock.textContent) {
+        tr.replaceWith($from.start(textblockDepth), $from.end(textblockDepth), textNode ? [textNode] : []);
+      }
+      dispatch(tr.scrollIntoView());
+      view.focus();
+      return true;
+    }
+
+    const replaceFrom = blockquoteDepth > 0 ? $from.before(blockquoteDepth) : $from.before(textblockDepth);
+    const replaceTo = blockquoteDepth > 0 ? $from.after(blockquoteDepth) : $from.after(textblockDepth);
+    const itemNode = schema.nodes.list_item.create({ checked: null, listType: 'ordered', spread: false }, paraNode);
+    const listNode = schema.nodes.ordered_list.create({ order: 1, spread: false }, itemNode);
+    tr.replaceRangeWith(replaceFrom, replaceTo, listNode);
+    const newSelPos = Math.min(replaceFrom + 2, tr.doc.content.size);
+    tr.setSelection(Selection.near(tr.doc.resolve(newSelPos))).scrollIntoView();
+    dispatch(tr);
+    view.focus();
+    return true;
+  }
+
+  if (targetType.startsWith('h')) {
+    const level = parseInt(targetType.slice(1), 10) || 1;
+    const replaceFrom = listItemDepth > 0 ? $from.before(listItemDepth) : (blockquoteDepth > 0 ? $from.before(blockquoteDepth) : $from.before(textblockDepth));
+    const replaceTo = listItemDepth > 0 ? $from.after(listItemDepth) : (blockquoteDepth > 0 ? $from.after(blockquoteDepth) : $from.after(textblockDepth));
+
+    if (textblock.type === schema.nodes.heading && textblock.attrs.level === level) {
+      // Toggle off to paragraph
+      tr.replaceRangeWith(replaceFrom, replaceTo, paraNode);
+    } else {
+      const headingNode = schema.nodes.heading.create({ level }, textNode);
+      tr.replaceRangeWith(replaceFrom, replaceTo, headingNode);
+    }
+    const newSelPos = Math.min(replaceFrom + 1, tr.doc.content.size);
+    tr.setSelection(Selection.near(tr.doc.resolve(newSelPos))).scrollIntoView();
+    dispatch(tr);
+    view.focus();
+    return true;
+  }
+
+  return false;
+}
+
 function executeAction(action) {
   if (!crepeInstance) return;
   const view = crepeInstance.editor.ctx.get(editorViewCtx);
@@ -780,34 +1283,16 @@ function executeAction(action) {
 
   switch (action) {
     case 'h1':
-      insertOrWrapBlock('# ');
-      break;
     case 'h2':
-      insertOrWrapBlock('## ');
-      break;
     case 'h3':
-      insertOrWrapBlock('### ');
-      break;
     case 'h4':
-      insertOrWrapBlock('#### ');
-      break;
     case 'h5':
-      insertOrWrapBlock('##### ');
-      break;
     case 'h6':
-      insertOrWrapBlock('###### ');
-      break;
     case 'todo':
-      insertOrWrapBlock('- [ ] ');
-      break;
     case 'bullet':
-      insertOrWrapBlock('- ');
-      break;
     case 'number':
-      insertOrWrapBlock('1. ');
-      break;
     case 'quote':
-      insertOrWrapBlock('> ');
+      convertBlock(view, action);
       break;
     case 'code':
       try {
@@ -884,13 +1369,38 @@ function toggleMark(markName, schemaHelper) {
   const view = crepeInstance.editor.ctx.get(editorViewCtx);
   if (!view) return;
   const { state, dispatch } = view;
-  const { from, to, empty } = getEffectiveSelection(view);
+  let { from, to, empty } = getEffectiveSelection(view);
+
+  // If selection is empty, automatically expand to the word at caret
+  if (empty) {
+    const $from = state.selection.$from;
+    const parent = $from.parent;
+    if (parent && parent.isTextblock) {
+      const text = parent.textContent;
+      const offset = $from.parentOffset;
+      let start = offset;
+      let end = offset;
+      while (start > 0 && /\S/.test(text[start - 1])) {
+        start--;
+      }
+      while (end < text.length && /\S/.test(text[end])) {
+        end++;
+      }
+      if (start < end) {
+        from = $from.start() + start;
+        to = $from.start() + end;
+        empty = false;
+      }
+    }
+  }
+
   if (empty) return;
 
   let markType = state.schema.marks[markName];
   if (!markType && (markName === 'code_inline' || markName === 'inline-code')) markType = state.schema.marks.inlineCode;
   if (!markType && markName === 'inlineCode') markType = state.schema.marks.code_inline;
   if (!markType && markName === 'em') markType = state.schema.marks.emphasis;
+  if (!markType && (markName === 'strike' || markName === 'strike_through')) markType = state.schema.marks.strike_through;
   if (!markType && schemaHelper) {
     try {
       markType = schemaHelper.type(crepeInstance.editor.ctx);

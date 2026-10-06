@@ -87,11 +87,17 @@ namespace QuickNote.Avalonia.Views
                     NotionEditor.NotesRoot = _viewModel.NotesRoot;
                     NotionEditor.CurrentNoteFolderPath = _viewModel.CurrentNote?.FolderPath;
                     NotionEditor.IsSpellCheckEnabled = _viewModel.IsSpellCheckEnabled;
+                    NotionEditor.IgnoredWords = _viewModel.IgnoredWords;
                 }
                 NotionEditor.MarkdownChanged      += NotionEditor_MarkdownChanged;
                 NotionEditor.ShortcutTriggered    += OnEditorShortcutTriggered;
                 NotionEditor.EditorFocused        += OnNotionEditorFocused;
-                NotionEditor.WordIgnored          += (word) => _ = _viewModel?.AddIgnoredWord(word);
+                NotionEditor.WordIgnored          += async (word) => {
+                    if (_viewModel != null) {
+                        await _viewModel.AddIgnoredWord(word);
+                        await NotionEditor.SetIgnoredWordsAsync(_viewModel.IgnoredWords);
+                    }
+                };
                 if (_viewModel?.EditorContent != null)
                     NotionEditor.LoadMarkdown(_viewModel.EditorContent, force: true);
             }

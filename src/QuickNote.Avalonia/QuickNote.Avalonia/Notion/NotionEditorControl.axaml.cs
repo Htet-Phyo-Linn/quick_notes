@@ -102,6 +102,10 @@ namespace QuickNote.Avalonia.Notion
                     {
                         _isEditorReady = true;
                         _ = SetSpellCheckAsync(IsSpellCheckEnabled);
+                        if (IgnoredWords != null)
+                        {
+                            _ = SetIgnoredWordsAsync(IgnoredWords);
+                        }
                         // Capture before async dispatch
                         var contentToRestore = _pendingMarkdown ?? _currentMarkdown;
                         _pendingMarkdown = null;
@@ -522,6 +526,23 @@ namespace QuickNote.Avalonia.Notion
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"[NotionEditorControl] Failed to set spellcheck: {ex.Message}");
+            }
+        }
+
+        public System.Collections.Generic.IEnumerable<string>? IgnoredWords { get; set; }
+
+        public async Task SetIgnoredWordsAsync(System.Collections.Generic.IEnumerable<string>? words)
+        {
+            IgnoredWords = words;
+            if (!_isEditorReady || words == null) return;
+            try
+            {
+                var json = JsonSerializer.Serialize(words);
+                await WebViewControl.InvokeScript($"if (window.setIgnoredWords) {{ window.setIgnoredWords({json}); }}");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[NotionEditorControl] Failed to set ignored words: {ex.Message}");
             }
         }
     }
