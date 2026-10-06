@@ -112,6 +112,36 @@ namespace QuickNote.Avalonia.ViewModels
 
             if (targetNote == null && !_isModified && !needsRename) return;
 
+            // Safety guard: if existing note on disk has real content, do NOT overwrite with empty body
+            if (File.Exists(noteToSave.FullPath))
+            {
+                try
+                {
+                    var diskText = File.ReadAllText(noteToSave.FullPath);
+                    var (_, diskBody) = SeparateTitleAndBody(diskText, noteToSave.Title);
+                    if (!string.IsNullOrWhiteSpace(diskBody) && diskBody.Length > 15 && string.IsNullOrWhiteSpace(bodyToSave))
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[SaveNoteAsync] SAFETY GUARD: Blocked empty overwrite of '{noteToSave.FullPath}'");
+                        return;
+                    }
+
+                    // Auto-backup before saving
+                    var notesRoot = NotesRoot ?? Path.GetDirectoryName(noteToSave.FullPath);
+                    if (!string.IsNullOrEmpty(notesRoot))
+                    {
+                        var backupDir = Path.Combine(notesRoot, ".backups");
+                        if (!Directory.Exists(backupDir))
+                        {
+                            var d = Directory.CreateDirectory(backupDir);
+                            d.Attributes |= FileAttributes.Hidden;
+                        }
+                        var backupFile = Path.Combine(backupDir, $"{Path.GetFileNameWithoutExtension(noteToSave.FullPath)}_{DateTime.Now:yyyyMMdd_HHmmss}.bak");
+                        File.Copy(noteToSave.FullPath, backupFile, overwrite: true);
+                    }
+                }
+                catch { }
+            }
+
             try
             {
                 StatusText            = "Saving...";

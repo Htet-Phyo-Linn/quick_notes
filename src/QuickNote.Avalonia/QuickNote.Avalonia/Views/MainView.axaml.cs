@@ -310,15 +310,29 @@ namespace QuickNote.Avalonia.Views
         protected override void OnKeyDown(KeyEventArgs e)
         {
             base.OnKeyDown(e);
-            if (e.KeyModifiers == KeyModifiers.Control && e.Key == Key.F)
+            if (e.KeyModifiers == (KeyModifiers.Control | KeyModifiers.Shift) && e.Key == Key.F)
             {
-                SearchBox?.Focus();
-                SearchBox?.SelectAll();
+                ShowInNoteFindBar();
+                e.Handled = true;
+            }
+            else if (e.KeyModifiers == KeyModifiers.Control && e.Key == Key.F)
+            {
+                FocusGlobalSearch();
                 e.Handled = true;
             }
             else if (e.KeyModifiers == KeyModifiers.Control && e.Key == Key.B)
             {
                 _viewModel?.ToggleLeftSidebar();
+                e.Handled = true;
+            }
+        }
+
+        private void TabScrollViewer_PointerWheelChanged(object? sender, PointerWheelEventArgs e)
+        {
+            if (sender is ScrollViewer sv)
+            {
+                var delta = e.Delta.Y != 0 ? e.Delta.Y : e.Delta.X;
+                sv.Offset = new Vector(Math.Max(0, sv.Offset.X - (delta * 60)), sv.Offset.Y);
                 e.Handled = true;
             }
         }

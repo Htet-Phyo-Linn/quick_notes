@@ -529,6 +529,62 @@ namespace QuickNote.Avalonia.Notion
             }
         }
 
+        public async Task<int> FindInPageAsync(string query, bool backwards = false)
+        {
+            if (WebViewControl == null || !_isEditorReady) return 0;
+            var jsonQuery = JsonSerializer.Serialize(query ?? string.Empty);
+            var backwardsArg = backwards ? "true" : "false";
+            try
+            {
+                var resultJson = await WebViewControl.InvokeScript(
+                    $"(function(){{ if(window.findInPage) {{ return JSON.stringify(window.findInPage({jsonQuery}, {backwardsArg})); }} return JSON.stringify({{count:0, found:false}}); }})()");
+                if (!string.IsNullOrEmpty(resultJson))
+                {
+                    using var doc = JsonDocument.Parse(resultJson);
+                    if (doc.RootElement.TryGetProperty("count", out var countProp))
+                    {
+                        return countProp.GetInt32();
+                    }
+                }
+            }
+            catch { }
+            return 0;
+        }
+
+        public async Task ClearFindHighlightAsync()
+        {
+            if (WebViewControl == null || !_isEditorReady) return;
+            try
+            {
+                await WebViewControl.InvokeScript("if(window.clearFindHighlight){ window.clearFindHighlight(); }");
+            }
+            catch { }
+        }
+
+        public async Task OpenFindWidgetAsync(string? initialQuery = null)
+        {
+            if (WebViewControl == null || !_isEditorReady) return;
+            try
+            {
+                var queryParam = initialQuery != null ? JsonSerializer.Serialize(initialQuery) : "null";
+                await WebViewControl.InvokeScript($"if (window.openFindWidget) {{ window.openFindWidget({queryParam}); }}");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[NotionEditorControl] Failed to open find widget: {ex.Message}");
+            }
+        }
+
+        public async Task CloseFindWidgetAsync()
+        {
+            if (WebViewControl == null || !_isEditorReady) return;
+            try
+            {
+                await WebViewControl.InvokeScript("if (window.closeFindWidget) { window.closeFindWidget(); }");
+            }
+            catch { }
+        }
+
         public async Task PrintOrExportPdfAsync()
         {
             try

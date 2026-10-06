@@ -1,7 +1,8 @@
 import { Crepe } from '@milkdown/crepe';
 import { replaceAll, $remark, $prose } from '@milkdown/kit/utils';
 import { visit } from 'unist-util-visit';
-import { editorViewCtx, commandsCtx } from '@milkdown/kit/core';
+import { editorViewCtx, commandsCtx, parserCtx, schemaCtx } from '@milkdown/kit/core';
+import { DOMParser, DOMSerializer } from '@milkdown/kit/prose/model';
 
 const remarkFixImageNodes = $remark('remarkFixImageNodes', () => () => (ast) => {
   visit(ast, (node, index, parent) => {
@@ -506,6 +507,9 @@ window.addEventListener('keydown', (e) => {
     }
     if (k === 'f') {
       e.preventDefault();
+      e.stopPropagation();
+      if (document.activeElement) document.activeElement.blur();
+      window.blur();
       sendMessage({ type: 'shortcut', action: 'search' });
       return;
     }
@@ -524,6 +528,14 @@ window.addEventListener('keydown', (e) => {
       return;
     }
   } else if (e.ctrlKey && e.shiftKey && !e.altKey) {
+    if (e.key.toLowerCase() === 'f') {
+      e.preventDefault();
+      e.stopPropagation();
+      if (window.openFindWidget) {
+        window.openFindWidget();
+      }
+      return;
+    }
     if (e.key.toLowerCase() === 'n') {
       e.preventDefault();
       sendMessage({ type: 'shortcut', action: 'newFolder' });
@@ -532,6 +544,11 @@ window.addEventListener('keydown', (e) => {
   } else if (e.key === 'F5') {
     e.preventDefault();
   } else if (e.key === 'Escape') {
+    if (window.isFindWidgetOpen && window.isFindWidgetOpen()) {
+      e.preventDefault();
+      window.closeFindWidget();
+      return;
+    }
     hideContextMenu();
     hideLinkDialog();
   } else if (e.key === '`' && !e.ctrlKey && !e.altKey && !e.metaKey) {
@@ -686,6 +703,7 @@ async function init() {
       setTimeout(resolveAllImagesInDOM, 60);
       setTimeout(() => {
         if (window.updateHeadingFolds) window.updateHeadingFolds();
+        if (window.refreshFindWidget) window.refreshFindWidget();
       }, 30);
     } catch (e) {
       console.error('[setMarkdown] Failed to replace markdown:', e);
@@ -780,6 +798,496 @@ async function init() {
 
   window.setSpellCheck = (enabled) => {
     applySpellCheck(enabled);
+  };
+
+  // Interactive visual feedback for Code Block copy button
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.copy-button');
+    if (btn) {
+      if (btn.dataset.copying) return;
+      btn.dataset.copying = 'true';
+      const originalHTML = btn.innerHTML;
+      btn.classList.add('copied');
+      btn.innerHTML = '<span class="milkdown-icon" style="color:#10b981;font-weight:bold;margin-right:4px;">✓</span><span style="color:#10b981;font-weight:600;">Copied!</span>';
+      setTimeout(() => {
+        btn.innerHTML = originalHTML;
+        btn.classList.remove('copied');
+        delete btn.dataset.copying;
+      }, 2000);
+    }
+  }, true);
+
+  // ── VS Code Find Widget Implementation ───────────────────────────
+  const findWidgetEl = document.getElementById('vscode-find-widget');
+  const findInputEl = document.getElementById('find-input');
+  const findReplaceInputEl = document.getElementById('find-replace-input');
+  const findCountEl = document.getElementById('find-count');
+  const findExpandBtn = document.getElementById('find-toggle-replace');
+  const findReplacePart = document.getElementById('find-replace-part');
+  const findCaseToggle = document.getElementById('find-case-toggle');
+  const findWordToggle = document.getElementById('find-word-toggle');
+  const findRegexToggle = document.getElementById('find-regex-toggle');
+  const findPrevBtn = document.getElementById('find-prev-btn');
+  const findNextBtn = document.getElementById('find-next-btn');
+  const findCloseBtn = document.getElementById('find-close-btn');
+  const findReplaceBtn = document.getElementById('find-replace-btn');
+  const findReplaceAllBtn = document.getElementById('find-replace-all-btn');
+
+  const findState = {
+    isOpen: false,
+    query: '',
+    matchCase: false,
+    wholeWord: false,
+    useRegex: false,
+    matches: [],
+    currentIndex: -1
+  };
+
+  function collectSearchableText(rootEl) {
+    if (!rootEl) return { fullText: '', charMap: [] };
+    const walker = document.createTreeWalker(
+      rootEl,
+      NodeFilter.SHOW_TEXT,
+      {
+        acceptNode(node) {
+          if (!node.textContent || node.textContent.length === 0) return NodeFilter.FILTER_REJECT;
+          const parent = node.parentElement;
+          if (!parent) return NodeFilter.FILTER_REJECT;
+          if (parent.closest('#vscode-find-widget, #format-menu, #spell-popup, #link-dialog')) {
+            return NodeFilter.FILTER_REJECT;
+          }
+          const tag = parent.tagName.toLowerCase();
+          if (tag === 'script' || tag === 'style') return NodeFilter.FILTER_REJECT;
+          return NodeFilter.FILTER_ACCEPT;
+        }
+      }
+    );
+
+    let fullText = '';
+    const charMap = [];
+    let prevBlock = null;
+    let textNode;
+
+    while ((textNode = walker.nextNode())) {
+      const parent = textNode.parentElement;
+      const block = parent ? parent.closest('.cm-line, p, h1, h2, h3, h4, h5, h6, li, tr, blockquote, pre') : null;
+      if (prevBlock && block && block !== prevBlock) {
+        fullText += '\n';
+        charMap.push(null);
+      }
+      prevBlock = block;
+
+      const str = textNode.textContent;
+      for (let i = 0; i < str.length; i++) {
+        fullText += str[i];
+        charMap.push({ node: textNode, offset: i });
+      }
+    }
+
+    return { fullText, charMap };
+  }
+
+  function clearHighlights() {
+    if (typeof CSS !== 'undefined' && CSS.highlights) {
+      try {
+        CSS.highlights.delete('vscode-find-match');
+        CSS.highlights.delete('vscode-find-match-current');
+      } catch (e) {}
+    }
+  }
+
+  function renderHighlights() {
+    if (typeof CSS !== 'undefined' && CSS.highlights) {
+      try {
+        if (findState.matches.length === 0) {
+          CSS.highlights.delete('vscode-find-match');
+          CSS.highlights.delete('vscode-find-match-current');
+          return;
+        }
+
+        const allRanges = [];
+        let currentRange = null;
+
+        findState.matches.forEach((m, idx) => {
+          if (idx === findState.currentIndex) {
+            currentRange = m.range;
+          } else {
+            allRanges.push(m.range);
+          }
+        });
+
+        if (allRanges.length > 0) {
+          CSS.highlights.set('vscode-find-match', new Highlight(...allRanges));
+        } else {
+          CSS.highlights.delete('vscode-find-match');
+        }
+
+        if (currentRange) {
+          CSS.highlights.set('vscode-find-match-current', new Highlight(currentRange));
+        } else {
+          CSS.highlights.delete('vscode-find-match-current');
+        }
+      } catch (e) {
+        console.warn('[FindWidget] renderHighlights error:', e);
+      }
+    }
+  }
+
+  function updateFindCountDisplay(isError = false) {
+    if (!findCountEl) return;
+    if (!findState.query) {
+      findCountEl.textContent = '';
+      findCountEl.className = 'find-count';
+      if (findPrevBtn) findPrevBtn.disabled = true;
+      if (findNextBtn) findNextBtn.disabled = true;
+      return;
+    }
+
+    if (isError || findState.matches.length === 0) {
+      findCountEl.textContent = 'No results';
+      findCountEl.className = 'find-count no-results';
+      if (findPrevBtn) findPrevBtn.disabled = true;
+      if (findNextBtn) findNextBtn.disabled = true;
+    } else {
+      findCountEl.textContent = `${findState.currentIndex + 1} of ${findState.matches.length}`;
+      findCountEl.className = 'find-count';
+      if (findPrevBtn) findPrevBtn.disabled = false;
+      if (findNextBtn) findNextBtn.disabled = false;
+    }
+  }
+
+  function scrollToCurrentMatch() {
+    if (findState.currentIndex < 0 || findState.currentIndex >= findState.matches.length) return;
+    const current = findState.matches[findState.currentIndex];
+    if (!current || !current.range) return;
+
+    try {
+      const el = current.range.startContainer.nodeType === Node.ELEMENT_NODE
+        ? current.range.startContainer
+        : current.range.startContainer.parentElement;
+
+      if (el && el.scrollIntoView) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+      }
+    } catch (e) {
+      console.warn('[FindWidget] scroll error:', e);
+    }
+  }
+
+  function performFind(query, keepIndex = false) {
+    findState.query = query || '';
+    if (!query) {
+      findState.matches = [];
+      findState.currentIndex = -1;
+      clearHighlights();
+      updateFindCountDisplay();
+      return;
+    }
+
+    const editorEl = document.getElementById('editor');
+    const { fullText, charMap } = collectSearchableText(editorEl);
+    if (!fullText) {
+      findState.matches = [];
+      findState.currentIndex = -1;
+      clearHighlights();
+      updateFindCountDisplay();
+      return;
+    }
+
+    let regex = null;
+    try {
+      let pattern;
+      if (findState.useRegex) {
+        pattern = query;
+      } else {
+        pattern = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        if (findState.wholeWord) {
+          pattern = `\\b${pattern}\\b`;
+        }
+      }
+      const flags = findState.matchCase ? 'g' : 'gi';
+      regex = new RegExp(pattern, flags);
+    } catch (e) {
+      findState.matches = [];
+      findState.currentIndex = -1;
+      clearHighlights();
+      updateFindCountDisplay(true);
+      return;
+    }
+
+    const matches = [];
+    let match;
+    while ((match = regex.exec(fullText)) !== null) {
+      if (match[0].length === 0) {
+        regex.lastIndex++;
+        continue;
+      }
+      const sIdx = match.index;
+      const eIdx = sIdx + match[0].length;
+      const startMapping = charMap[sIdx];
+      const endMapping = charMap[eIdx - 1];
+
+      if (startMapping && endMapping) {
+        try {
+          const range = document.createRange();
+          range.setStart(startMapping.node, startMapping.offset);
+          range.setEnd(endMapping.node, endMapping.offset + 1);
+          matches.push({
+            range,
+            text: match[0]
+          });
+        } catch (err) {
+          console.warn('[FindWidget] Range error:', err);
+        }
+      }
+    }
+
+    findState.matches = matches;
+
+    if (matches.length === 0) {
+      findState.currentIndex = -1;
+      clearHighlights();
+      updateFindCountDisplay();
+      return;
+    }
+
+    if (keepIndex && findState.currentIndex >= 0 && findState.currentIndex < matches.length) {
+      // keep current index
+    } else {
+      findState.currentIndex = 0;
+    }
+
+    updateFindCountDisplay();
+    renderHighlights();
+    scrollToCurrentMatch();
+  }
+
+  function findNext() {
+    if (findState.matches.length === 0) return;
+    findState.currentIndex = (findState.currentIndex + 1) % findState.matches.length;
+    updateFindCountDisplay();
+    renderHighlights();
+    scrollToCurrentMatch();
+  }
+
+  function findPrev() {
+    if (findState.matches.length === 0) return;
+    findState.currentIndex = (findState.currentIndex - 1 + findState.matches.length) % findState.matches.length;
+    updateFindCountDisplay();
+    renderHighlights();
+    scrollToCurrentMatch();
+  }
+
+  function getEditorSelectedText() {
+    const sel = window.getSelection();
+    if (sel && !sel.isCollapsed) {
+      const text = sel.toString().trim();
+      if (text && !text.includes('\n')) {
+        return text;
+      }
+    }
+    return '';
+  }
+
+  function openFindWidget(initialQuery) {
+    if (!findWidgetEl) return;
+    findWidgetEl.style.display = 'flex';
+    findState.isOpen = true;
+
+    if (initialQuery !== undefined && initialQuery !== null && initialQuery !== '') {
+      if (findInputEl) findInputEl.value = initialQuery;
+    } else {
+      const selected = getEditorSelectedText();
+      if (selected && findInputEl) {
+        findInputEl.value = selected;
+      }
+    }
+
+    if (findInputEl) {
+      findInputEl.focus();
+      findInputEl.select();
+      performFind(findInputEl.value);
+    }
+  }
+
+  function closeFindWidget() {
+    if (!findWidgetEl) return;
+    findWidgetEl.style.display = 'none';
+    findState.isOpen = false;
+    clearHighlights();
+
+    const pm = document.querySelector('.milkdown .ProseMirror');
+    if (pm) pm.focus();
+  }
+
+  function toggleReplaceRow() {
+    if (!findReplacePart || !findExpandBtn) return;
+    const isVisible = findReplacePart.style.display !== 'none';
+    if (isVisible) {
+      findReplacePart.style.display = 'none';
+      findExpandBtn.classList.remove('expanded');
+    } else {
+      findReplacePart.style.display = 'flex';
+      findExpandBtn.classList.add('expanded');
+      if (findReplaceInputEl) findReplaceInputEl.focus();
+    }
+  }
+
+  function doFindReplaceCurrent() {
+    if (findState.matches.length === 0 || findState.currentIndex < 0) return;
+    const match = findState.matches[findState.currentIndex];
+    const rep = (findReplaceInputEl && findReplaceInputEl.value) || '';
+
+    try {
+      const sel = window.getSelection();
+      if (sel) {
+        sel.removeAllRanges();
+        sel.addRange(match.range);
+        document.execCommand('insertText', false, rep);
+      }
+    } catch (e) {
+      console.error('[FindWidget] Replace failed:', e);
+    }
+
+    setTimeout(() => {
+      performFind((findInputEl && findInputEl.value) || '', false);
+    }, 20);
+  }
+
+  function doFindReplaceAll() {
+    if (findState.matches.length === 0) return;
+    const rep = (findReplaceInputEl && findReplaceInputEl.value) || '';
+    const sel = window.getSelection();
+
+    for (let i = findState.matches.length - 1; i >= 0; i--) {
+      const match = findState.matches[i];
+      try {
+        if (sel) {
+          sel.removeAllRanges();
+          sel.addRange(match.range);
+          document.execCommand('insertText', false, rep);
+        }
+      } catch (e) {}
+    }
+
+    setTimeout(() => {
+      performFind((findInputEl && findInputEl.value) || '', false);
+    }, 20);
+  }
+
+  if (findInputEl) {
+    findInputEl.addEventListener('input', () => {
+      performFind(findInputEl.value);
+    });
+
+    findInputEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (e.shiftKey) {
+          findPrev();
+        } else {
+          findNext();
+        }
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        closeFindWidget();
+      } else if (e.altKey && e.key.toLowerCase() === 'c') {
+        e.preventDefault();
+        if (findCaseToggle) findCaseToggle.click();
+      } else if (e.altKey && e.key.toLowerCase() === 'w') {
+        e.preventDefault();
+        if (findWordToggle) findWordToggle.click();
+      } else if (e.altKey && e.key.toLowerCase() === 'r') {
+        e.preventDefault();
+        if (findRegexToggle) findRegexToggle.click();
+      }
+    });
+  }
+
+  if (findReplaceInputEl) {
+    findReplaceInputEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (e.ctrlKey && e.altKey) {
+          doFindReplaceAll();
+        } else {
+          doFindReplaceCurrent();
+        }
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        closeFindWidget();
+      }
+    });
+  }
+
+  if (findExpandBtn) {
+    findExpandBtn.addEventListener('click', toggleReplaceRow);
+  }
+
+  if (findCaseToggle) {
+    findCaseToggle.addEventListener('click', () => {
+      findState.matchCase = !findState.matchCase;
+      findCaseToggle.classList.toggle('active', findState.matchCase);
+      if (findInputEl) performFind(findInputEl.value);
+    });
+  }
+
+  if (findWordToggle) {
+    findWordToggle.addEventListener('click', () => {
+      findState.wholeWord = !findState.wholeWord;
+      findWordToggle.classList.toggle('active', findState.wholeWord);
+      if (findInputEl) performFind(findInputEl.value);
+    });
+  }
+
+  if (findRegexToggle) {
+    findRegexToggle.addEventListener('click', () => {
+      findState.useRegex = !findState.useRegex;
+      findRegexToggle.classList.toggle('active', findState.useRegex);
+      if (findInputEl) performFind(findInputEl.value);
+    });
+  }
+
+  if (findPrevBtn) findPrevBtn.addEventListener('click', findPrev);
+  if (findNextBtn) findNextBtn.addEventListener('click', findNext);
+  if (findCloseBtn) findCloseBtn.addEventListener('click', closeFindWidget);
+  if (findReplaceBtn) findReplaceBtn.addEventListener('click', doFindReplaceCurrent);
+  if (findReplaceAllBtn) findReplaceAllBtn.addEventListener('click', doFindReplaceAll);
+
+  const editorContainer = document.getElementById('editor-container');
+  if (editorContainer) {
+    editorContainer.addEventListener('input', () => {
+      if (findState.isOpen && findInputEl && findInputEl.value) {
+        performFind(findInputEl.value, true);
+      }
+    });
+  }
+
+  window.openFindWidget = openFindWidget;
+  window.closeFindWidget = closeFindWidget;
+  window.isFindWidgetOpen = () => findState.isOpen;
+  window.refreshFindWidget = () => {
+    if (findState.isOpen && findInputEl && findInputEl.value) {
+      performFind(findInputEl.value, true);
+    }
+  };
+
+  window.findInPage = (query, backwards) => {
+    if (!query) {
+      clearHighlights();
+      return { count: 0, found: false };
+    }
+    openFindWidget(query);
+    if (backwards) {
+      findPrev();
+    } else {
+      findNext();
+    }
+    return { count: findState.matches.length, found: findState.matches.length > 0 };
+  };
+
+  window.clearFindHighlight = () => {
+    closeFindWidget();
   };
 
   // If C# host invoked setMarkdown before Crepe finished creating, apply it now
@@ -2091,8 +2599,98 @@ window.onImageLoaded = (src, base64Data) => {
   });
 };
 
-// Unified paste handler for Images, URLs, and Inline Code
+// Check if the current cursor / active element is inside a Code Block (CodeMirror)
+function isInsideCodeBlock(view) {
+  const active = document.activeElement;
+  if (active && active.closest && (active.closest('.cm-editor') || active.closest('.code-block') || active.closest('pre'))) {
+    return true;
+  }
+  if (!view || !view.state) return false;
+  const { selection } = view.state;
+  if (!selection) return false;
+  const $from = selection.$from;
+  if ($from) {
+    if ($from.node()?.type?.spec?.code) return true;
+    if ($from.parent?.type?.name?.includes('code_block') || $from.parent?.type?.name?.includes('code_bracket')) return true;
+  }
+  return false;
+}
+
+// Detect if text contains Markdown formatting syntax
+function isMarkdownSyntax(text) {
+  if (!text || typeof text !== 'string') return false;
+  // 1. Headings: # Title, ## Subtitle, etc.
+  if (/^#{1,6}\s+\S+/m.test(text)) return true;
+  // 2. Task lists: - [ ] or * [x] or + [ ]
+  if (/^[-*+]\s+\[[ xX]\]/m.test(text)) return true;
+  // 3. Unordered lists: - item, * item, + item
+  if (/^[-*+]\s+\S+/m.test(text)) return true;
+  // 4. Ordered lists: 1. item
+  if (/^\d+\.\s+\S+/m.test(text)) return true;
+  // 5. Blockquotes: > quote
+  if (/^>\s+\S+/m.test(text)) return true;
+  // 6. Tables: | col | col |
+  if (/^\|.+?\|.+?\|\s*$/m.test(text)) return true;
+  // 7. Code fences: ```lang
+  if (/^```/m.test(text)) return true;
+  // 8. Horizontal rules: --- or ***
+  if (/^([-*_]){3,}\s*$/m.test(text)) return true;
+  // 9. Markdown links or images: [text](url) or ![alt](url)
+  if (/!?\[[^\]]+\]\([^)]+\)/.test(text)) return true;
+  // 10. Markdown inline formatting spanning words: **bold**, *italic*, ~~strike~~
+  if (/(\*\*[^*]+\*\*|\*[^*]+\*|~~[^~]+~~)/.test(text)) return true;
+
+  return false;
+}
+
+// Parse markdown text using Milkdown's parser and insert as ProseMirror blocks
+function insertParsedMarkdown(view, markdownText) {
+  if (!view || !view.state || !crepeInstance || !crepeInstance.editor) return false;
+  try {
+    const parser = crepeInstance.editor.ctx.get(parserCtx);
+    const schema = crepeInstance.editor.ctx.get(schemaCtx);
+    if (!parser || !schema) return false;
+
+    const parsedDoc = parser(markdownText);
+    if (!parsedDoc || typeof parsedDoc === 'string') return false;
+
+    const dom = DOMSerializer.fromSchema(schema).serializeFragment(parsedDoc.content);
+    const domParser = DOMParser.fromSchema(schema);
+    const slice = domParser.parseSlice(dom);
+
+    // If slice is just a single text node without marks, replace selection with text node
+    if (slice && slice.content && slice.content.childCount === 1) {
+      const node = slice.content.firstChild;
+      if (node?.type?.name === 'text' && (!node.marks || node.marks.length === 0)) {
+        view.dispatch(view.state.tr.replaceSelectionWith(node, true).scrollIntoView());
+        return true;
+      }
+      if (node?.type?.name === 'paragraph' && node.childCount === 1) {
+        const _node = node.firstChild;
+        if (_node?.type?.name === 'text' && (!_node.marks || _node.marks.length === 0)) {
+          view.dispatch(view.state.tr.replaceSelectionWith(_node, true).scrollIntoView());
+          return true;
+        }
+      }
+    }
+
+    view.dispatch(view.state.tr.replaceSelection(slice).scrollIntoView());
+    return true;
+  } catch (err) {
+    console.warn('Error inserting parsed markdown:', err);
+    return false;
+  }
+}
+
+// Unified paste handler for Images, URLs, Markdown, and Inline Code
 function handlePaste(e) {
+  const view = getEditorView();
+
+  // If inside a Code Block (CodeMirror), let CodeMirror handle paste natively
+  if (isInsideCodeBlock(view)) {
+    return;
+  }
+
   // 0. Image paste detection
   const items = e.clipboardData ? e.clipboardData.items : null;
   if (items && items.length > 0) {
@@ -2110,7 +2708,6 @@ function handlePaste(e) {
     }
   }
 
-  const view = getEditorView();
   if (!view || !view.state) return;
   const { state, dispatch } = view;
   const { from, to, empty } = getEffectiveSelection(view);
@@ -2153,7 +2750,6 @@ function handlePaste(e) {
       const textAfter = $to.parent.textBetween($to.parentOffset, $to.parent.content.size);
 
       if (textBefore.endsWith('`') && textAfter.startsWith('`')) {
-        // User pasted text between existing backticks `[cursor]` -> replace `[text]` with inline_code
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
@@ -2181,6 +2777,37 @@ function handlePaste(e) {
       const mark = codeMarkType.create();
       const tr = state.tr.replaceWith(from, to, state.schema.text(codeText, [mark]));
       dispatch(tr.scrollIntoView());
+      return;
+    }
+  }
+
+  // 3. Markdown / Plain Text paste handling:
+  // Check if clipboard is from VS Code (which tags vscode-editor-data and causes Milkdown to force code blocks)
+  let isFromVSCode = false;
+  let vscodeMode = '';
+  try {
+    const vscodeData = e.clipboardData ? e.clipboardData.getData('vscode-editor-data') : '';
+    if (vscodeData) {
+      isFromVSCode = true;
+      vscodeMode = JSON.parse(vscodeData)?.mode || '';
+    }
+  } catch {}
+
+  const isMd = isMarkdownSyntax(rawText);
+  const isVSCodeMarkdownOrText = isFromVSCode && (vscodeMode === 'markdown' || vscodeMode === 'md' || vscodeMode === 'plaintext' || vscodeMode === 'text');
+
+  if (isMd || isVSCodeMarkdownOrText) {
+    const handled = insertParsedMarkdown(view, rawText);
+    if (handled) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+
+      setTimeout(() => {
+        const currentView = getEditorView();
+        if (currentView) autoFormatInlineCode(currentView);
+        resolveAllImagesInDOM();
+      }, 10);
       return;
     }
   }

@@ -88413,7 +88413,7 @@
     const originalDocument = document4;
     const currentScript = originalDocument.currentScript;
     window2.DocumentFragment;
-    const HTMLTemplateElement = window2.HTMLTemplateElement, Node3 = window2.Node, Element6 = window2.Element, NodeFilter = window2.NodeFilter;
+    const HTMLTemplateElement = window2.HTMLTemplateElement, Node3 = window2.Node, Element6 = window2.Element, NodeFilter2 = window2.NodeFilter;
     window2.NamedNodeMap === void 0 && (window2.NamedNodeMap || window2.MozNamedAttrMap);
     window2.HTMLFormElement;
     const DOMParser2 = window2.DOMParser, trustedTypes = window2.trustedTypes;
@@ -88949,7 +88949,7 @@
     };
     const _createNodeIterator = function _createNodeIterator2(root3) {
       const doc6 = getOwnerDocument ? getOwnerDocument(root3) : root3.ownerDocument;
-      return createNodeIterator.call(doc6 || root3, root3, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_COMMENT | NodeFilter.SHOW_TEXT | NodeFilter.SHOW_PROCESSING_INSTRUCTION | NodeFilter.SHOW_CDATA_SECTION, null);
+      return createNodeIterator.call(doc6 || root3, root3, NodeFilter2.SHOW_ELEMENT | NodeFilter2.SHOW_COMMENT | NodeFilter2.SHOW_TEXT | NodeFilter2.SHOW_PROCESSING_INSTRUCTION | NodeFilter2.SHOW_CDATA_SECTION, null);
     };
     const _stripTemplateExpressions = function _stripTemplateExpressions2(value) {
       value = stringReplace(value, MUSTACHE_EXPR$1, " ");
@@ -88961,7 +88961,7 @@
       var _node$querySelectorAl;
       node2.normalize();
       const doc6 = getOwnerDocument ? getOwnerDocument(node2) : node2.ownerDocument;
-      const walker = createNodeIterator.call(doc6 || node2, node2, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_COMMENT | NodeFilter.SHOW_CDATA_SECTION | NodeFilter.SHOW_PROCESSING_INSTRUCTION, null);
+      const walker = createNodeIterator.call(doc6 || node2, node2, NodeFilter2.SHOW_TEXT | NodeFilter2.SHOW_COMMENT | NodeFilter2.SHOW_CDATA_SECTION | NodeFilter2.SHOW_PROCESSING_INSTRUCTION, null);
       let currentNode = walker.nextNode();
       while (currentNode) {
         currentNode.data = _stripTemplateExpressions(currentNode.data);
@@ -137201,6 +137201,7 @@ Expected function or array of functions, received type ${typeof value}.`
       init_utils();
       init_unist_util_visit();
       init_core();
+      init_model2();
       init_view2();
       init_gfm();
       init_commonmark();
@@ -137630,6 +137631,9 @@ Expected function or array of functions, received type ${typeof value}.`
           }
           if (k === "f") {
             e.preventDefault();
+            e.stopPropagation();
+            if (document.activeElement) document.activeElement.blur();
+            window.blur();
             sendMessage({ type: "shortcut", action: "search" });
             return;
           }
@@ -137648,6 +137652,14 @@ Expected function or array of functions, received type ${typeof value}.`
             return;
           }
         } else if (e.ctrlKey && e.shiftKey && !e.altKey) {
+          if (e.key.toLowerCase() === "f") {
+            e.preventDefault();
+            e.stopPropagation();
+            if (window.openFindWidget) {
+              window.openFindWidget();
+            }
+            return;
+          }
           if (e.key.toLowerCase() === "n") {
             e.preventDefault();
             sendMessage({ type: "shortcut", action: "newFolder" });
@@ -137656,6 +137668,11 @@ Expected function or array of functions, received type ${typeof value}.`
         } else if (e.key === "F5") {
           e.preventDefault();
         } else if (e.key === "Escape") {
+          if (window.isFindWidgetOpen && window.isFindWidgetOpen()) {
+            e.preventDefault();
+            window.closeFindWidget();
+            return;
+          }
           hideContextMenu();
           hideLinkDialog();
         } else if (e.key === "`" && !e.ctrlKey && !e.altKey && !e.metaKey) {
@@ -137787,6 +137804,7 @@ Expected function or array of functions, received type ${typeof value}.`
             setTimeout(resolveAllImagesInDOM, 60);
             setTimeout(() => {
               if (window.updateHeadingFolds) window.updateHeadingFolds();
+              if (window.refreshFindWidget) window.refreshFindWidget();
             }, 30);
           } catch (e) {
             console.error("[setMarkdown] Failed to replace markdown:", e);
@@ -137874,6 +137892,438 @@ Expected function or array of functions, received type ${typeof value}.`
         };
         window.setSpellCheck = (enabled) => {
           applySpellCheck(enabled);
+        };
+        document.addEventListener("click", (e) => {
+          const btn = e.target.closest(".copy-button");
+          if (btn) {
+            if (btn.dataset.copying) return;
+            btn.dataset.copying = "true";
+            const originalHTML = btn.innerHTML;
+            btn.classList.add("copied");
+            btn.innerHTML = '<span class="milkdown-icon" style="color:#10b981;font-weight:bold;margin-right:4px;">\u2713</span><span style="color:#10b981;font-weight:600;">Copied!</span>';
+            setTimeout(() => {
+              btn.innerHTML = originalHTML;
+              btn.classList.remove("copied");
+              delete btn.dataset.copying;
+            }, 2e3);
+          }
+        }, true);
+        const findWidgetEl = document.getElementById("vscode-find-widget");
+        const findInputEl = document.getElementById("find-input");
+        const findReplaceInputEl = document.getElementById("find-replace-input");
+        const findCountEl = document.getElementById("find-count");
+        const findExpandBtn = document.getElementById("find-toggle-replace");
+        const findReplacePart = document.getElementById("find-replace-part");
+        const findCaseToggle = document.getElementById("find-case-toggle");
+        const findWordToggle = document.getElementById("find-word-toggle");
+        const findRegexToggle = document.getElementById("find-regex-toggle");
+        const findPrevBtn = document.getElementById("find-prev-btn");
+        const findNextBtn = document.getElementById("find-next-btn");
+        const findCloseBtn = document.getElementById("find-close-btn");
+        const findReplaceBtn = document.getElementById("find-replace-btn");
+        const findReplaceAllBtn = document.getElementById("find-replace-all-btn");
+        const findState2 = {
+          isOpen: false,
+          query: "",
+          matchCase: false,
+          wholeWord: false,
+          useRegex: false,
+          matches: [],
+          currentIndex: -1
+        };
+        function collectSearchableText(rootEl) {
+          if (!rootEl) return { fullText: "", charMap: [] };
+          const walker = document.createTreeWalker(
+            rootEl,
+            NodeFilter.SHOW_TEXT,
+            {
+              acceptNode(node2) {
+                if (!node2.textContent || node2.textContent.length === 0) return NodeFilter.FILTER_REJECT;
+                const parent = node2.parentElement;
+                if (!parent) return NodeFilter.FILTER_REJECT;
+                if (parent.closest("#vscode-find-widget, #format-menu, #spell-popup, #link-dialog")) {
+                  return NodeFilter.FILTER_REJECT;
+                }
+                const tag2 = parent.tagName.toLowerCase();
+                if (tag2 === "script" || tag2 === "style") return NodeFilter.FILTER_REJECT;
+                return NodeFilter.FILTER_ACCEPT;
+              }
+            }
+          );
+          let fullText = "";
+          const charMap = [];
+          let prevBlock = null;
+          let textNode;
+          while (textNode = walker.nextNode()) {
+            const parent = textNode.parentElement;
+            const block4 = parent ? parent.closest(".cm-line, p, h1, h2, h3, h4, h5, h6, li, tr, blockquote, pre") : null;
+            if (prevBlock && block4 && block4 !== prevBlock) {
+              fullText += "\n";
+              charMap.push(null);
+            }
+            prevBlock = block4;
+            const str = textNode.textContent;
+            for (let i4 = 0; i4 < str.length; i4++) {
+              fullText += str[i4];
+              charMap.push({ node: textNode, offset: i4 });
+            }
+          }
+          return { fullText, charMap };
+        }
+        function clearHighlights() {
+          if (typeof CSS !== "undefined" && CSS.highlights) {
+            try {
+              CSS.highlights.delete("vscode-find-match");
+              CSS.highlights.delete("vscode-find-match-current");
+            } catch (e) {
+            }
+          }
+        }
+        function renderHighlights() {
+          if (typeof CSS !== "undefined" && CSS.highlights) {
+            try {
+              if (findState2.matches.length === 0) {
+                CSS.highlights.delete("vscode-find-match");
+                CSS.highlights.delete("vscode-find-match-current");
+                return;
+              }
+              const allRanges = [];
+              let currentRange = null;
+              findState2.matches.forEach((m, idx2) => {
+                if (idx2 === findState2.currentIndex) {
+                  currentRange = m.range;
+                } else {
+                  allRanges.push(m.range);
+                }
+              });
+              if (allRanges.length > 0) {
+                CSS.highlights.set("vscode-find-match", new Highlight(...allRanges));
+              } else {
+                CSS.highlights.delete("vscode-find-match");
+              }
+              if (currentRange) {
+                CSS.highlights.set("vscode-find-match-current", new Highlight(currentRange));
+              } else {
+                CSS.highlights.delete("vscode-find-match-current");
+              }
+            } catch (e) {
+              console.warn("[FindWidget] renderHighlights error:", e);
+            }
+          }
+        }
+        function updateFindCountDisplay(isError = false) {
+          if (!findCountEl) return;
+          if (!findState2.query) {
+            findCountEl.textContent = "";
+            findCountEl.className = "find-count";
+            if (findPrevBtn) findPrevBtn.disabled = true;
+            if (findNextBtn) findNextBtn.disabled = true;
+            return;
+          }
+          if (isError || findState2.matches.length === 0) {
+            findCountEl.textContent = "No results";
+            findCountEl.className = "find-count no-results";
+            if (findPrevBtn) findPrevBtn.disabled = true;
+            if (findNextBtn) findNextBtn.disabled = true;
+          } else {
+            findCountEl.textContent = `${findState2.currentIndex + 1} of ${findState2.matches.length}`;
+            findCountEl.className = "find-count";
+            if (findPrevBtn) findPrevBtn.disabled = false;
+            if (findNextBtn) findNextBtn.disabled = false;
+          }
+        }
+        function scrollToCurrentMatch() {
+          if (findState2.currentIndex < 0 || findState2.currentIndex >= findState2.matches.length) return;
+          const current = findState2.matches[findState2.currentIndex];
+          if (!current || !current.range) return;
+          try {
+            const el = current.range.startContainer.nodeType === Node.ELEMENT_NODE ? current.range.startContainer : current.range.startContainer.parentElement;
+            if (el && el.scrollIntoView) {
+              el.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+            }
+          } catch (e) {
+            console.warn("[FindWidget] scroll error:", e);
+          }
+        }
+        function performFind(query, keepIndex = false) {
+          findState2.query = query || "";
+          if (!query) {
+            findState2.matches = [];
+            findState2.currentIndex = -1;
+            clearHighlights();
+            updateFindCountDisplay();
+            return;
+          }
+          const editorEl = document.getElementById("editor");
+          const { fullText, charMap } = collectSearchableText(editorEl);
+          if (!fullText) {
+            findState2.matches = [];
+            findState2.currentIndex = -1;
+            clearHighlights();
+            updateFindCountDisplay();
+            return;
+          }
+          let regex = null;
+          try {
+            let pattern;
+            if (findState2.useRegex) {
+              pattern = query;
+            } else {
+              pattern = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+              if (findState2.wholeWord) {
+                pattern = `\\b${pattern}\\b`;
+              }
+            }
+            const flags = findState2.matchCase ? "g" : "gi";
+            regex = new RegExp(pattern, flags);
+          } catch (e) {
+            findState2.matches = [];
+            findState2.currentIndex = -1;
+            clearHighlights();
+            updateFindCountDisplay(true);
+            return;
+          }
+          const matches2 = [];
+          let match2;
+          while ((match2 = regex.exec(fullText)) !== null) {
+            if (match2[0].length === 0) {
+              regex.lastIndex++;
+              continue;
+            }
+            const sIdx = match2.index;
+            const eIdx = sIdx + match2[0].length;
+            const startMapping = charMap[sIdx];
+            const endMapping = charMap[eIdx - 1];
+            if (startMapping && endMapping) {
+              try {
+                const range = document.createRange();
+                range.setStart(startMapping.node, startMapping.offset);
+                range.setEnd(endMapping.node, endMapping.offset + 1);
+                matches2.push({
+                  range,
+                  text: match2[0]
+                });
+              } catch (err) {
+                console.warn("[FindWidget] Range error:", err);
+              }
+            }
+          }
+          findState2.matches = matches2;
+          if (matches2.length === 0) {
+            findState2.currentIndex = -1;
+            clearHighlights();
+            updateFindCountDisplay();
+            return;
+          }
+          if (keepIndex && findState2.currentIndex >= 0 && findState2.currentIndex < matches2.length) {
+          } else {
+            findState2.currentIndex = 0;
+          }
+          updateFindCountDisplay();
+          renderHighlights();
+          scrollToCurrentMatch();
+        }
+        function findNext2() {
+          if (findState2.matches.length === 0) return;
+          findState2.currentIndex = (findState2.currentIndex + 1) % findState2.matches.length;
+          updateFindCountDisplay();
+          renderHighlights();
+          scrollToCurrentMatch();
+        }
+        function findPrev() {
+          if (findState2.matches.length === 0) return;
+          findState2.currentIndex = (findState2.currentIndex - 1 + findState2.matches.length) % findState2.matches.length;
+          updateFindCountDisplay();
+          renderHighlights();
+          scrollToCurrentMatch();
+        }
+        function getEditorSelectedText() {
+          const sel = window.getSelection();
+          if (sel && !sel.isCollapsed) {
+            const text11 = sel.toString().trim();
+            if (text11 && !text11.includes("\n")) {
+              return text11;
+            }
+          }
+          return "";
+        }
+        function openFindWidget(initialQuery) {
+          if (!findWidgetEl) return;
+          findWidgetEl.style.display = "flex";
+          findState2.isOpen = true;
+          if (initialQuery !== void 0 && initialQuery !== null && initialQuery !== "") {
+            if (findInputEl) findInputEl.value = initialQuery;
+          } else {
+            const selected = getEditorSelectedText();
+            if (selected && findInputEl) {
+              findInputEl.value = selected;
+            }
+          }
+          if (findInputEl) {
+            findInputEl.focus();
+            findInputEl.select();
+            performFind(findInputEl.value);
+          }
+        }
+        function closeFindWidget() {
+          if (!findWidgetEl) return;
+          findWidgetEl.style.display = "none";
+          findState2.isOpen = false;
+          clearHighlights();
+          const pm = document.querySelector(".milkdown .ProseMirror");
+          if (pm) pm.focus();
+        }
+        function toggleReplaceRow() {
+          if (!findReplacePart || !findExpandBtn) return;
+          const isVisible = findReplacePart.style.display !== "none";
+          if (isVisible) {
+            findReplacePart.style.display = "none";
+            findExpandBtn.classList.remove("expanded");
+          } else {
+            findReplacePart.style.display = "flex";
+            findExpandBtn.classList.add("expanded");
+            if (findReplaceInputEl) findReplaceInputEl.focus();
+          }
+        }
+        function doFindReplaceCurrent() {
+          if (findState2.matches.length === 0 || findState2.currentIndex < 0) return;
+          const match2 = findState2.matches[findState2.currentIndex];
+          const rep = findReplaceInputEl && findReplaceInputEl.value || "";
+          try {
+            const sel = window.getSelection();
+            if (sel) {
+              sel.removeAllRanges();
+              sel.addRange(match2.range);
+              document.execCommand("insertText", false, rep);
+            }
+          } catch (e) {
+            console.error("[FindWidget] Replace failed:", e);
+          }
+          setTimeout(() => {
+            performFind(findInputEl && findInputEl.value || "", false);
+          }, 20);
+        }
+        function doFindReplaceAll() {
+          if (findState2.matches.length === 0) return;
+          const rep = findReplaceInputEl && findReplaceInputEl.value || "";
+          const sel = window.getSelection();
+          for (let i4 = findState2.matches.length - 1; i4 >= 0; i4--) {
+            const match2 = findState2.matches[i4];
+            try {
+              if (sel) {
+                sel.removeAllRanges();
+                sel.addRange(match2.range);
+                document.execCommand("insertText", false, rep);
+              }
+            } catch (e) {
+            }
+          }
+          setTimeout(() => {
+            performFind(findInputEl && findInputEl.value || "", false);
+          }, 20);
+        }
+        if (findInputEl) {
+          findInputEl.addEventListener("input", () => {
+            performFind(findInputEl.value);
+          });
+          findInputEl.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              if (e.shiftKey) {
+                findPrev();
+              } else {
+                findNext2();
+              }
+            } else if (e.key === "Escape") {
+              e.preventDefault();
+              closeFindWidget();
+            } else if (e.altKey && e.key.toLowerCase() === "c") {
+              e.preventDefault();
+              if (findCaseToggle) findCaseToggle.click();
+            } else if (e.altKey && e.key.toLowerCase() === "w") {
+              e.preventDefault();
+              if (findWordToggle) findWordToggle.click();
+            } else if (e.altKey && e.key.toLowerCase() === "r") {
+              e.preventDefault();
+              if (findRegexToggle) findRegexToggle.click();
+            }
+          });
+        }
+        if (findReplaceInputEl) {
+          findReplaceInputEl.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              if (e.ctrlKey && e.altKey) {
+                doFindReplaceAll();
+              } else {
+                doFindReplaceCurrent();
+              }
+            } else if (e.key === "Escape") {
+              e.preventDefault();
+              closeFindWidget();
+            }
+          });
+        }
+        if (findExpandBtn) {
+          findExpandBtn.addEventListener("click", toggleReplaceRow);
+        }
+        if (findCaseToggle) {
+          findCaseToggle.addEventListener("click", () => {
+            findState2.matchCase = !findState2.matchCase;
+            findCaseToggle.classList.toggle("active", findState2.matchCase);
+            if (findInputEl) performFind(findInputEl.value);
+          });
+        }
+        if (findWordToggle) {
+          findWordToggle.addEventListener("click", () => {
+            findState2.wholeWord = !findState2.wholeWord;
+            findWordToggle.classList.toggle("active", findState2.wholeWord);
+            if (findInputEl) performFind(findInputEl.value);
+          });
+        }
+        if (findRegexToggle) {
+          findRegexToggle.addEventListener("click", () => {
+            findState2.useRegex = !findState2.useRegex;
+            findRegexToggle.classList.toggle("active", findState2.useRegex);
+            if (findInputEl) performFind(findInputEl.value);
+          });
+        }
+        if (findPrevBtn) findPrevBtn.addEventListener("click", findPrev);
+        if (findNextBtn) findNextBtn.addEventListener("click", findNext2);
+        if (findCloseBtn) findCloseBtn.addEventListener("click", closeFindWidget);
+        if (findReplaceBtn) findReplaceBtn.addEventListener("click", doFindReplaceCurrent);
+        if (findReplaceAllBtn) findReplaceAllBtn.addEventListener("click", doFindReplaceAll);
+        const editorContainer = document.getElementById("editor-container");
+        if (editorContainer) {
+          editorContainer.addEventListener("input", () => {
+            if (findState2.isOpen && findInputEl && findInputEl.value) {
+              performFind(findInputEl.value, true);
+            }
+          });
+        }
+        window.openFindWidget = openFindWidget;
+        window.closeFindWidget = closeFindWidget;
+        window.isFindWidgetOpen = () => findState2.isOpen;
+        window.refreshFindWidget = () => {
+          if (findState2.isOpen && findInputEl && findInputEl.value) {
+            performFind(findInputEl.value, true);
+          }
+        };
+        window.findInPage = (query, backwards) => {
+          if (!query) {
+            clearHighlights();
+            return { count: 0, found: false };
+          }
+          openFindWidget(query);
+          if (backwards) {
+            findPrev();
+          } else {
+            findNext2();
+          }
+          return { count: findState2.matches.length, found: findState2.matches.length > 0 };
+        };
+        window.clearFindHighlight = () => {
+          closeFindWidget();
         };
         if (window.__pendingMarkdown !== void 0) {
           const pending = window.__pendingMarkdown;
@@ -138981,7 +139431,72 @@ Expected function or array of functions, received type ${typeof value}.`
           }
         });
       };
+      function isInsideCodeBlock(view) {
+        const active = document.activeElement;
+        if (active && active.closest && (active.closest(".cm-editor") || active.closest(".code-block") || active.closest("pre"))) {
+          return true;
+        }
+        if (!view || !view.state) return false;
+        const { selection: selection2 } = view.state;
+        if (!selection2) return false;
+        const $from = selection2.$from;
+        if ($from) {
+          if ($from.node()?.type?.spec?.code) return true;
+          if ($from.parent?.type?.name?.includes("code_block") || $from.parent?.type?.name?.includes("code_bracket")) return true;
+        }
+        return false;
+      }
+      function isMarkdownSyntax(text11) {
+        if (!text11 || typeof text11 !== "string") return false;
+        if (/^#{1,6}\s+\S+/m.test(text11)) return true;
+        if (/^[-*+]\s+\[[ xX]\]/m.test(text11)) return true;
+        if (/^[-*+]\s+\S+/m.test(text11)) return true;
+        if (/^\d+\.\s+\S+/m.test(text11)) return true;
+        if (/^>\s+\S+/m.test(text11)) return true;
+        if (/^\|.+?\|.+?\|\s*$/m.test(text11)) return true;
+        if (/^```/m.test(text11)) return true;
+        if (/^([-*_]){3,}\s*$/m.test(text11)) return true;
+        if (/!?\[[^\]]+\]\([^)]+\)/.test(text11)) return true;
+        if (/(\*\*[^*]+\*\*|\*[^*]+\*|~~[^~]+~~)/.test(text11)) return true;
+        return false;
+      }
+      function insertParsedMarkdown(view, markdownText) {
+        if (!view || !view.state || !crepeInstance || !crepeInstance.editor) return false;
+        try {
+          const parser24 = crepeInstance.editor.ctx.get(parserCtx);
+          const schema4 = crepeInstance.editor.ctx.get(schemaCtx);
+          if (!parser24 || !schema4) return false;
+          const parsedDoc = parser24(markdownText);
+          if (!parsedDoc || typeof parsedDoc === "string") return false;
+          const dom = DOMSerializer.fromSchema(schema4).serializeFragment(parsedDoc.content);
+          const domParser = DOMParser.fromSchema(schema4);
+          const slice2 = domParser.parseSlice(dom);
+          if (slice2 && slice2.content && slice2.content.childCount === 1) {
+            const node2 = slice2.content.firstChild;
+            if (node2?.type?.name === "text" && (!node2.marks || node2.marks.length === 0)) {
+              view.dispatch(view.state.tr.replaceSelectionWith(node2, true).scrollIntoView());
+              return true;
+            }
+            if (node2?.type?.name === "paragraph" && node2.childCount === 1) {
+              const _node = node2.firstChild;
+              if (_node?.type?.name === "text" && (!_node.marks || _node.marks.length === 0)) {
+                view.dispatch(view.state.tr.replaceSelectionWith(_node, true).scrollIntoView());
+                return true;
+              }
+            }
+          }
+          view.dispatch(view.state.tr.replaceSelection(slice2).scrollIntoView());
+          return true;
+        } catch (err) {
+          console.warn("Error inserting parsed markdown:", err);
+          return false;
+        }
+      }
       function handlePaste2(e) {
+        const view = getEditorView();
+        if (isInsideCodeBlock(view)) {
+          return;
+        }
         const items = e.clipboardData ? e.clipboardData.items : null;
         if (items && items.length > 0) {
           for (let i4 = 0; i4 < items.length; i4++) {
@@ -138997,7 +139512,6 @@ Expected function or array of functions, received type ${typeof value}.`
             }
           }
         }
-        const view = getEditorView();
         if (!view || !view.state) return;
         const { state, dispatch } = view;
         const { from: from4, to, empty: empty4 } = getEffectiveSelection(view);
@@ -139052,6 +139566,32 @@ Expected function or array of functions, received type ${typeof value}.`
             const mark = codeMarkType.create();
             const tr = state.tr.replaceWith(from4, to, state.schema.text(codeText2, [mark]));
             dispatch(tr.scrollIntoView());
+            return;
+          }
+        }
+        let isFromVSCode = false;
+        let vscodeMode = "";
+        try {
+          const vscodeData = e.clipboardData ? e.clipboardData.getData("vscode-editor-data") : "";
+          if (vscodeData) {
+            isFromVSCode = true;
+            vscodeMode = JSON.parse(vscodeData)?.mode || "";
+          }
+        } catch {
+        }
+        const isMd = isMarkdownSyntax(rawText3);
+        const isVSCodeMarkdownOrText = isFromVSCode && (vscodeMode === "markdown" || vscodeMode === "md" || vscodeMode === "plaintext" || vscodeMode === "text");
+        if (isMd || isVSCodeMarkdownOrText) {
+          const handled = insertParsedMarkdown(view, rawText3);
+          if (handled) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            setTimeout(() => {
+              const currentView = getEditorView();
+              if (currentView) autoFormatInlineCode(currentView);
+              resolveAllImagesInDOM();
+            }, 10);
             return;
           }
         }

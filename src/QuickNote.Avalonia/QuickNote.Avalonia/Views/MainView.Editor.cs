@@ -1,5 +1,7 @@
 using System;
 using System.Linq;
+using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -169,15 +171,87 @@ namespace QuickNote.Avalonia.Views
             if (_viewModel == null) return;
             switch (action)
             {
-                case "save":      await _viewModel.SaveNoteAsync(); break;
-                case "newNote":   await _viewModel.NewNoteAsync();  break;
-                case "newFolder": await _viewModel.NewFolderAsync(); break;
-                case "closeTab":  _viewModel.CloseActiveTab();       break;
-                case "search":
-                    SearchBox?.Focus();
-                    SearchBox?.SelectAll();
-                    break;
+                case "save":       await _viewModel.SaveNoteAsync(); break;
+                case "newNote":    await _viewModel.NewNoteAsync();  break;
+                case "newFolder":  await _viewModel.NewFolderAsync(); break;
+                case "closeTab":   _viewModel.CloseActiveTab();       break;
+                case "search":     FocusGlobalSearch();               break;
+                case "findInNote": ShowInNoteFindBar();               break;
             }
+        }
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern IntPtr SetFocus(IntPtr hWnd);
+
+        public void FocusGlobalSearch()
+        {
+            if (SearchBox == null) return;
+            try
+            {
+                if (OperatingSystem.IsWindows())
+                {
+                    var topLevel = TopLevel.GetTopLevel(this);
+                    var handle = topLevel?.TryGetPlatformHandle()?.Handle;
+                    if (handle.HasValue && handle.Value != IntPtr.Zero)
+                    {
+                        SetFocus(handle.Value);
+                    }
+                }
+            }
+            catch { }
+
+            Dispatcher.UIThread.Post(() =>
+            {
+                SearchBox.Focus();
+                SearchBox.SelectAll();
+            }, DispatcherPriority.Input);
+        }
+
+        public async void ShowInNoteFindBar()
+        {
+            if (_viewModel?.IsNotionMode == true && NotionEditor != null)
+            {
+                await NotionEditor.OpenFindWidgetAsync();
+            }
+        }
+
+        public async void CloseInNoteFind()
+        {
+            if (_viewModel?.IsNotionMode == true && NotionEditor != null)
+            {
+                await NotionEditor.CloseFindWidgetAsync();
+            }
+        }
+
+        private int FindInTextEditor(string query, bool backwards)
+        {
+            if (TextEditor == null || string.IsNullOrEmpty(query)) return 0;
+            var text = TextEditor.Text ?? string.Empty;
+            var matches = Regex.Matches(
+                text,
+                Regex.Escape(query),
+                RegexOptions.IgnoreCase);
+            if (matches.Count == 0) return 0;
+
+            int currentCaret = TextEditor.CaretOffset;
+            Match? target = null;
+            if (backwards)
+            {
+                target = matches.Cast<Match>().LastOrDefault(m => m.Index < currentCaret) ?? matches[^1];
+            }
+            else
+            {
+                target = matches.Cast<Match>().FirstOrDefault(m => m.Index > currentCaret) ?? matches[0];
+            }
+
+            if (target != null)
+            {
+                TextEditor.Select(target.Index, target.Length);
+                TextEditor.CaretOffset = target.Index + target.Length;
+                var line = TextEditor.Document.GetLineByOffset(target.Index);
+                TextEditor.ScrollToLine(line.LineNumber);
+            }
+            return matches.Count;
         }
 
         // ── Tag interactions (Double-click to edit, Enter to auto-save) ──

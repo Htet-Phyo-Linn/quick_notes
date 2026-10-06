@@ -19,6 +19,7 @@
         <StreamGeometry x:Key="IconTrash">M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z</StreamGeometry>
         <StreamGeometry x:Key="IconTag">M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z</StreamGeometry>
         <StreamGeometry x:Key="IconChevronDown">M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z</StreamGeometry>
+        <StreamGeometry x:Key="IconChevronUp">M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z</StreamGeometry>
         <StreamGeometry x:Key="IconVisualEdit">M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z</StreamGeometry>
         <StreamGeometry x:Key="IconMarkdown">M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z</StreamGeometry>
         <StreamGeometry x:Key="IconSplit">M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-8 16H5V5h6v14zm8 0h-6V5h6v14z</StreamGeometry>
@@ -61,6 +62,15 @@
         <Style Selector="TextBlock.tab-title-active">
             <Setter Property="Foreground" Value="#ffffff" />
             <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style Selector="ScrollViewer.tab-scroll-viewer ScrollBar:horizontal">
+            <Setter Property="Height" Value="3" />
+            <Setter Property="Opacity" Value="0.3" />
+            <Setter Property="Margin" Value="0,2,0,0" />
+        </Style>
+        <Style Selector="ScrollViewer.tab-scroll-viewer ScrollBar:horizontal:pointerover">
+            <Setter Property="Height" Value="5" />
+            <Setter Property="Opacity" Value="0.9" />
         </Style>
     </UserControl.Styles>
 
@@ -220,8 +230,12 @@
         </Border>
 
         <!-- 2. TAB STRIP -->
-        <Border Grid.Row="1" Background="#1c1c1c" BorderBrush="#2d2d2d" BorderThickness="0,0,0,1" Padding="8,4,8,0">
-            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+        <Border Grid.Row="1" Background="#1c1c1c" BorderBrush="#2d2d2d" BorderThickness="0,0,0,1" Padding="8,4,8,3">
+            <ScrollViewer x:Name="TabScrollViewer"
+                          Classes="tab-scroll-viewer"
+                          HorizontalScrollBarVisibility="Auto"
+                          VerticalScrollBarVisibility="Disabled"
+                          PointerWheelChanged="TabScrollViewer_PointerWheelChanged">
                 <ItemsControl ItemsSource="{Binding OpenTabs}">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
@@ -235,7 +249,7 @@
                                      BorderThickness="1,1,1,0"
                                      CornerRadius="6,6,0,0"
                                      Padding="10,6"
-                                     Margin="0,0,2,0"
+                                     Margin="0,0,2,4"
                                      PointerPressed="OnTabPointerPressed">
                                 <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                                     <Ellipse Width="6" Height="6" Fill="#f59e0b" IsVisible="{Binding IsModified}" VerticalAlignment="Center" Margin="0,0,2,0" />

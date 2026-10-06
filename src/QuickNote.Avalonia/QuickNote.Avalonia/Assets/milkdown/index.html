@@ -98,11 +98,15 @@
       margin: 0;
       font-weight: normal;
     }
-    .milkdown blockquote {
-      border-left: 3px solid #3b82f6;
-      padding-left: 14px;
+    .milkdown blockquote,
+    .milkdown .ProseMirror blockquote {
+      border-left: 3.5px solid #f97316 !important;
+      padding-left: 14px !important;
       color: #9ca3af;
       margin: 1em 0;
+    }
+    .milkdown .ProseMirror blockquote::before {
+      display: none !important;
     }
     .milkdown input[type="checkbox"] {
       cursor: pointer;
@@ -427,8 +431,9 @@
       .milkdown th {
         background-color: #f3f4f6 !important;
       }
-      .milkdown blockquote {
-        border-left: 3px solid #3b82f6 !important;
+      .milkdown blockquote,
+      .milkdown .ProseMirror blockquote {
+        border-left: 3.5px solid #f97316 !important;
         color: #4b5563 !important;
       }
       .milkdown a {
@@ -534,9 +539,275 @@
       background-color: #2e3035;
       color: #60a5fa;
     }
+    .copy-button {
+      transition: all 0.2s ease !important;
+      cursor: pointer !important;
+    }
+    .copy-button.copied {
+      color: #10b981 !important;
+      background-color: rgba(16, 185, 129, 0.15) !important;
+      border-color: rgba(16, 185, 129, 0.4) !important;
+    }
+    /* VS Code Find Widget */
+    .vscode-find-widget {
+      position: fixed;
+      top: 10px;
+      right: 24px;
+      z-index: 10000;
+      background-color: #252526;
+      border: 1px solid #454545;
+      border-radius: 4px;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.55);
+      display: flex;
+      flex-direction: column;
+      padding: 5px 6px;
+      width: 460px;
+      max-width: 92vw;
+      user-select: none;
+      -webkit-user-select: none;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-size: 13px;
+      color: #cccccc;
+      animation: findWidgetSlideIn 0.12s ease-out;
+      box-sizing: border-box;
+    }
+    @keyframes findWidgetSlideIn {
+      from { transform: translateY(-6px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    .vscode-find-widget .find-part,
+    .vscode-find-widget .replace-part {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      width: 100%;
+    }
+    .vscode-find-widget .replace-part {
+      margin-top: 4px;
+    }
+    .vscode-find-widget .find-spacer {
+      width: 20px;
+      flex-shrink: 0;
+    }
+    .vscode-find-widget .find-expand-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 24px;
+      background: transparent;
+      border: none;
+      color: #c5c5c5;
+      cursor: pointer;
+      border-radius: 2px;
+      padding: 0;
+      flex-shrink: 0;
+      transition: transform 0.15s ease;
+    }
+    .vscode-find-widget .find-expand-btn:hover {
+      background-color: #37373d;
+      color: #ffffff;
+    }
+    .vscode-find-widget .find-expand-btn.expanded {
+      transform: rotate(90deg);
+    }
+    .vscode-find-widget .find-input-container {
+      display: flex;
+      align-items: center;
+      background-color: #3c3c3c;
+      border: 1px solid #3c3c3c;
+      border-radius: 2px;
+      padding: 0 4px 0 6px;
+      flex: 1;
+      min-width: 0;
+      height: 25px;
+      box-sizing: border-box;
+      transition: border-color 0.1s ease;
+    }
+    .vscode-find-widget .find-input-container:focus-within {
+      border-color: #007fd4;
+      outline: 1px solid #007fd4;
+    }
+    .vscode-find-widget .find-input {
+      flex: 1;
+      min-width: 0;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: #cccccc;
+      font-size: 13px;
+      font-family: inherit;
+      padding: 0;
+      line-height: 23px;
+    }
+    .vscode-find-widget .find-input::placeholder {
+      color: #858585;
+    }
+    .vscode-find-widget .find-toggles {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      margin-left: 4px;
+      flex-shrink: 0;
+    }
+    .vscode-find-widget .find-toggle-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 19px;
+      min-width: 19px;
+      padding: 0 2px;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 2px;
+      color: #999999;
+      font-size: 11px;
+      font-family: inherit;
+      cursor: pointer;
+      line-height: 1;
+    }
+    .vscode-find-widget .find-toggle-btn:hover {
+      background-color: #454545;
+      color: #ffffff;
+    }
+    .vscode-find-widget .find-toggle-btn.active {
+      background-color: rgba(0, 122, 204, 0.4);
+      border-color: #007fd4;
+      color: #ffffff;
+    }
+    .vscode-find-widget .find-count,
+    .vscode-find-widget .find-count-spacer {
+      font-size: 11.5px;
+      color: #858585;
+      white-space: nowrap;
+      padding: 0 4px;
+      width: 68px;
+      min-width: 68px;
+      text-align: center;
+      flex-shrink: 0;
+      user-select: none;
+      box-sizing: border-box;
+    }
+    .vscode-find-widget .find-count.no-results {
+      color: #f48771;
+    }
+    .vscode-find-widget .find-actions {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      flex-shrink: 0;
+    }
+    .vscode-find-widget .find-action-btn,
+    .vscode-find-widget .find-action-placeholder {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      padding: 0;
+      flex-shrink: 0;
+    }
+    .vscode-find-widget .find-action-btn {
+      background: transparent;
+      border: none;
+      border-radius: 3px;
+      color: #c5c5c5;
+      cursor: pointer;
+    }
+    .vscode-find-widget .find-action-btn:hover {
+      background-color: #37373d;
+      color: #ffffff;
+    }
+    .vscode-find-widget .find-action-btn:disabled {
+      color: #555555;
+      cursor: default;
+    }
+    .vscode-find-widget .find-action-btn:disabled:hover {
+      background-color: transparent;
+    }
+    /* Document Highlights */
+    ::highlight(vscode-find-match) {
+      background-color: rgba(234, 184, 57, 0.35);
+      color: inherit;
+    }
+    ::highlight(vscode-find-match-current) {
+      background-color: rgba(246, 185, 59, 0.85);
+      color: #000000;
+    }
   </style>
 </head>
 <body>
+  <!-- VS Code Find Widget -->
+  <div id="vscode-find-widget" class="vscode-find-widget" style="display: none;">
+    <div class="find-part">
+      <button type="button" class="find-expand-btn" id="find-toggle-replace" title="Toggle Replace">
+        <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor">
+          <path d="M6.22 3.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L9.94 8 6.22 4.28a.75.75 0 0 1 0-1.06z"/>
+        </svg>
+      </button>
+
+      <div class="find-input-container">
+        <input type="text" id="find-input" class="find-input" placeholder="Find" spellcheck="false" autocomplete="off" />
+        <div class="find-toggles">
+          <button type="button" class="find-toggle-btn" id="find-case-toggle" title="Match Case (Alt+C)">Aa</button>
+          <button type="button" class="find-toggle-btn" id="find-word-toggle" title="Match Whole Word (Alt+W)"><u>ab</u></button>
+          <button type="button" class="find-toggle-btn" id="find-regex-toggle" title="Use Regular Expression (Alt+R)">.*</button>
+        </div>
+      </div>
+
+      <div class="find-count" id="find-count"></div>
+
+      <div class="find-actions">
+        <button type="button" class="find-action-btn" id="find-prev-btn" title="Previous Match (Shift+Enter)">
+          <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor">
+            <path d="M3.22 9.78a.75.75 0 0 1 0-1.06l4.25-4.25a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1-1.06 1.06L8 6.06 4.28 9.78a.75.75 0 0 1-1.06 0z"/>
+          </svg>
+        </button>
+        <button type="button" class="find-action-btn" id="find-next-btn" title="Next Match (Enter)">
+          <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor">
+            <path d="M12.78 6.22a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L3.22 7.28a.75.75 0 0 1 1.06-1.06L8 9.94l3.72-3.72a.75.75 0 0 1 1.06 0z"/>
+          </svg>
+        </button>
+        <button type="button" class="find-action-btn" id="find-selection-btn" title="Find in Selection (Alt+L)">
+          <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor">
+            <path d="M2.5 4h11a.75.75 0 0 0 0-1.5h-11a.75.75 0 0 0 0 1.5zm0 4.5h11a.75.75 0 0 0 0-1.5h-11a.75.75 0 0 0 0 1.5zm0 4.5h11a.75.75 0 0 0 0-1.5h-11a.75.75 0 0 0 0 1.5z"/>
+          </svg>
+        </button>
+        <button type="button" class="find-action-btn" id="find-close-btn" title="Close (Escape)">
+          <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor">
+            <path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.75.75 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.75.75 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 0 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06z"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Replace Row (expanded when chevron clicked) -->
+    <div class="replace-part" id="find-replace-part" style="display: none;">
+      <div class="find-spacer"></div>
+      <div class="find-input-container">
+        <input type="text" id="find-replace-input" class="find-input" placeholder="Replace" spellcheck="false" autocomplete="off" />
+        <div class="find-toggles">
+          <button type="button" class="find-toggle-btn" id="find-preserve-case-toggle" title="Preserve Case (Alt+P)">AB</button>
+        </div>
+      </div>
+      <div class="find-count-spacer"></div>
+      <div class="find-actions">
+        <button type="button" class="find-action-btn" id="find-replace-btn" title="Replace (Enter)">
+          <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor">
+            <path d="M10.5 4.5l3 3-3 3-.7-.7 1.8-1.8H4.5A2.5 2.5 0 0 1 2 5.5V3h1v2.5A1.5 1.5 0 0 0 4.5 7h7.1L9.8 5.2l.7-.7z"/>
+          </svg>
+        </button>
+        <button type="button" class="find-action-btn" id="find-replace-all-btn" title="Replace All (Ctrl+Alt+Enter)">
+          <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor">
+            <path d="M7 2h7v1H7V2zm0 3h7v1H7V5zm0 3h7v1H7V8zm0 3h7v1H7v-1zm-3-8h1v10H4V3zm-2 2h1v6H2V5z"/>
+          </svg>
+        </button>
+        <div class="find-action-placeholder"></div>
+        <div class="find-action-placeholder"></div>
+      </div>
+    </div>
+  </div>
+
   <div id="editor-container">
     <div id="editor"></div>
   </div>
