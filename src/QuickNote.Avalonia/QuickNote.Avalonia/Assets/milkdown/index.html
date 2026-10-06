@@ -33,6 +33,8 @@
       scrollbar-width: thin;
       scrollbar-color: #374151 transparent;
       box-sizing: border-box;
+      user-select: text !important;
+      -webkit-user-select: text !important;
     }
     #editor-container::-webkit-scrollbar {
       width: 8px;
@@ -63,6 +65,8 @@
       padding: 0;
       width: 100%;
       box-sizing: border-box;
+      user-select: text !important;
+      -webkit-user-select: text !important;
     }
     .milkdown pre {
       background-color: #141414 !important;
@@ -220,7 +224,7 @@
     .heading-fold-btn {
       position: absolute;
       left: -24px;
-      top: 50%;
+      top: 0.65em;
       transform: translateY(-50%);
       display: inline-flex;
       align-items: center;
@@ -252,6 +256,11 @@
       opacity: 0.95;
       color: #3b82f6;
     }
+    .is-folded .heading-fold-btn:hover {
+      opacity: 1;
+      color: #60a5fa;
+      background: rgba(59, 130, 246, 0.15);
+    }
     .heading-fold-badge {
       display: inline-block;
       margin-left: 8px;
@@ -271,7 +280,16 @@
       background: rgba(59, 130, 246, 0.35);
       color: #93c5fd;
     }
-    .heading-folded-hidden {
+    .heading-folded-hidden,
+    .milkdown .heading-folded-hidden,
+    .milkdown .ProseMirror .heading-folded-hidden,
+    .milkdown .ProseMirror > .heading-folded-hidden,
+    .milkdown .milkdown-image-block.heading-folded-hidden,
+    .milkdown .image-wrapper.heading-folded-hidden {
+      display: none !important;
+    }
+    .milkdown .ProseMirror :is(h1, h2, h3, h4, h5, h6) br.ProseMirror-trailingBreak,
+    .milkdown .ProseMirror :is(h1, h2, h3, h4, h5, h6) img.ProseMirror-separator {
       display: none !important;
     }
     .format-menu {
@@ -322,6 +340,17 @@
     }
     .menu-item:hover {
       background-color: #2f2f2f;
+    }
+    .menu-item .shortcut {
+      margin-left: auto;
+      font-size: 11px;
+      color: #6b7280;
+      padding-left: 14px;
+    }
+    .menu-item:disabled {
+      opacity: 0.35;
+      cursor: default;
+      pointer-events: none;
     }
     .menu-item .icon {
       display: inline-flex;
@@ -911,6 +940,37 @@
   </div>
 
   <div id="format-menu" class="format-menu" style="display: none;">
+    <div id="menu-clipboard-section">
+      <button type="button" class="menu-item" id="menu-cut" data-action="cut">
+        <span class="icon">
+          <svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>
+        </span>
+        <span class="label">Cut</span>
+        <span class="shortcut">Ctrl+X</span>
+      </button>
+      <button type="button" class="menu-item" id="menu-copy" data-action="copy">
+        <span class="icon">
+          <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        </span>
+        <span class="label">Copy</span>
+        <span class="shortcut">Ctrl+C</span>
+      </button>
+      <button type="button" class="menu-item" id="menu-paste" data-action="paste">
+        <span class="icon">
+          <svg viewBox="0 0 24 24"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+        </span>
+        <span class="label">Paste</span>
+        <span class="shortcut">Ctrl+V</span>
+      </button>
+      <button type="button" class="menu-item" id="menu-select-all" data-action="select-all">
+        <span class="icon">
+          <svg viewBox="0 0 24 24"><path d="M3 3h4v2H5v2H3V3zm14 0h4v4h-2V5h-2V3zM3 17h2v2h2v2H3v-4zm18 0v4h-4v-2h2v-2h2zM9 3h6v2H9V3zm0 16h6v2H9v-2zM3 9h2v6H3V9zm16 0h2v6h-2V9z"/></svg>
+        </span>
+        <span class="label">Select All</span>
+        <span class="shortcut">Ctrl+A</span>
+      </button>
+      <div class="menu-divider"></div>
+    </div>
     <div id="menu-spell-section" class="menu-spell-section" style="display: none;">
       <div class="menu-section-title">Spelling</div>
       <div id="menu-spell-list" class="menu-spell-list"></div>

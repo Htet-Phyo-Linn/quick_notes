@@ -192,42 +192,91 @@ server.listen(9876, async () => {
             });
             await new Promise(r => setTimeout(r, 400));
 
-            const foldRes1 = await send('Runtime.evaluate', {
-                expression: `(() => {
-                    const h1 = document.querySelectorAll('.ProseMirror h1')[0];
-                    const btn = h1.querySelector('.heading-fold-btn');
-                    btn.click();
+            console.log('--- TEST: Fold Untitled.md with hello world and pasted image ---');
+            const untitledMd = fs.readFileSync('C:\\Users\\PC\\OneDrive - BIM ADVANCED TECHNOLOGY SERVICES PTE. LTD\\QuickNote\\Untitled.md', 'utf8');
+            await send('Runtime.evaluate', {
+                expression: `window.setMarkdown(${JSON.stringify(untitledMd)})`,
+                returnByValue: true
+            });
+            await new Promise(r => setTimeout(r, 600));
 
+            const foldUntitled = await send('Runtime.evaluate', {
+                awaitPromise: true,
+                expression: `(async () => {
                     const h2 = document.querySelector('.ProseMirror h2');
-                    const isH2Hidden = h2.classList.contains('heading-folded-hidden');
-                    const h1_2 = document.querySelectorAll('.ProseMirror h1')[1];
-                    const isH1_2Hidden = h1_2.classList.contains('heading-folded-hidden');
-                    const badgeText = (h1.querySelector('.heading-fold-badge') || {}).textContent;
+                    if (!h2) return { error: 'No h2 found' };
+                    const btn = h2.querySelector('.heading-fold-btn');
+                    const beforeH2Rect = h2.getBoundingClientRect();
+                    const beforeBtnRect = btn ? btn.getBoundingClientRect() : null;
+
+                    btn.click(); // Fold h2
+                    await new Promise(r => setTimeout(r, 100));
+
+                    const currentBtn = h2.querySelector('.heading-fold-btn');
+                    const btnRect = currentBtn ? currentBtn.getBoundingClientRect() : { top: -1, height: -1, bottom: -1 };
+                    const h2Rect = h2.getBoundingClientRect();
+                    const badge = h2.querySelector('.heading-fold-badge');
+                    const badgeRect = badge ? badge.getBoundingClientRect() : null;
+                    const imgBlock = document.querySelector('.milkdown-image-block');
 
                     return {
-                        isH1Folded: h1.classList.contains('is-folded'),
-                        isH2Hidden,
-                        isH1_2Hidden,
-                        badgeText,
-                        fullMarkdown: window.getMarkdown()
+                        beforeH2Height: beforeH2Rect.height,
+                        foldedH2Height: h2Rect.height,
+                        isH2Folded: h2.classList.contains('is-folded'),
+                        btnHeight: btnRect.height,
+                        imgBlockDisplay: imgBlock ? window.getComputedStyle(imgBlock).display : null,
+                        hasImgFoldedClass: imgBlock ? imgBlock.classList.contains('heading-folded-hidden') : false,
+                        btnCenterDiff: (btnRect.top + btnRect.height / 2) - (h2Rect.top + h2Rect.height / 2)
                     };
                 })()`,
                 returnByValue: true
             });
-            console.log('Fold Heading 1 result:', JSON.stringify(foldRes1.result?.result?.value || foldRes1));
+            console.log('Untitled.md Fold Result (H2 + Image):', JSON.stringify(foldUntitled.result?.result?.value || foldUntitled));
+
+            console.log('--- TEST: Fold Linux Heading and check alignment ---');
+            await send('Runtime.evaluate', {
+                expression: `window.setMarkdown('# Linux\\n\\nSome Linux content\\n\\n![img](test.png)')`,
+                returnByValue: true
+            });
+            await new Promise(r => setTimeout(r, 300));
+
+            const foldLinux = await send('Runtime.evaluate', {
+                awaitPromise: true,
+                expression: `(async () => {
+                    const h1 = document.querySelector('.ProseMirror h1');
+                    const btn = h1.querySelector('.heading-fold-btn');
+                    const beforeBtnRect = btn.getBoundingClientRect();
+                    const beforeH1Rect = h1.getBoundingClientRect();
+
+                    btn.click(); // Fold h1
+                    await new Promise(r => setTimeout(r, 100));
+
+                    const currentBtn = h1.querySelector('.heading-fold-btn');
+                    const btnRect = currentBtn.getBoundingClientRect();
+                    const h1Rect = h1.getBoundingClientRect();
+                    const badge = h1.querySelector('.heading-fold-badge');
+                    const badgeRect = badge ? badge.getBoundingClientRect() : null;
+                    const imgBlock = document.querySelector('.milkdown-image-block');
+
+                    return {
+                        isH1Folded: h1.classList.contains('is-folded'),
+                        h1Height: h1Rect.height,
+                        btnCenterDiff: (btnRect.top + btnRect.height / 2) - (h1Rect.top + h1Rect.height / 2),
+                        imgBlockDisplay: imgBlock ? window.getComputedStyle(imgBlock).display : null,
+                        hasBadge: !!badge
+                    };
+                })()`,
+                returnByValue: true
+            });
+            console.log('Linux Heading Fold Result:', JSON.stringify(foldLinux.result?.result?.value || foldLinux));
 
             const foldRes2 = await send('Runtime.evaluate', {
                 expression: `(() => {
                     const h1 = document.querySelectorAll('.ProseMirror h1')[0];
                     const btn = h1.querySelector('.heading-fold-btn');
                     btn.click(); // Unfold
-
-                    const h2 = document.querySelector('.ProseMirror h2');
-                    const isH2Hidden = h2.classList.contains('heading-folded-hidden');
-
                     return {
                         isH1Folded: h1.classList.contains('is-folded'),
-                        isH2Hidden,
                         hasBadge: !!h1.querySelector('.heading-fold-badge')
                     };
                 })()`,
@@ -272,6 +321,181 @@ server.listen(9876, async () => {
             });
 
             console.log('Enter at heading start result:', JSON.stringify(enterTest.result?.result?.value || enterTest));
+
+            console.log('--- TEST 8: Test Folding with Images, Tables, Lists ---');
+            const complexFolding = `# Section 1\n\n![test image](image.png)\n\n| Col1 | Col2 |\n| --- | --- |\n| Val1 | Val2 |\n\n- List Item 1\n- List Item 2\n\n# Section 2\n\nOutside paragraph`;
+            await send('Runtime.evaluate', {
+                expression: `window.setMarkdown(${JSON.stringify(complexFolding)})`,
+                returnByValue: true
+            });
+            await new Promise(r => setTimeout(r, 600));
+
+            const foldComplex = await send('Runtime.evaluate', {
+                expression: `(() => {
+                    const h1_1 = document.querySelectorAll('.ProseMirror h1')[0];
+                    const btn = h1_1.querySelector('.heading-fold-btn');
+                    btn.click(); // Fold Section 1
+
+                    const imgBlock = document.querySelector('.milkdown-image-block');
+                    const table = document.querySelector('table');
+                    const list = document.querySelector('ul');
+                    const h1_2 = document.querySelectorAll('.ProseMirror h1')[1];
+
+                    return {
+                        isSection1Folded: h1_1.classList.contains('is-folded'),
+                        isImgHidden: imgBlock ? (imgBlock.classList.contains('heading-folded-hidden') || window.getComputedStyle(imgBlock).display === 'none') : 'no-img',
+                        isTableHidden: table ? (table.classList.contains('heading-folded-hidden') || table.closest('.heading-folded-hidden') !== null || window.getComputedStyle(table).display === 'none') : 'no-table',
+                        isListHidden: list ? (list.classList.contains('heading-folded-hidden') || window.getComputedStyle(list).display === 'none') : 'no-list',
+                        isSection2Visible: !h1_2.classList.contains('heading-folded-hidden')
+                    };
+                })()`,
+                returnByValue: true
+            });
+            console.log('Fold Section 1 (with image, table, list) result:', JSON.stringify(foldComplex.result?.result?.value || foldComplex));
+
+            const unfoldComplex = await send('Runtime.evaluate', {
+                expression: `(() => {
+                    const h1_1 = document.querySelectorAll('.ProseMirror h1')[0];
+                    const btn = h1_1.querySelector('.heading-fold-btn');
+                    btn.click(); // Unfold Section 1
+
+                    const imgBlock = document.querySelector('.milkdown-image-block');
+                    const table = document.querySelector('table');
+                    const list = document.querySelector('ul');
+
+                    return {
+                        isSection1Folded: h1_1.classList.contains('is-folded'),
+                        isImgVisible: imgBlock ? !imgBlock.classList.contains('heading-folded-hidden') : false,
+                        isTableVisible: table ? (!table.classList.contains('heading-folded-hidden') && table.closest('.heading-folded-hidden') === null) : false,
+                        isListVisible: list ? !list.classList.contains('heading-folded-hidden') : false
+                    };
+                })()`,
+                returnByValue: true
+            });
+            console.log('Unfold Section 1 result:', JSON.stringify(unfoldComplex.result?.result?.value || unfoldComplex));
+
+            console.log('--- TEST 9: Multi-Select with Cursor & Right-Click Context Menu ---');
+            await send('Runtime.evaluate', {
+                expression: `window.setMarkdown("Line 1 first paragraph\\n\\nLine 2 second paragraph\\n\\nLine 3 third paragraph")`,
+                returnByValue: true
+            });
+            await new Promise(r => setTimeout(r, 400));
+
+            // Select across multiple paragraphs
+            const dragCoords = await send('Runtime.evaluate', {
+                expression: `(() => {
+                    const ps = document.querySelectorAll(".ProseMirror p");
+                    const r1 = document.createRange();
+                    r1.selectNodeContents(ps[0].firstChild);
+                    const rect1 = r1.getBoundingClientRect();
+
+                    const r2 = document.createRange();
+                    r2.selectNodeContents(ps[1].firstChild);
+                    const rect2 = r2.getBoundingClientRect();
+
+                    return {
+                        x1: rect1.left + 5, y1: rect1.top + rect1.height / 2,
+                        x2: rect2.right - 5, y2: rect2.top + rect2.height / 2
+                    };
+                })()`,
+                returnByValue: true
+            });
+            const dc = dragCoords.result.result.value;
+
+            // Perform mouse drag
+            await send('Input.dispatchMouseEvent', {
+                type: 'mousePressed',
+                x: dc.x1,
+                y: dc.y1,
+                button: 'left',
+                buttons: 1,
+                clickCount: 1
+            });
+            for (let i = 1; i <= 10; i++) {
+                const curX = Math.round(dc.x1 + (dc.x2 - dc.x1) * (i / 10));
+                const curY = Math.round(dc.y1 + (dc.y2 - dc.y1) * (i / 10));
+                await send('Input.dispatchMouseEvent', {
+                    type: 'mouseMoved',
+                    x: curX,
+                    y: curY,
+                    button: 'left',
+                    buttons: 1
+                });
+                await new Promise(r => setTimeout(r, 10));
+            }
+            await send('Input.dispatchMouseEvent', {
+                type: 'mouseReleased',
+                x: dc.x2,
+                y: dc.y2,
+                button: 'left',
+                buttons: 0
+            });
+            await new Promise(r => setTimeout(r, 200));
+
+            const dragResult = await send('Runtime.evaluate', {
+                expression: `(() => {
+                    const view = window.getEditorView();
+                    const domSel = window.getSelection().toString();
+                    const pmSel = view ? { from: view.state.selection.from, to: view.state.selection.to, empty: view.state.selection.empty } : null;
+                    return { hasSelection: !pmSel.empty && domSel.length > 0, domSel, pmSel };
+                })()`,
+                returnByValue: true
+            });
+            console.log('Drag Multi-Selection Result:', JSON.stringify(dragResult.result?.result?.value || dragResult));
+
+            // Right click on the selection
+            await send('Input.dispatchMouseEvent', {
+                type: 'mousePressed',
+                x: dc.x1 + 15,
+                y: dc.y1,
+                button: 'right',
+                clickCount: 1
+            });
+            await send('Input.dispatchMouseEvent', {
+                type: 'mouseReleased',
+                x: dc.x1 + 15,
+                y: dc.y1,
+                button: 'right'
+            });
+            await new Promise(r => setTimeout(r, 200));
+
+            const rightClickOnSelection = await send('Runtime.evaluate', {
+                expression: `(() => {
+                    const menu = document.getElementById("format-menu");
+                    const cutBtn = document.getElementById("menu-cut");
+                    const copyBtn = document.getElementById("menu-copy");
+                    const pasteBtn = document.getElementById("menu-paste");
+                    const selectAllBtn = document.getElementById("menu-select-all");
+                    const domSel = window.getSelection().toString();
+                    const view = window.getEditorView();
+                    const pmSel = view ? { from: view.state.selection.from, to: view.state.selection.to, empty: view.state.selection.empty } : null;
+
+                    return {
+                        menuVisible: menu.style.display === 'block',
+                        cutEnabled: cutBtn && !cutBtn.disabled,
+                        copyEnabled: copyBtn && !copyBtn.disabled,
+                        hasPasteBtn: !!pasteBtn,
+                        hasSelectAllBtn: !!selectAllBtn,
+                        selectionPreserved: !pmSel.empty && domSel.length > 0
+                    };
+                })()`,
+                returnByValue: true
+            });
+            console.log('Right-Click on Selection Result:', JSON.stringify(rightClickOnSelection.result?.result?.value || rightClickOnSelection));
+
+            // Test Select All
+            const selectAllResult = await send('Runtime.evaluate', {
+                expression: `(() => {
+                    const selectAllBtn = document.getElementById("menu-select-all");
+                    selectAllBtn.click();
+                    const view = window.getEditorView();
+                    return {
+                        allSelected: view && view.state.selection.from === 0 && view.state.selection.to === view.state.doc.content.size
+                    };
+                })()`,
+                returnByValue: true
+            });
+            console.log('Select All Result:', JSON.stringify(selectAllResult.result?.result?.value || selectAllResult));
 
             console.log('ALL TESTS PASSED SUCCESSFULLY!');
             cleanup();

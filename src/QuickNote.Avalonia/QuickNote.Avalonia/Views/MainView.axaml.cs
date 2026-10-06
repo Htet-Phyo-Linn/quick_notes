@@ -288,6 +288,38 @@ namespace QuickNote.Avalonia.Views
                     }, DispatcherPriority.Input);
                 }
             }
+            else if (e.PropertyName == nameof(MainViewModel.IsProfileDialogVisible))
+            {
+                if (_viewModel?.IsProfileDialogVisible == true)
+                {
+                    _ = OpenSettingsWindowAsync();
+                }
+            }
+        }
+
+        private async Task OpenSettingsWindowAsync()
+        {
+            var parentWindow = TopLevel.GetTopLevel(this) as Window;
+            if (parentWindow == null || _viewModel == null) return;
+
+            var settingsWindow = new SettingsWindow
+            {
+                DataContext = _viewModel
+            };
+
+            await settingsWindow.ShowDialog(parentWindow);
+            _viewModel.IsProfileDialogVisible = false;
+
+            if (NotionEditor != null)
+            {
+                await NotionEditor.SetSpellCheckAsync(_viewModel.IsSpellCheckEnabled);
+                await NotionEditor.SetIgnoredWordsAsync(_viewModel.IgnoredWords);
+            }
+            if (NotionEditorRight != null)
+            {
+                await NotionEditorRight.SetSpellCheckAsync(_viewModel.IsSpellCheckEnabled);
+                await NotionEditorRight.SetIgnoredWordsAsync(_viewModel.IgnoredWords);
+            }
         }
 
         // ── Sidebar visibility ────────────────────────────────────────

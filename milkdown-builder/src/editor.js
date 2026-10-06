@@ -304,6 +304,8 @@ const headingFoldPlugin = $prose(() => {
           }
         });
 
+        const hiddenBlockPositions = new Set();
+
         headings.forEach((h, idx) => {
           if (!h.node || h.node.textContent.trim().length === 0) return;
 
@@ -315,12 +317,44 @@ const headingFoldPlugin = $prose(() => {
           btn.title = isFolded ? 'Click to expand section' : 'Click to collapse section';
           btn.dataset.headingPos = String(h.pos);
 
+          let foldEnd = state.doc.content.size;
+          for (let j = idx + 1; j < headings.length; j++) {
+            if (headings[j].level <= h.level) {
+              foldEnd = headings[j].pos;
+              break;
+            }
+          }
+
+          // If this heading is the last heading, do not fold trailing empty paragraph
+          if (foldEnd === state.doc.content.size) {
+            const lastChild = state.doc.lastChild;
+            if (lastChild && lastChild.type.name === 'paragraph' && lastChild.content.size === 0) {
+              const lastChildPos = state.doc.content.size - lastChild.nodeSize;
+              if (lastChildPos > h.pos + h.size) {
+                foldEnd = lastChildPos;
+              }
+            }
+          }
+
+          let lastToggleTime = 0;
           const toggleAction = (e) => {
             e.preventDefault();
             e.stopPropagation();
+            const now = Date.now();
+            if (now - lastToggleTime < 250) return;
+            lastToggleTime = now;
             const view = getEditorView();
             if (view) {
-              view.dispatch(view.state.tr.setMeta(headingFoldPluginKey, { togglePos: h.pos }));
+              let tr = view.state.tr.setMeta(headingFoldPluginKey, { togglePos: h.pos });
+              if (!isFolded) {
+                // If folding, and selection is inside the section to be hidden, move selection to the heading
+                const sel = view.state.selection;
+                if (sel.from >= h.pos + h.size && sel.to <= foldEnd) {
+                  const targetPos = Math.min(view.state.doc.content.size, h.pos + 1);
+                  tr = tr.setSelection(Selection.near(view.state.doc.resolve(targetPos)));
+                }
+              }
+              view.dispatch(tr);
             }
           };
 
@@ -353,30 +387,14 @@ const headingFoldPlugin = $prose(() => {
               key: 'fold_badge_' + h.pos
             }));
 
-            let foldEnd = state.doc.content.size;
-            for (let j = idx + 1; j < headings.length; j++) {
-              if (headings[j].level <= h.level) {
-                foldEnd = headings[j].pos;
-                break;
-              }
-            }
-
-            // If this heading is the last heading, do not fold trailing empty paragraph
-            if (foldEnd === state.doc.content.size) {
-              const lastChild = state.doc.lastChild;
-              if (lastChild && lastChild.type.name === 'paragraph' && lastChild.content.size === 0) {
-                const lastChildPos = state.doc.content.size - lastChild.nodeSize;
-                if (lastChildPos > h.pos + h.size) {
-                  foldEnd = lastChildPos;
-                }
-              }
-            }
-
             const foldStart = h.pos + h.size;
             if (foldEnd > foldStart) {
-              state.doc.nodesBetween(foldStart, foldEnd, (childNode, childPos) => {
-                if (childPos >= foldStart && childPos < foldEnd && childNode.isBlock) {
-                  decos.push(Decoration.node(childPos, childPos + childNode.nodeSize, { class: 'heading-folded-hidden' }));
+              state.doc.forEach((childNode, childOffset) => {
+                if (childOffset >= foldStart && childOffset < foldEnd) {
+                  if (!hiddenBlockPositions.has(childOffset)) {
+                    hiddenBlockPositions.add(childOffset);
+                    decos.push(Decoration.node(childOffset, childOffset + childNode.nodeSize, { class: 'heading-folded-hidden' }));
+                  }
                 }
               });
             }
@@ -384,20 +402,6 @@ const headingFoldPlugin = $prose(() => {
         });
 
         return DecorationSet.create(state.doc, decos);
-      },
-      handleClick(view, pos, event) {
-        const foldBtn = event.target.closest('.heading-fold-btn, .heading-fold-badge');
-        if (foldBtn) {
-          event.preventDefault();
-          event.stopPropagation();
-          const hPosStr = foldBtn.dataset.headingPos;
-          if (hPosStr != null) {
-            const hPos = parseInt(hPosStr, 10);
-            view.dispatch(view.state.tr.setMeta(headingFoldPluginKey, { togglePos: hPos }));
-            return true;
-          }
-        }
-        return false;
       }
     }
   });
@@ -405,7 +409,7 @@ const headingFoldPlugin = $prose(() => {
 
 import { createTable, strikethroughSchema } from '@milkdown/kit/preset/gfm';
 import { clearTextInCurrentBlockCommand, addBlockTypeCommand, selectTextNearPosCommand, codeBlockSchema, hrSchema, setBlockTypeCommand, linkSchema, strongSchema, emphasisSchema, inlineCodeSchema } from '@milkdown/kit/preset/commonmark';
-import { Selection, TextSelection, NodeSelection, Plugin, PluginKey } from '@milkdown/kit/prose/state';
+import { Selection, TextSelection, NodeSelection, AllSelection, Plugin, PluginKey } from '@milkdown/kit/prose/state';
 import { liftListItem } from '@milkdown/kit/prose/schema-list';
 import { lift } from '@milkdown/kit/prose/commands';
 import { liftTarget } from '@milkdown/kit/prose/transform';
@@ -919,7 +923,7 @@ async function init() {
           if (force) {
             try {
               const startSel = Selection.atStart(view.state.doc);
-              view.dispatch(view.state.tr.setSelection(startSel).scrollIntoView());
+              view.dispatch(view.state.tr.setSelection(startSel).setMeta(headingFoldPluginKey, { unfoldAll: true }).scrollIntoView());
             } catch (_) {}
             const scrollContainer = document.querySelector('.milkdown') || document.documentElement;
             if (scrollContainer) scrollContainer.scrollTop = 0;
@@ -1556,14 +1560,32 @@ async function init() {
       }
     });
 
+    let mouseDownPos = { x: 0, y: 0 };
+    editorContainer.addEventListener('mousedown', (e) => {
+      mouseDownPos = { x: e.clientX, y: e.clientY };
+    }, true);
+
     editorContainer.addEventListener('click', (e) => {
       // Don't trigger if clicked on controls, buttons, menus, inputs, tables, etc.
       if (e.target.closest('.heading-fold-btn, .heading-fold-badge, .format-menu, .bubble-menu, .slash-menu, .find-widget, .cm-editor, table, a, input, button, .tools')) {
         return;
       }
 
+      // If user was dragging to select, don't trigger click action
+      const moveDist = Math.hypot(e.clientX - mouseDownPos.x, e.clientY - mouseDownPos.y);
+      if (moveDist > 4) {
+        return;
+      }
+
+      // Never collapse an active text selection on click
+      const domSel = window.getSelection();
+      if (domSel && !domSel.isCollapsed && domSel.toString().trim().length > 0) {
+        return;
+      }
+
       const view = getEditorView();
       if (!view || !view.state) return;
+      if (!view.state.selection.empty) return;
 
       const pm = document.querySelector('.milkdown .ProseMirror');
       if (!pm) return;
@@ -1581,7 +1603,8 @@ async function init() {
         lastBottom = pm.getBoundingClientRect().top;
       }
 
-      if (e.clientY >= lastBottom - 2 || e.target === pm || e.target === editorContainer || (e.target.classList && e.target.classList.contains('milkdown'))) {
+      // Only trigger if clicked strictly BELOW all document content on the empty container
+      if (e.clientY > lastBottom + 5 && (e.target === editorContainer || e.target === pm.parentElement)) {
         const { state, dispatch } = view;
         const lastChild = state.doc.lastChild;
         const hasTrailingEmptyP = lastChild && lastChild.type.name === 'paragraph' && lastChild.content.size === 0;
@@ -1641,13 +1664,15 @@ async function init() {
 function applySpellCheck(enabled) {
   isSpellCheckActive = !!enabled;
   const isEnabled = isSpellCheckActive;
+  // Native browser spellcheck is always OFF: only our own red wavy decorations
+  // (which respect the ignore list) are used.
   const pm = document.querySelector('.ProseMirror');
-  if (pm) pm.setAttribute('spellcheck', isEnabled ? 'true' : 'false');
+  if (pm) pm.setAttribute('spellcheck', 'false');
   const root = document.getElementById('editor');
-  if (root) root.setAttribute('spellcheck', isEnabled ? 'true' : 'false');
+  if (root) root.setAttribute('spellcheck', 'false');
   const container = document.getElementById('editor-container');
-  if (container) container.setAttribute('spellcheck', isEnabled ? 'true' : 'false');
-  document.body.setAttribute('spellcheck', isEnabled ? 'true' : 'false');
+  if (container) container.setAttribute('spellcheck', 'false');
+  document.body.setAttribute('spellcheck', 'false');
 
   const view = getEditorView();
   if (view && view.state) {
@@ -1851,11 +1876,38 @@ function setupContextMenu() {
     const view = getEditorView();
     if (view && view.state) {
       try {
-        const posInfo = view.posAtCoords({ left: e.clientX, top: e.clientY });
-        if (posInfo && typeof posInfo.pos === 'number') {
-          const { from, to, empty } = view.state.selection;
-          const isInsideSelection = !empty && posInfo.pos >= from && posInfo.pos <= to;
+        const domSel = window.getSelection();
+        const { from, to, empty } = view.state.selection;
+        const hasTextSelected = (!empty && from !== to) || (domSel && !domSel.isCollapsed && domSel.toString().length > 0);
+
+        let isInsideSelection = false;
+        if (hasTextSelected) {
+          if (domSel && domSel.rangeCount > 0) {
+            const range = domSel.getRangeAt(0);
+            const rects = range.getClientRects();
+            for (let i = 0; i < rects.length; i++) {
+              const r = rects[i];
+              if (e.clientX >= r.left - 8 && e.clientX <= r.right + 8 &&
+                  e.clientY >= r.top - 4 && e.clientY <= r.bottom + 4) {
+                isInsideSelection = true;
+                break;
+              }
+            }
+          }
+
           if (!isInsideSelection) {
+            const posInfo = view.posAtCoords({ left: e.clientX, top: e.clientY });
+            if (posInfo && typeof posInfo.pos === 'number') {
+              if (posInfo.pos >= from && posInfo.pos <= to) {
+                isInsideSelection = true;
+              }
+            }
+          }
+        }
+
+        if (!isInsideSelection) {
+          const posInfo = view.posAtCoords({ left: e.clientX, top: e.clientY });
+          if (posInfo && typeof posInfo.pos === 'number') {
             const targetPos = Math.max(0, Math.min(posInfo.pos, view.state.doc.content.size));
             const $pos = view.state.doc.resolve(targetPos);
             const newSel = Selection.near($pos);
@@ -1920,7 +1972,14 @@ function showContextMenu(x, y) {
   if (!menu) return;
 
   const view = getEditorView();
-  const sel = window.getSelection() ? window.getSelection().toString().trim() : '';
+  const domSel = window.getSelection();
+  const sel = domSel ? domSel.toString().trim() : '';
+  const hasTextSelected = (view && view.state && !view.state.selection.empty) || (domSel && !domSel.isCollapsed && domSel.toString().length > 0);
+
+  const cutBtn = document.getElementById('menu-cut');
+  const copyBtn = document.getElementById('menu-copy');
+  if (cutBtn) cutBtn.disabled = !hasTextSelected;
+  if (copyBtn) copyBtn.disabled = !hasTextSelected;
   const ignoreBtn = document.getElementById('menu-ignore-word');
   const ignoreDiv = document.getElementById('menu-ignore-divider');
   const spellSection = document.getElementById('menu-spell-section');
@@ -2193,6 +2252,65 @@ function executeAction(action) {
   if (!view) return;
 
   switch (action) {
+    case 'cut': {
+      const domSel = window.getSelection();
+      const selText = (domSel && domSel.toString()) || '';
+      if (selText) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(selText).then(() => {
+            if (view && view.state && !view.state.selection.empty) {
+              view.dispatch(view.state.tr.deleteSelection().scrollIntoView());
+            } else {
+              document.execCommand('cut');
+            }
+          }).catch(() => {
+            document.execCommand('cut');
+          });
+        } else {
+          document.execCommand('cut');
+        }
+      }
+      view.focus();
+      break;
+    }
+    case 'copy': {
+      const domSel = window.getSelection();
+      const selText = (domSel && domSel.toString()) || '';
+      if (selText) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(selText).catch(() => {
+            document.execCommand('copy');
+          });
+        } else {
+          document.execCommand('copy');
+        }
+      }
+      view.focus();
+      break;
+    }
+    case 'paste': {
+      if (navigator.clipboard && navigator.clipboard.readText) {
+        navigator.clipboard.readText().then((text) => {
+          if (text) {
+            if (!insertParsedMarkdown(view, text)) {
+              view.dispatch(view.state.tr.insertText(text).scrollIntoView());
+            }
+          }
+        }).catch(() => {
+          document.execCommand('paste');
+        });
+      } else {
+        document.execCommand('paste');
+      }
+      view.focus();
+      break;
+    }
+    case 'select-all': {
+      const tr = view.state.tr.setSelection(new AllSelection(view.state.doc));
+      view.dispatch(tr);
+      view.focus();
+      break;
+    }
     case 'h1':
     case 'h2':
     case 'h3':
