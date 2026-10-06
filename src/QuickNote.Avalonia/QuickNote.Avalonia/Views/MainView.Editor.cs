@@ -16,17 +16,24 @@ namespace QuickNote.Avalonia.Views
     public partial class MainView
     {
         // ── Editor content sync ─────────────────────────────────────
+        private bool _isOriginatingFromNotion;
+
         private void NotionEditor_MarkdownChanged(string markdown)
         {
             if (_viewModel == null || _isUpdatingEditorText) return;
             _isUpdatingEditorText = true;
+            _isOriginatingFromNotion = true;
             try
             {
                 _viewModel.EditorContent = markdown;
                 if (TextEditor != null && TextEditor.Text != markdown)
                     TextEditor.Text = markdown;
             }
-            finally { _isUpdatingEditorText = false; }
+            finally
+            {
+                _isUpdatingEditorText = false;
+                _isOriginatingFromNotion = false;
+            }
         }
 
         private void TextEditor_TextChanged(object? sender, EventArgs e)
@@ -36,13 +43,24 @@ namespace QuickNote.Avalonia.Views
             try
             {
                 _viewModel.EditorContent = TextEditor.Text;
-                if (NotionEditor != null) NotionEditor.LoadMarkdown(TextEditor.Text);
+                if (NotionEditor != null) NotionEditor.LoadMarkdown(TextEditor.Text, force: false);
             }
             finally { _isUpdatingEditorText = false; }
         }
 
         private void OnMarkdownRenderRequested(string markdown)
         {
+            // If the render request was triggered by NotionEditor's own keystroke,
+            // never echo it back to NotionEditor! It already contains the authoritative state.
+            if (_isOriginatingFromNotion)
+            {
+                if (_viewModel?.IsSplitMode == true || _viewModel?.IsReadingMode == true)
+                {
+                    UpdatePreview(markdown);
+                }
+                return;
+            }
+
             Dispatcher.UIThread.Post(() =>
             {
                 if (_viewModel == null) return;
@@ -53,7 +71,9 @@ namespace QuickNote.Avalonia.Views
                     {
                         NotionEditor.NotesRoot = _viewModel.NotesRoot;
                         NotionEditor.CurrentNoteFolderPath = _viewModel.CurrentNote?.FolderPath;
-                        NotionEditor.LoadMarkdown(markdown, force: true);
+                        bool isNoteSwitch = !string.Equals(NotionEditor.CurrentNotePath, _viewModel.CurrentNote?.FullPath, StringComparison.OrdinalIgnoreCase);
+                        NotionEditor.CurrentNotePath = _viewModel.CurrentNote?.FullPath;
+                        NotionEditor.LoadMarkdown(markdown, force: isNoteSwitch);
                     }
                     if (TextEditor != null && TextEditor.Text != markdown)
                         TextEditor.Text = markdown;

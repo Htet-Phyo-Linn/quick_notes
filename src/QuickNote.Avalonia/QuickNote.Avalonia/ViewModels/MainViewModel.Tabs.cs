@@ -55,6 +55,16 @@ namespace QuickNote.Avalonia.ViewModels
         {
             if (tab == null) return;
 
+            if (ActiveTab == tab && _isModified && CurrentNote != null)
+            {
+                _autoSaveTimer.Stop();
+                var noteToSave = CurrentNote;
+                var titleToSave = NoteTitle;
+                var contentToSave = EditorContent;
+                _isModified = false;
+                _ = SaveNoteAsync(noteToSave, titleToSave, contentToSave);
+            }
+
             int index = OpenTabs.IndexOf(tab);
             OpenTabs.Remove(tab);
 

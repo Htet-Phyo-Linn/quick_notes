@@ -137617,6 +137617,9 @@ Expected function or array of functions, received type ${typeof value}.`
           const k = e.key.toLowerCase();
           if (k === "s") {
             e.preventDefault();
+            if (typeof window.flushContentChanged === "function") {
+              window.flushContentChanged();
+            }
             sendMessage({ type: "shortcut", action: "save" });
             return;
           }
@@ -137691,16 +137694,47 @@ Expected function or array of functions, received type ${typeof value}.`
             }
           }
         });
+        let contentChangedDebounceTimer = null;
+        let pendingMarkdownToSend = null;
+        function flushContentChanged() {
+          if (contentChangedDebounceTimer) {
+            clearTimeout(contentChangedDebounceTimer);
+            contentChangedDebounceTimer = null;
+          }
+          if (pendingMarkdownToSend !== null) {
+            const md = pendingMarkdownToSend;
+            pendingMarkdownToSend = null;
+            sendMessage({
+              type: "contentChanged",
+              markdown: md
+            });
+          }
+        }
+        window.flushContentChanged = flushContentChanged;
         crepeInstance.on((listener2) => {
           listener2.markdownUpdated((ctx, markdown2, prevMarkdown) => {
             if (isUpdatingFromHost) return;
             if (!hasReceivedInitialContent && !markdown2) return;
             hasReceivedInitialContent = true;
-            sendMessage({
-              type: "contentChanged",
-              markdown: markdown2
-            });
+            pendingMarkdownToSend = markdown2;
+            if (contentChangedDebounceTimer) {
+              clearTimeout(contentChangedDebounceTimer);
+            }
+            contentChangedDebounceTimer = setTimeout(() => {
+              contentChangedDebounceTimer = null;
+              if (pendingMarkdownToSend !== null) {
+                const md = pendingMarkdownToSend;
+                pendingMarkdownToSend = null;
+                sendMessage({
+                  type: "contentChanged",
+                  markdown: md
+                });
+              }
+            }, 150);
           });
+        });
+        window.addEventListener("blur", () => {
+          flushContentChanged();
         });
         try {
           crepeInstance.editor.use(remarkFixImageNodes);
@@ -137716,11 +137750,21 @@ Expected function or array of functions, received type ${typeof value}.`
         }
         setupContextMenu();
         setupLinkDialog();
-        window.setMarkdown = (markdown2) => {
+        window.setMarkdown = (markdown2, force) => {
+          if (contentChangedDebounceTimer) {
+            clearTimeout(contentChangedDebounceTimer);
+            contentChangedDebounceTimer = null;
+          }
+          pendingMarkdownToSend = null;
           hasReceivedInitialContent = true;
           if (!crepeInstance) return;
           const current = crepeInstance.getMarkdown();
           if ((current || "").trim() === (markdown2 || "").trim()) {
+            return;
+          }
+          const activeEl = document.activeElement;
+          const isEditorActive = activeEl && (activeEl.closest(".ProseMirror") || activeEl.closest(".milkdown"));
+          if (!force && isEditorActive) {
             return;
           }
           const cleanMd = (markdown2 || "").replace(/(!\[.*?\]\([^\n\r]*?\))\r?\n(?=!\[)/g, "$1\n\n");
@@ -137753,6 +137797,7 @@ Expected function or array of functions, received type ${typeof value}.`
           }
         };
         window.getMarkdown = () => {
+          flushContentChanged();
           return crepeInstance ? crepeInstance.getMarkdown() : "";
         };
         window.focusEditor = () => {

@@ -93,10 +93,10 @@ namespace QuickNote.App.ViewModels
             _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
             _notesRoot = notesRoot ?? throw new ArgumentNullException(nameof(notesRoot));
 
-            // Autosave debounce timer (500ms)
+            // Autosave debounce timer (1500ms production standard)
             _autoSaveTimer = new DispatcherTimer
             {
-                Interval = TimeSpan.FromMilliseconds(500)
+                Interval = TimeSpan.FromMilliseconds(1500)
             };
             _autoSaveTimer.Tick += async (s, e) =>
             {

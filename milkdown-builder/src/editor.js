@@ -493,6 +493,9 @@ window.addEventListener('keydown', (e) => {
     const k = e.key.toLowerCase();
     if (k === 's') {
       e.preventDefault();
+      if (typeof window.flushContentChanged === 'function') {
+        window.flushContentChanged();
+      }
       sendMessage({ type: 'shortcut', action: 'save' });
       return;
     }
@@ -571,17 +574,52 @@ async function init() {
     },
   });
 
-  // Listen to markdown changes and send back to host
+  let contentChangedDebounceTimer = null;
+  let pendingMarkdownToSend = null;
+
+  function flushContentChanged() {
+    if (contentChangedDebounceTimer) {
+      clearTimeout(contentChangedDebounceTimer);
+      contentChangedDebounceTimer = null;
+    }
+    if (pendingMarkdownToSend !== null) {
+      const md = pendingMarkdownToSend;
+      pendingMarkdownToSend = null;
+      sendMessage({
+        type: 'contentChanged',
+        markdown: md,
+      });
+    }
+  }
+
+  window.flushContentChanged = flushContentChanged;
+
+  // Listen to markdown changes and send back to host (150ms debounce for production standard typing performance)
   crepeInstance.on((listener) => {
     listener.markdownUpdated((ctx, markdown, prevMarkdown) => {
       if (isUpdatingFromHost) return;
       if (!hasReceivedInitialContent && !markdown) return;
       hasReceivedInitialContent = true;
-      sendMessage({
-        type: 'contentChanged',
-        markdown: markdown,
-      });
+      pendingMarkdownToSend = markdown;
+      if (contentChangedDebounceTimer) {
+        clearTimeout(contentChangedDebounceTimer);
+      }
+      contentChangedDebounceTimer = setTimeout(() => {
+        contentChangedDebounceTimer = null;
+        if (pendingMarkdownToSend !== null) {
+          const md = pendingMarkdownToSend;
+          pendingMarkdownToSend = null;
+          sendMessage({
+            type: 'contentChanged',
+            markdown: md,
+          });
+        }
+      }, 150);
     });
+  });
+
+  window.addEventListener('blur', () => {
+    flushContentChanged();
   });
 
   try {
@@ -604,11 +642,24 @@ async function init() {
   setupLinkDialog();
 
   // Global methods accessible by host C# InvokeScript
-  window.setMarkdown = (markdown) => {
+  window.setMarkdown = (markdown, force) => {
+    if (contentChangedDebounceTimer) {
+      clearTimeout(contentChangedDebounceTimer);
+      contentChangedDebounceTimer = null;
+    }
+    pendingMarkdownToSend = null;
     hasReceivedInitialContent = true;
     if (!crepeInstance) return;
     const current = crepeInstance.getMarkdown();
     if ((current || '').trim() === (markdown || '').trim()) {
+      return;
+    }
+
+    // Protection: If user is actively typing/focused inside editor and force is false,
+    // never clobber their in-progress typing with delayed host state!
+    const activeEl = document.activeElement;
+    const isEditorActive = activeEl && (activeEl.closest('.ProseMirror') || activeEl.closest('.milkdown'));
+    if (!force && isEditorActive) {
       return;
     }
 
@@ -646,6 +697,7 @@ async function init() {
   };
 
   window.getMarkdown = () => {
+    flushContentChanged();
     return crepeInstance ? crepeInstance.getMarkdown() : '';
   };
 

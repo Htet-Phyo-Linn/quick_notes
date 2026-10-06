@@ -201,7 +201,7 @@ namespace QuickNote.Avalonia.ViewModels
             _notesRoot        = notesRoot        ?? throw new ArgumentNullException(nameof(notesRoot));
             _markdownParser   = markdownParser   ?? new MarkdownParser();
 
-            _autoSaveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
+            _autoSaveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1500) };
             _autoSaveTimer.Tick += async (s, e) =>
             {
                 _autoSaveTimer.Stop();

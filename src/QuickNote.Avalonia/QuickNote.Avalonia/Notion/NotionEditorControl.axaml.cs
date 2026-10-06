@@ -86,6 +86,7 @@ namespace QuickNote.Avalonia.Notion
 
         public string? NotesRoot { get; set; }
         public string? CurrentNoteFolderPath { get; set; }
+        public string? CurrentNotePath { get; set; }
 
         private void OnWebMessageReceived(object? sender, WebMessageReceivedEventArgs e)
         {
@@ -460,7 +461,7 @@ namespace QuickNote.Avalonia.Notion
                 _pendingMarkdown = null;
                 var targetMarkdown = _currentMarkdown;
                 // Always dispatch to UI thread — InvokeScript requires it
-                Dispatcher.UIThread.Post(() => SendMarkdownToEditor(targetMarkdown),
+                Dispatcher.UIThread.Post(() => SendMarkdownToEditor(targetMarkdown, force),
                     DispatcherPriority.Normal);
             }
             else
@@ -474,14 +475,38 @@ namespace QuickNote.Avalonia.Notion
             return _currentMarkdown;
         }
 
-        private async void SendMarkdownToEditor(string markdown)
+        public async Task FlushPendingChangesAsync()
+        {
+            if (WebViewControl != null && _isEditorReady)
+            {
+                try
+                {
+                    var md = await WebViewControl.InvokeScript(
+                        "(function(){ if(window.flushContentChanged){ window.flushContentChanged(); } return window.getMarkdown ? window.getMarkdown() : ''; })()");
+                    if (!string.IsNullOrEmpty(md))
+                    {
+                        var unquoted = md;
+                        if (unquoted.StartsWith("\"") && unquoted.EndsWith("\"") && unquoted.Length >= 2)
+                        {
+                            try { unquoted = JsonSerializer.Deserialize<string>(unquoted) ?? unquoted; } catch { }
+                        }
+                        _currentMarkdown = unquoted;
+                        MarkdownChanged?.Invoke(unquoted);
+                    }
+                }
+                catch { }
+            }
+        }
+
+        private async void SendMarkdownToEditor(string markdown, bool force = false)
         {
             var json = JsonSerializer.Serialize(markdown ?? string.Empty);
-            System.Diagnostics.Debug.WriteLine($"[NotionEditorControl] Sending markdown len={json.Length}");
+            var forceArg = force ? "true" : "false";
+            System.Diagnostics.Debug.WriteLine($"[NotionEditorControl] Sending markdown len={json.Length} force={force}");
             try
             {
                 var result = await WebViewControl.InvokeScript(
-                    $"(function(){{if(window.setMarkdown){{window.setMarkdown({json});return 'ok';}}else{{window.__pendingMarkdown={json};return 'pending';}}}})()");
+                    $"(function(){{if(window.setMarkdown){{window.setMarkdown({json}, {forceArg});return 'ok';}}else{{window.__pendingMarkdown={json};return 'pending';}}}})()");
                 System.Diagnostics.Debug.WriteLine($"[NotionEditorControl] InvokeScript result={result}");
             }
             catch (Exception ex)

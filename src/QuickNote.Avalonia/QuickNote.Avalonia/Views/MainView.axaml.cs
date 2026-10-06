@@ -157,6 +157,27 @@ namespace QuickNote.Avalonia.Views
             UpdateSidebarVisibility();
             if (_viewModel != null)
                 UpdatePreview(_viewModel.EditorContent ?? string.Empty);
+
+            var window = TopLevel.GetTopLevel(this) as Window;
+            if (window != null)
+            {
+                window.Deactivated += async (s, e) =>
+                {
+                    if (_viewModel != null)
+                    {
+                        if (NotionEditor != null) await NotionEditor.FlushPendingChangesAsync();
+                        await _viewModel.SaveNoteAsync();
+                    }
+                };
+                window.Closing += async (s, e) =>
+                {
+                    if (_viewModel != null)
+                    {
+                        if (NotionEditor != null) await NotionEditor.FlushPendingChangesAsync();
+                        await _viewModel.SaveNoteAsync();
+                    }
+                };
+            }
         }
 
         // ── Property-change routing ─────────────────────────────────

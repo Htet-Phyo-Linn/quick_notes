@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Avalonia.Threading;
 using QuickNote.Core.Models;
 using QuickNote.Core.Utilities;
 
@@ -121,7 +122,10 @@ namespace QuickNote.Avalonia.ViewModels
                 bool renamed = RenameNoteFileToMatchTitle(noteToSave, titleToSave);
                 await _noteRepository.UpdateNoteAsync(noteToSave);
                 await _recoveryService.ClearDraftAsync(noteToSave.FullPath);
-                _searchEngine.IndexDocument(noteToSave);
+                _ = Task.Run(() =>
+                {
+                    try { _searchEngine.IndexDocument(noteToSave); } catch { }
+                });
 
                 if (renamed)
                     await RefreshFolderTreeAsync();
@@ -138,6 +142,13 @@ namespace QuickNote.Avalonia.ViewModels
                     }
                 }
                 StatusText = "Saved";
+                _ = Task.Delay(2500).ContinueWith(_ =>
+                {
+                    Dispatcher.UIThread.Post(() =>
+                    {
+                        if (StatusText == "Saved") StatusText = "Ready";
+                    });
+                });
             }
             catch (Exception ex)
             {

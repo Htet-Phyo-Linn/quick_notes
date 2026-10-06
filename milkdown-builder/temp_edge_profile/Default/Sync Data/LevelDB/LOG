@@ -1,3 +1,6 @@
-2026/10/05-23:26:23.114 2080 Reusing MANIFEST D:\CODE\quick_notes\milkdown-builder\temp_edge_profile\Default\Sync Data\LevelDB/MANIFEST-000001
-2026/10/05-23:26:23.115 2080 Recovering log #3
-2026/10/05-23:26:23.122 2080 Reusing old log D:\CODE\quick_notes\milkdown-builder\temp_edge_profile\Default\Sync Data\LevelDB/000003.log 
+2026/10/06-11:26:30.141 15ec Reusing MANIFEST D:\CODE\quick_notes\milkdown-builder\temp_edge_profile\Default\Sync Data\LevelDB/MANIFEST-000001
+2026/10/06-11:26:30.143 15ec Recovering log #3
+2026/10/06-11:26:30.150 15ec Reusing old log D:\CODE\quick_notes\milkdown-builder\temp_edge_profile\Default\Sync Data\LevelDB/000003.log 
+2026/10/06-11:26:37.042 5ca8 Level-0 table #5: started
+2026/10/06-11:26:37.049 5ca8 Level-0 table #5: 113711 bytes OK
+2026/10/06-11:26:37.051 5ca8 Delete type=0 #3
