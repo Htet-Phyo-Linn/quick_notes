@@ -151,25 +151,76 @@ const autoInlineCodePlugin = $prose(() => new Plugin({
 
 import { Decoration, DecorationSet } from '@milkdown/kit/prose/view';
 
-const headingFoldPlugin = $prose(() => {
-  const key = new PluginKey('headingFoldPlugin');
+const headingFoldPluginKey = new PluginKey('headingFoldPlugin');
 
+function unfoldHeadingCoveringPos(view, targetPos) {
+  if (!view || !view.state || typeof targetPos !== 'number') return;
+  const pluginState = headingFoldPluginKey ? headingFoldPluginKey.getState(view.state) : null;
+  if (!pluginState || !pluginState.folded || pluginState.folded.size === 0) return;
+
+  const headings = [];
+  view.state.doc.descendants((node, pos) => {
+    if (node.type.name === 'heading') {
+      headings.push({ pos, level: node.attrs.level || 1, node, size: node.nodeSize });
+    }
+  });
+
+  const toUnfold = [];
+  headings.forEach((h, idx) => {
+    if (!pluginState.folded.has(h.pos)) return;
+
+    let foldEnd = view.state.doc.content.size;
+    for (let j = idx + 1; j < headings.length; j++) {
+      if (headings[j].level <= h.level) {
+        foldEnd = headings[j].pos;
+        break;
+      }
+    }
+
+    if (targetPos >= h.pos && targetPos <= foldEnd) {
+      toUnfold.push(h.pos);
+    }
+  });
+
+  if (toUnfold.length > 0) {
+    let tr = view.state.tr;
+    toUnfold.forEach(pos => {
+      tr = tr.setMeta(headingFoldPluginKey, { unfoldPos: pos });
+    });
+    view.dispatch(tr);
+  }
+}
+
+const headingFoldPlugin = $prose(() => {
   return new Plugin({
-    key,
+    key: headingFoldPluginKey,
     state: {
       init() {
         return { folded: new Set() };
       },
       apply(tr, value, oldState, newState) {
-        const meta = tr.getMeta(key);
-        if (meta && meta.togglePos !== undefined) {
-          const newFolded = new Set(value.folded);
-          if (newFolded.has(meta.togglePos)) {
-            newFolded.delete(meta.togglePos);
-          } else {
-            newFolded.add(meta.togglePos);
+        const meta = tr.getMeta(headingFoldPluginKey);
+        if (meta) {
+          if (meta.togglePos !== undefined) {
+            const newFolded = new Set(value.folded);
+            if (newFolded.has(meta.togglePos)) {
+              newFolded.delete(meta.togglePos);
+            } else {
+              newFolded.add(meta.togglePos);
+            }
+            return { folded: newFolded };
           }
-          return { folded: newFolded };
+          if (meta.unfoldPos !== undefined) {
+            if (value.folded.has(meta.unfoldPos)) {
+              const newFolded = new Set(value.folded);
+              newFolded.delete(meta.unfoldPos);
+              return { folded: newFolded };
+            }
+            return value;
+          }
+          if (meta.unfoldAll) {
+            return { folded: new Set() };
+          }
         }
         if (tr.docChanged) {
           const newFolded = new Set();
@@ -215,7 +266,7 @@ const headingFoldPlugin = $prose(() => {
             e.stopPropagation();
             const view = getEditorView();
             if (view) {
-              view.dispatch(view.state.tr.setMeta(key, { togglePos: h.pos }));
+              view.dispatch(view.state.tr.setMeta(headingFoldPluginKey, { togglePos: h.pos }));
             }
           };
 
@@ -256,6 +307,17 @@ const headingFoldPlugin = $prose(() => {
               }
             }
 
+            // If this heading is the last heading, do not fold trailing empty paragraph
+            if (foldEnd === state.doc.content.size) {
+              const lastChild = state.doc.lastChild;
+              if (lastChild && lastChild.type.name === 'paragraph' && lastChild.content.size === 0) {
+                const lastChildPos = state.doc.content.size - lastChild.nodeSize;
+                if (lastChildPos > h.pos + h.size) {
+                  foldEnd = lastChildPos;
+                }
+              }
+            }
+
             const foldStart = h.pos + h.size;
             if (foldEnd > foldStart) {
               state.doc.nodesBetween(foldStart, foldEnd, (childNode, childPos) => {
@@ -277,7 +339,7 @@ const headingFoldPlugin = $prose(() => {
           const hPosStr = foldBtn.dataset.headingPos;
           if (hPosStr != null) {
             const hPos = parseInt(hPosStr, 10);
-            view.dispatch(view.state.tr.setMeta(key, { togglePos: hPos }));
+            view.dispatch(view.state.tr.setMeta(headingFoldPluginKey, { togglePos: hPos }));
             return true;
           }
         }
@@ -962,13 +1024,26 @@ async function init() {
     if (!current || !current.range) return;
 
     try {
-      const el = current.range.startContainer.nodeType === Node.ELEMENT_NODE
-        ? current.range.startContainer
-        : current.range.startContainer.parentElement;
-
-      if (el && el.scrollIntoView) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+      const view = getEditorView();
+      if (view) {
+        try {
+          const matchPos = view.posAtDOM(current.range.startContainer, current.range.startOffset);
+          if (typeof matchPos === 'number') {
+            unfoldHeadingCoveringPos(view, matchPos);
+          }
+        } catch (err) {}
       }
+
+      setTimeout(() => {
+        const el = current.range.startContainer.nodeType === Node.ELEMENT_NODE
+          ? current.range.startContainer
+          : current.range.startContainer.parentElement;
+
+        if (el && el.scrollIntoView) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+        }
+        renderHighlights();
+      }, 30);
     } catch (e) {
       console.warn('[FindWidget] scroll error:', e);
     }
@@ -1133,20 +1208,46 @@ async function init() {
     }
   }
 
+  function getMatchDocRange(view, range) {
+    if (!view || !view.state || !range) return null;
+    try {
+      const from = view.posAtDOM(range.startContainer, range.startOffset);
+      const to = view.posAtDOM(range.endContainer, range.endOffset);
+      if (typeof from === 'number' && typeof to === 'number' && from <= to) {
+        return { from, to };
+      }
+    } catch (e) {}
+    return null;
+  }
+
   function doFindReplaceCurrent() {
     if (findState.matches.length === 0 || findState.currentIndex < 0) return;
     const match = findState.matches[findState.currentIndex];
     const rep = (findReplaceInputEl && findReplaceInputEl.value) || '';
+    const view = getEditorView();
 
-    try {
-      const sel = window.getSelection();
-      if (sel) {
-        sel.removeAllRanges();
-        sel.addRange(match.range);
-        document.execCommand('insertText', false, rep);
+    let handled = false;
+    if (view && view.state) {
+      const pmRange = getMatchDocRange(view, match.range);
+      if (pmRange) {
+        unfoldHeadingCoveringPos(view, pmRange.from);
+        const tr = view.state.tr.insertText(rep, pmRange.from, pmRange.to);
+        view.dispatch(tr);
+        handled = true;
       }
-    } catch (e) {
-      console.error('[FindWidget] Replace failed:', e);
+    }
+
+    if (!handled) {
+      try {
+        const sel = window.getSelection();
+        if (sel) {
+          sel.removeAllRanges();
+          sel.addRange(match.range);
+          document.execCommand('insertText', false, rep);
+        }
+      } catch (e) {
+        console.error('[FindWidget] Replace failed:', e);
+      }
     }
 
     setTimeout(() => {
@@ -1157,17 +1258,45 @@ async function init() {
   function doFindReplaceAll() {
     if (findState.matches.length === 0) return;
     const rep = (findReplaceInputEl && findReplaceInputEl.value) || '';
-    const sel = window.getSelection();
+    const view = getEditorView();
 
-    for (let i = findState.matches.length - 1; i >= 0; i--) {
-      const match = findState.matches[i];
-      try {
-        if (sel) {
-          sel.removeAllRanges();
-          sel.addRange(match.range);
-          document.execCommand('insertText', false, rep);
+    if (view && view.state) {
+      const docRanges = [];
+      const fallbackMatches = [];
+
+      findState.matches.forEach(m => {
+        const pmRange = getMatchDocRange(view, m.range);
+        if (pmRange) {
+          docRanges.push(pmRange);
+        } else {
+          fallbackMatches.push(m);
         }
-      } catch (e) {}
+      });
+
+      if (docRanges.length > 0) {
+        // Sort descending by position so text replacement does not shift earlier positions
+        docRanges.sort((a, b) => b.from - a.from);
+
+        let tr = view.state.tr;
+        for (const r of docRanges) {
+          unfoldHeadingCoveringPos(view, r.from);
+          tr = tr.insertText(rep, r.from, r.to);
+        }
+        view.dispatch(tr);
+      }
+
+      if (fallbackMatches.length > 0) {
+        const sel = window.getSelection();
+        for (let i = fallbackMatches.length - 1; i >= 0; i--) {
+          try {
+            if (sel) {
+              sel.removeAllRanges();
+              sel.addRange(fallbackMatches[i].range);
+              document.execCommand('insertText', false, rep);
+            }
+          } catch (e) {}
+        }
+      }
     }
 
     setTimeout(() => {
@@ -1259,6 +1388,49 @@ async function init() {
     editorContainer.addEventListener('input', () => {
       if (findState.isOpen && findInputEl && findInputEl.value) {
         performFind(findInputEl.value, true);
+      }
+    });
+
+    editorContainer.addEventListener('click', (e) => {
+      // Don't trigger if clicked on controls, buttons, menus, inputs, tables, etc.
+      if (e.target.closest('.heading-fold-btn, .heading-fold-badge, .format-menu, .bubble-menu, .slash-menu, .find-widget, .cm-editor, table, a, input, button, .tools')) {
+        return;
+      }
+
+      const view = getEditorView();
+      if (!view || !view.state) return;
+
+      const pm = document.querySelector('.milkdown .ProseMirror');
+      if (!pm) return;
+
+      // Find all visible non-virtual elements
+      const visibleElements = Array.from(pm.children).filter(el => {
+        return el.offsetParent !== null && !el.classList.contains('heading-folded-hidden') && !el.classList.contains('prosemirror-virtual-cursor');
+      });
+
+      let lastBottom = 0;
+      if (visibleElements.length > 0) {
+        const lastEl = visibleElements[visibleElements.length - 1];
+        lastBottom = lastEl.getBoundingClientRect().bottom;
+      } else {
+        lastBottom = pm.getBoundingClientRect().top;
+      }
+
+      if (e.clientY > lastBottom) {
+        const { state, dispatch } = view;
+        const lastChild = state.doc.lastChild;
+        const hasTrailingEmptyP = lastChild && lastChild.type.name === 'paragraph' && lastChild.content.size === 0;
+
+        let tr = state.tr;
+        if (!hasTrailingEmptyP) {
+          const emptyPara = state.schema.nodes.paragraph.create();
+          tr = tr.insert(state.doc.content.size, emptyPara);
+        }
+
+        const targetPos = Math.max(0, tr.doc.content.size - 1);
+        tr = tr.setSelection(TextSelection.near(tr.doc.resolve(targetPos))).scrollIntoView();
+        dispatch(tr);
+        view.focus();
       }
     });
   }

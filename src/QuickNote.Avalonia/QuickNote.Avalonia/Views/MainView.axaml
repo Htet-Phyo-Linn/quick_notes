@@ -41,6 +41,7 @@
         <StreamGeometry x:Key="IconCheck">M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z</StreamGeometry>
         <StreamGeometry x:Key="IconSettings">M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z</StreamGeometry>
         <StreamGeometry x:Key="IconSpellCheck">M12.45 16h2.09L9.43 3H7.57L2.46 16h2.09l1.12-3h5.66l1.12 3zm-6.01-4.72L8.5 5.88l2.06 5.4H6.44zM21.5 9l-7 7-3.5-3.5 1.41-1.41L14.5 13.17l5.59-5.59L21.5 9z</StreamGeometry>
+        <StreamGeometry x:Key="IconKeyboard">M20 5H4c-1.1 0-1.99.9-1.99 2L2 17c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-9 3h2v2h-2V8zm0 3h2v2h-2v-2zM8 8h2v2H8V8zm0 3h2v2H8v-2zm-1 2H5v-2h2v2zm0-3H5V8h2v2zm9 7H8v-2h8v2zm0-4h-2v-2h2v2zm0-3h-2V8h2v2zm3 3h-2v-2h2v2zm0-3h-2V8h2v2z</StreamGeometry>
     </UserControl.Resources>
 
     <UserControl.Styles>
@@ -942,7 +943,7 @@
 
         <!-- Settings, Storage Profile & Dictionary Dialog -->
         <Grid Grid.Row="0" Grid.RowSpan="4" Background="#80000000" IsVisible="{Binding IsProfileDialogVisible}">
-            <Border Width="580" MaxHeight="600" Background="#242424" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="8" Padding="22" HorizontalAlignment="Center" VerticalAlignment="Center">
+            <Border Width="620" MaxHeight="640" Background="#242424" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="8" Padding="22" HorizontalAlignment="Center" VerticalAlignment="Center">
                 <Grid RowDefinitions="Auto,Auto,*,Auto">
                     <!-- Title & Header -->
                     <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,14">
@@ -951,20 +952,19 @@
                                 <PathIcon Data="{StaticResource IconSettings}" Width="16" Height="16" Foreground="#3b82f6" VerticalAlignment="Center" />
                                 <TextBlock Text="Settings &amp; Storage Profiles" FontWeight="Bold" FontSize="16" Foreground="#f3f4f6" VerticalAlignment="Center" />
                             </StackPanel>
-                            <TextBlock Text="Manage storage accounts, cloud synchronization, and spell check dictionary." Foreground="#9ca3af" FontSize="12" Margin="0,4,0,0" />
+                            <TextBlock Text="Manage storage accounts, spell check dictionary, and view all keyboard shortcuts." Foreground="#9ca3af" FontSize="12" Margin="0,4,0,0" />
                         </StackPanel>
                     </Grid>
 
                     <!-- Tab Switcher Bar -->
                     <Border Grid.Row="1" Background="#18181b" CornerRadius="6" Padding="3" Margin="0,0,0,14">
-                        <Grid ColumnDefinitions="*,*">
+                        <Grid ColumnDefinitions="*,*,*">
                             <!-- Tab 1: Storage Profiles Button -->
                             <Button Grid.Column="0"
                                     Command="{Binding ShowProfileTabCommand}"
-                                    Background="{Binding !ProfileDialogTabIndex, Converter={x:Static ObjectConverters.IsNull}}"
                                     BorderThickness="0"
                                     CornerRadius="4"
-                                    Padding="10,6"
+                                    Padding="8,6"
                                     HorizontalAlignment="Stretch"
                                     HorizontalContentAlignment="Center"
                                     Cursor="Hand">
@@ -978,7 +978,7 @@
                                 </Button.Styles>
                                 <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
                                     <PathIcon Data="{StaticResource IconCloud}" Width="13" Height="13" Foreground="#60a5fa" VerticalAlignment="Center" />
-                                    <TextBlock Text="Storage Profiles" FontSize="12.5" FontWeight="SemiBold" Foreground="#f3f4f6" VerticalAlignment="Center" />
+                                    <TextBlock Text="Profiles" FontSize="12.5" FontWeight="SemiBold" Foreground="#f3f4f6" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Button>
 
@@ -987,7 +987,7 @@
                                     Command="{Binding ShowDictionaryTabCommand}"
                                     BorderThickness="0"
                                     CornerRadius="4"
-                                    Padding="10,6"
+                                    Padding="8,6"
                                     HorizontalAlignment="Stretch"
                                     HorizontalContentAlignment="Center"
                                     Cursor="Hand">
@@ -1001,14 +1001,37 @@
                                 </Button.Styles>
                                 <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
                                     <PathIcon Data="{StaticResource IconSpellCheck}" Width="13" Height="13" Foreground="#34d399" VerticalAlignment="Center" />
-                                    <TextBlock Text="Spell Check &amp; Dictionary" FontSize="12.5" FontWeight="SemiBold" Foreground="#f3f4f6" VerticalAlignment="Center" />
+                                    <TextBlock Text="Dictionary" FontSize="12.5" FontWeight="SemiBold" Foreground="#f3f4f6" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+
+                            <!-- Tab 3: Shortcuts Button -->
+                            <Button Grid.Column="2"
+                                    Command="{Binding ShowShortcutsTabCommand}"
+                                    BorderThickness="0"
+                                    CornerRadius="4"
+                                    Padding="8,6"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Center"
+                                    Cursor="Hand">
+                                <Button.Styles>
+                                    <Style Selector="Button">
+                                        <Setter Property="Background" Value="Transparent" />
+                                    </Style>
+                                    <Style Selector="Button:pointerover">
+                                        <Setter Property="Background" Value="#27272a" />
+                                    </Style>
+                                </Button.Styles>
+                                <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
+                                    <PathIcon Data="{StaticResource IconKeyboard}" Width="13" Height="13" Foreground="#f59e0b" VerticalAlignment="Center" />
+                                    <TextBlock Text="Shortcuts" FontSize="12.5" FontWeight="SemiBold" Foreground="#f3f4f6" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Button>
                         </Grid>
                     </Border>
 
                     <!-- TAB 1 CONTENT: Storage Profiles -->
-                    <Grid Grid.Row="2" RowDefinitions="Auto,*,Auto" IsVisible="{Binding !ProfileDialogTabIndex}">
+                    <Grid Grid.Row="2" RowDefinitions="Auto,*,Auto" IsVisible="{Binding IsProfileTabActive}">
                         <!-- Profile List Header -->
                         <TextBlock Grid.Row="0" Text="AVAILABLE STORAGE PROFILES" FontWeight="Bold" FontSize="11" Foreground="#6b7280" Margin="0,0,0,6" />
 
@@ -1075,7 +1098,7 @@
                     </Grid>
 
                     <!-- TAB 2 CONTENT: Spell Check & Custom Dictionary -->
-                    <Grid Grid.Row="2" RowDefinitions="Auto,Auto,*" IsVisible="{Binding ProfileDialogTabIndex}">
+                    <Grid Grid.Row="2" RowDefinitions="Auto,Auto,*" IsVisible="{Binding IsDictionaryTabActive}">
                         <!-- Spell Check Toggle Card -->
                         <Border Grid.Row="0" Background="#1f1f23" BorderBrush="#374151" BorderThickness="1" CornerRadius="6" Padding="14,12" Margin="0,0,0,14">
                             <Grid ColumnDefinitions="*,Auto">
@@ -1162,15 +1185,141 @@
                         </Border>
                     </Grid>
 
+                    <!-- TAB 3 CONTENT: Keyboard Shortcuts -->
+                    <Grid Grid.Row="2" RowDefinitions="Auto,*" IsVisible="{Binding IsShortcutsTabActive}">
+                        <TextBlock Grid.Row="0" Text="QUICKNOTE KEYBOARD SHORTCUTS" FontWeight="Bold" FontSize="11" Foreground="#6b7280" Margin="0,0,0,8" />
+
+                        <Border Grid.Row="1" Background="#18181b" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="6" Padding="14" MaxHeight="300" Margin="0,0,0,14">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <StackPanel Spacing="16">
+                                    <!-- Category: Navigation & Tabs -->
+                                    <StackPanel Spacing="6">
+                                        <TextBlock Text="Navigation &amp; Note Tabs" FontWeight="SemiBold" FontSize="12.5" Foreground="#60a5fa" />
+                                        <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto" ColumnDefinitions="*,Auto" Margin="4,0,0,0">
+                                            <TextBlock Grid.Row="0" Grid.Column="0" Text="New Note" Foreground="#e5e7eb" FontSize="12" VerticalAlignment="Center" Margin="0,3" />
+                                            <Border Grid.Row="0" Grid.Column="1" Background="#27272a" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" Margin="0,2">
+                                                <TextBlock Text="Ctrl + N" FontFamily="Cascadia Code, Consolas, monospace" FontSize="11" Foreground="#f3f4f6" />
+                                            </Border>
+
+                                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Close Current Tab" Foreground="#e5e7eb" FontSize="12" VerticalAlignment="Center" Margin="0,3" />
+                                            <Border Grid.Row="1" Grid.Column="1" Background="#27272a" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" Margin="0,2">
+                                                <TextBlock Text="Ctrl + W" FontFamily="Cascadia Code, Consolas, monospace" FontSize="11" Foreground="#f3f4f6" />
+                                            </Border>
+
+                                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Next Tab / Previous Tab" Foreground="#e5e7eb" FontSize="12" VerticalAlignment="Center" Margin="0,3" />
+                                            <Border Grid.Row="2" Grid.Column="1" Background="#27272a" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" Margin="0,2">
+                                                <TextBlock Text="Ctrl + Tab / Ctrl + Shift + Tab" FontFamily="Cascadia Code, Consolas, monospace" FontSize="11" Foreground="#f3f4f6" />
+                                            </Border>
+
+                                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Quick Jump / Search Notes" Foreground="#e5e7eb" FontSize="12" VerticalAlignment="Center" Margin="0,3" />
+                                            <Border Grid.Row="3" Grid.Column="1" Background="#27272a" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" Margin="0,2">
+                                                <TextBlock Text="Ctrl + P" FontFamily="Cascadia Code, Consolas, monospace" FontSize="11" Foreground="#f3f4f6" />
+                                            </Border>
+
+                                            <TextBlock Grid.Row="4" Grid.Column="0" Text="Open Settings &amp; Profiles" Foreground="#e5e7eb" FontSize="12" VerticalAlignment="Center" Margin="0,3" />
+                                            <Border Grid.Row="4" Grid.Column="1" Background="#27272a" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" Margin="0,2">
+                                                <TextBlock Text="Ctrl + ," FontFamily="Cascadia Code, Consolas, monospace" FontSize="11" Foreground="#f3f4f6" />
+                                            </Border>
+                                        </Grid>
+                                    </StackPanel>
+
+                                    <!-- Category: Find & Replace -->
+                                    <StackPanel Spacing="6">
+                                        <TextBlock Text="Find &amp; Replace" FontWeight="SemiBold" FontSize="12.5" Foreground="#34d399" />
+                                        <Grid RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="*,Auto" Margin="4,0,0,0">
+                                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Find in Current Note" Foreground="#e5e7eb" FontSize="12" VerticalAlignment="Center" Margin="0,3" />
+                                            <Border Grid.Row="0" Grid.Column="1" Background="#27272a" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" Margin="0,2">
+                                                <TextBlock Text="Ctrl + F" FontFamily="Cascadia Code, Consolas, monospace" FontSize="11" Foreground="#f3f4f6" />
+                                            </Border>
+
+                                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Find &amp; Replace (VS Code Style)" Foreground="#e5e7eb" FontSize="12" VerticalAlignment="Center" Margin="0,3" />
+                                            <Border Grid.Row="1" Grid.Column="1" Background="#27272a" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" Margin="0,2">
+                                                <TextBlock Text="Ctrl + Shift + F" FontFamily="Cascadia Code, Consolas, monospace" FontSize="11" Foreground="#f3f4f6" />
+                                            </Border>
+
+                                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Next / Previous Search Match" Foreground="#e5e7eb" FontSize="12" VerticalAlignment="Center" Margin="0,3" />
+                                            <Border Grid.Row="2" Grid.Column="1" Background="#27272a" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" Margin="0,2">
+                                                <TextBlock Text="Enter / Shift + Enter" FontFamily="Cascadia Code, Consolas, monospace" FontSize="11" Foreground="#f3f4f6" />
+                                            </Border>
+
+                                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Close Search Bar" Foreground="#e5e7eb" FontSize="12" VerticalAlignment="Center" Margin="0,3" />
+                                            <Border Grid.Row="3" Grid.Column="1" Background="#27272a" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" Margin="0,2">
+                                                <TextBlock Text="Escape" FontFamily="Cascadia Code, Consolas, monospace" FontSize="11" Foreground="#f3f4f6" />
+                                            </Border>
+                                        </Grid>
+                                    </StackPanel>
+
+                                    <!-- Category: Editor Formatting -->
+                                    <StackPanel Spacing="6">
+                                        <TextBlock Text="Editor Formatting" FontWeight="SemiBold" FontSize="12.5" Foreground="#f59e0b" />
+                                        <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" ColumnDefinitions="*,Auto" Margin="4,0,0,0">
+                                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Bold" Foreground="#e5e7eb" FontSize="12" VerticalAlignment="Center" Margin="0,3" />
+                                            <Border Grid.Row="0" Grid.Column="1" Background="#27272a" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" Margin="0,2">
+                                                <TextBlock Text="Ctrl + B" FontFamily="Cascadia Code, Consolas, monospace" FontSize="11" Foreground="#f3f4f6" />
+                                            </Border>
+
+                                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Italic" Foreground="#e5e7eb" FontSize="12" VerticalAlignment="Center" Margin="0,3" />
+                                            <Border Grid.Row="1" Grid.Column="1" Background="#27272a" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" Margin="0,2">
+                                                <TextBlock Text="Ctrl + I" FontFamily="Cascadia Code, Consolas, monospace" FontSize="11" Foreground="#f3f4f6" />
+                                            </Border>
+
+                                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Insert / Edit Link" Foreground="#e5e7eb" FontSize="12" VerticalAlignment="Center" Margin="0,3" />
+                                            <Border Grid.Row="2" Grid.Column="1" Background="#27272a" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" Margin="0,2">
+                                                <TextBlock Text="Ctrl + K" FontFamily="Cascadia Code, Consolas, monospace" FontSize="11" Foreground="#f3f4f6" />
+                                            </Border>
+
+                                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Undo / Redo" Foreground="#e5e7eb" FontSize="12" VerticalAlignment="Center" Margin="0,3" />
+                                            <Border Grid.Row="3" Grid.Column="1" Background="#27272a" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" Margin="0,2">
+                                                <TextBlock Text="Ctrl + Z / Ctrl + Y" FontFamily="Cascadia Code, Consolas, monospace" FontSize="11" Foreground="#f3f4f6" />
+                                            </Border>
+
+                                            <TextBlock Grid.Row="4" Grid.Column="0" Text="Slash Command Palette (Headings, Tables, Lists, Code)" Foreground="#e5e7eb" FontSize="12" VerticalAlignment="Center" Margin="0,3" />
+                                            <Border Grid.Row="4" Grid.Column="1" Background="#27272a" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" Margin="0,2">
+                                                <TextBlock Text="/" FontFamily="Cascadia Code, Consolas, monospace" FontSize="11" Foreground="#f3f4f6" />
+                                            </Border>
+
+                                            <TextBlock Grid.Row="5" Grid.Column="0" Text="Inline Code" Foreground="#e5e7eb" FontSize="12" VerticalAlignment="Center" Margin="0,3" />
+                                            <Border Grid.Row="5" Grid.Column="1" Background="#27272a" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" Margin="0,2">
+                                                <TextBlock Text="`code`" FontFamily="Cascadia Code, Consolas, monospace" FontSize="11" Foreground="#f3f4f6" />
+                                            </Border>
+                                        </Grid>
+                                    </StackPanel>
+
+                                    <!-- Category: Tables & Headings -->
+                                    <StackPanel Spacing="6">
+                                        <TextBlock Text="Tables &amp; Headings" FontWeight="SemiBold" FontSize="12.5" Foreground="#a855f7" />
+                                        <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="*,Auto" Margin="4,0,0,0">
+                                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Next Table Cell (Add New Row at end)" Foreground="#e5e7eb" FontSize="12" VerticalAlignment="Center" Margin="0,3" />
+                                            <Border Grid.Row="0" Grid.Column="1" Background="#27272a" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" Margin="0,2">
+                                                <TextBlock Text="Tab" FontFamily="Cascadia Code, Consolas, monospace" FontSize="11" Foreground="#f3f4f6" />
+                                            </Border>
+
+                                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Previous Table Cell" Foreground="#e5e7eb" FontSize="12" VerticalAlignment="Center" Margin="0,3" />
+                                            <Border Grid.Row="1" Grid.Column="1" Background="#27272a" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" Margin="0,2">
+                                                <TextBlock Text="Shift + Tab" FontFamily="Cascadia Code, Consolas, monospace" FontSize="11" Foreground="#f3f4f6" />
+                                            </Border>
+
+                                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Collapse / Expand Heading Section" Foreground="#e5e7eb" FontSize="12" VerticalAlignment="Center" Margin="0,3" />
+                                            <Border Grid.Row="2" Grid.Column="1" Background="#27272a" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" Margin="0,2">
+                                                <TextBlock Text="Click ▾ / ▸ on Heading" FontFamily="Cascadia Code, Consolas, monospace" FontSize="11" Foreground="#f3f4f6" />
+                                            </Border>
+                                        </Grid>
+                                    </StackPanel>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Border>
+                    </Grid>
+
                     <!-- Action Buttons -->
                     <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
                         <Button Content="Cancel" Command="{Binding CancelProfileDialogCommand}"
+                                IsVisible="{Binding IsProfileTabActive}"
                                 Background="Transparent" Foreground="#9ca3af" BorderThickness="0" Padding="14,7" Cursor="Hand" />
                         <Button Content="Switch Profile" Command="{Binding ConfirmProfileSwitchCommand}"
-                                IsVisible="{Binding !ProfileDialogTabIndex}"
+                                IsVisible="{Binding IsProfileTabActive}"
                                 Background="#2563eb" Foreground="White" BorderThickness="0" CornerRadius="5" Padding="18,7" FontWeight="SemiBold" Cursor="Hand" />
-                        <Button Content="Done" Command="{Binding CancelProfileDialogCommand}"
-                                IsVisible="{Binding ProfileDialogTabIndex}"
+                        <Button Content="Close" Command="{Binding CancelProfileDialogCommand}"
+                                IsVisible="{Binding !IsProfileTabActive}"
                                 Background="#2563eb" Foreground="White" BorderThickness="0" CornerRadius="5" Padding="18,7" FontWeight="SemiBold" Cursor="Hand" />
                     </StackPanel>
                 </Grid>

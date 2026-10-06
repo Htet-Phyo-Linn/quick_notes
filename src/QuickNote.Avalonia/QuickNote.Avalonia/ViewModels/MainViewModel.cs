@@ -110,10 +110,20 @@ namespace QuickNote.Avalonia.ViewModels
 
         public bool IsNotionEditorActive => IsNotionMode && !IsRenameDialogVisible && !IsMoveDialogVisible && !IsProfileDialogVisible;
 
+        public bool IsProfileTabActive => ProfileDialogTabIndex == 0;
+        public bool IsDictionaryTabActive => ProfileDialogTabIndex == 1;
+        public bool IsShortcutsTabActive => ProfileDialogTabIndex == 2;
+
         partial void OnIsNotionModeChanged(bool value) => OnPropertyChanged(nameof(IsNotionEditorActive));
         partial void OnIsRenameDialogVisibleChanged(bool value) => OnPropertyChanged(nameof(IsNotionEditorActive));
         partial void OnIsMoveDialogVisibleChanged(bool value) => OnPropertyChanged(nameof(IsNotionEditorActive));
         partial void OnIsProfileDialogVisibleChanged(bool value) => OnPropertyChanged(nameof(IsNotionEditorActive));
+        partial void OnProfileDialogTabIndexChanged(int value)
+        {
+            OnPropertyChanged(nameof(IsProfileTabActive));
+            OnPropertyChanged(nameof(IsDictionaryTabActive));
+            OnPropertyChanged(nameof(IsShortcutsTabActive));
+        }
 
         public string CurrentModeDisplayName
         {
@@ -172,6 +182,7 @@ namespace QuickNote.Avalonia.ViewModels
 
         [RelayCommand] public void ShowProfileTab() => ProfileDialogTabIndex = 0;
         [RelayCommand] public void ShowDictionaryTab() => ProfileDialogTabIndex = 1;
+        [RelayCommand] public void ShowShortcutsTab() => ProfileDialogTabIndex = 2;
 
         // ── Constructor ───────────────────────────────────────────────
         public MainViewModel(

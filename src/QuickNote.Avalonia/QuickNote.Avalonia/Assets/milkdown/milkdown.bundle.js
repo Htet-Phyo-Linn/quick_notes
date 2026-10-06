@@ -77341,7 +77341,7 @@
   }
   function findSelectionIn(doc6, node2, pos, index2, dir, text11 = false) {
     if (node2.inlineContent)
-      return TextSelection.create(doc6, pos);
+      return TextSelection2.create(doc6, pos);
     for (let i4 = index2 - (dir > 0 ? 0 : 1); dir > 0 ? i4 < node2.childCount : i4 >= 0; i4 += dir) {
       let child = node2.child(i4);
       if (!child.isAtom) {
@@ -77389,7 +77389,7 @@
     keys2[name2] = 0;
     return name2 + "$";
   }
-  var classesById, Selection, SelectionRange2, warnedAboutTextSelection, TextSelection, TextBookmark, NodeSelection, NodeBookmark, AllSelection, AllBookmark, UPDATED_SEL, UPDATED_MARKS, UPDATED_SCROLL, Transaction2, FieldDesc, baseFields, Configuration2, EditorState2, Plugin, keys2, PluginKey;
+  var classesById, Selection, SelectionRange2, warnedAboutTextSelection, TextSelection2, TextBookmark, NodeSelection, NodeBookmark, AllSelection, AllBookmark, UPDATED_SEL, UPDATED_MARKS, UPDATED_SCROLL, Transaction2, FieldDesc, baseFields, Configuration2, EditorState2, Plugin, keys2, PluginKey;
   var init_dist48 = __esm({
     "node_modules/prosemirror-state/dist/index.js"() {
       init_dist46();
@@ -77501,7 +77501,7 @@
         found.
         */
         static findFrom($pos, dir, textOnly = false) {
-          let inner2 = $pos.parent.inlineContent ? new TextSelection($pos) : findSelectionIn($pos.node(0), $pos.parent, $pos.pos, $pos.index(), dir, textOnly);
+          let inner2 = $pos.parent.inlineContent ? new TextSelection2($pos) : findSelectionIn($pos.node(0), $pos.parent, $pos.pos, $pos.index(), dir, textOnly);
           if (inner2)
             return inner2;
           for (let depth = $pos.depth - 1; depth >= 0; depth--) {
@@ -77570,7 +77570,7 @@
         returns the bookmark for that.
         */
         getBookmark() {
-          return TextSelection.between(this.$anchor, this.$head).getBookmark();
+          return TextSelection2.between(this.$anchor, this.$head).getBookmark();
         }
       };
       Selection.prototype.visible = true;
@@ -77584,7 +77584,7 @@
         }
       };
       warnedAboutTextSelection = false;
-      TextSelection = class _TextSelection extends Selection {
+      TextSelection2 = class _TextSelection extends Selection {
         /**
         Construct a text selection between the given points.
         */
@@ -77670,7 +77670,7 @@
           return new _TextSelection($anchor, $head);
         }
       };
-      Selection.jsonID("text", TextSelection);
+      Selection.jsonID("text", TextSelection2);
       TextBookmark = class _TextBookmark {
         constructor(anchor, head) {
           this.anchor = anchor;
@@ -77680,7 +77680,7 @@
           return new _TextBookmark(mapping.map(this.anchor), mapping.map(this.head));
         }
         resolve(doc6) {
-          return TextSelection.between(doc6.resolve(this.anchor), doc6.resolve(this.head));
+          return TextSelection2.between(doc6.resolve(this.anchor), doc6.resolve(this.head));
         }
       };
       NodeSelection = class _NodeSelection extends Selection {
@@ -78296,7 +78296,7 @@
       return false;
     if (dispatch) {
       let tr = state.tr.step(step);
-      tr.setSelection(TextSelection.create(tr.doc, beforePos));
+      tr.setSelection(TextSelection2.create(tr.doc, beforePos));
       dispatch(tr.scrollIntoView());
     }
     return true;
@@ -78358,7 +78358,7 @@
       if (!state.selection.$from.depth)
         return false;
       let tr = state.tr;
-      if (!state.selection.empty && (state.selection instanceof TextSelection || state.selection instanceof AllSelection))
+      if (!state.selection.empty && (state.selection instanceof TextSelection2 || state.selection instanceof AllSelection))
         tr.deleteSelection();
       let { $from } = tr.selection, mapFrom = tr.steps.length;
       let types8 = [];
@@ -78477,7 +78477,7 @@
       if (!$pos.node(depth).isTextblock)
         return false;
       if (dispatch)
-        dispatch(state.tr.setSelection(TextSelection.create(state.doc, side < 0 ? $pos.start(depth) : $pos.end(depth))));
+        dispatch(state.tr.setSelection(TextSelection2.create(state.doc, side < 0 ? $pos.start(depth) : $pos.end(depth))));
       return true;
     };
   }
@@ -78773,7 +78773,7 @@
         if (dispatch) {
           let side = (!$from.parentOffset && $to.index() < $to.parent.childCount ? $from : $to).pos;
           let tr = state.tr.insert(side, type7.createAndFill());
-          tr.setSelection(TextSelection.create(tr.doc, side + 1));
+          tr.setSelection(TextSelection2.create(tr.doc, side + 1));
           dispatch(tr.scrollIntoView());
         }
         return true;
@@ -80749,7 +80749,7 @@
       selectCursorWrapper(view);
     } else {
       let { anchor, head } = sel, resetEditableFrom, resetEditableTo;
-      if (brokenSelectBetweenUneditable && !(sel instanceof TextSelection)) {
+      if (brokenSelectBetweenUneditable && !(sel instanceof TextSelection2)) {
         if (!sel.$from.parent.inlineContent)
           resetEditableFrom = temporarilyEditableNear(view, sel.from);
         if (!sel.empty && !sel.$from.parent.inlineContent)
@@ -80851,7 +80851,7 @@
     }
   }
   function selectionBetween(view, $anchor, $head, bias) {
-    return view.someProp("createSelectionBetween", (f) => f(view, $anchor, $head)) || TextSelection.between($anchor, $head, bias);
+    return view.someProp("createSelectionBetween", (f) => f(view, $anchor, $head)) || TextSelection2.between($anchor, $head, bias);
   }
   function hasFocusAndSelection(view) {
     if (view.editable && !view.hasFocus())
@@ -80885,13 +80885,13 @@
   }
   function selectHorizontally(view, dir, mods) {
     let sel = view.state.selection;
-    if (sel instanceof TextSelection) {
+    if (sel instanceof TextSelection2) {
       if (mods.indexOf("s") > -1) {
         let { $head } = sel, node2 = $head.textOffset ? null : dir < 0 ? $head.nodeBefore : $head.nodeAfter;
         if (!node2 || node2.isText || !node2.isLeaf)
           return false;
         let $newHead = view.state.doc.resolve($head.pos + node2.nodeSize * (dir < 0 ? -1 : 1));
-        return apply2(view, new TextSelection(sel.$anchor, $newHead));
+        return apply2(view, new TextSelection2(sel.$anchor, $newHead));
       } else if (!sel.empty) {
         return false;
       } else if (view.endOfTextblock(dir > 0 ? "forward" : "backward")) {
@@ -80909,13 +80909,13 @@
         if (NodeSelection.isSelectable(node2)) {
           return apply2(view, new NodeSelection(dir < 0 ? view.state.doc.resolve($head.pos - node2.nodeSize) : $head));
         } else if (webkit3) {
-          return apply2(view, new TextSelection(view.state.doc.resolve(dir < 0 ? nodePos : nodePos + node2.nodeSize)));
+          return apply2(view, new TextSelection2(view.state.doc.resolve(dir < 0 ? nodePos : nodePos + node2.nodeSize)));
         } else {
           return false;
         }
       }
     } else if (sel instanceof NodeSelection && sel.node.isInline) {
-      return apply2(view, new TextSelection(dir > 0 ? sel.$to : sel.$from));
+      return apply2(view, new TextSelection2(dir > 0 ? sel.$to : sel.$from));
     } else {
       let next2 = moveSelectionBlock(view.state, dir);
       if (next2)
@@ -81108,7 +81108,7 @@
   }
   function selectVertically(view, dir, mods) {
     let sel = view.state.selection;
-    if (sel instanceof TextSelection && !sel.empty || mods.indexOf("s") > -1)
+    if (sel instanceof TextSelection2 && !sel.empty || mods.indexOf("s") > -1)
       return false;
     if (mac5 && mods.indexOf("m") > -1)
       return false;
@@ -81126,7 +81126,7 @@
     return false;
   }
   function stopNativeHorizontalDelete(view, dir) {
-    if (!(view.state.selection instanceof TextSelection))
+    if (!(view.state.selection instanceof TextSelection2))
       return true;
     let { $head, $anchor, empty: empty4 } = view.state.selection;
     if (!$head.sameParent($anchor))
@@ -81579,20 +81579,20 @@
     if (!selection2)
       return false;
     updateSelection(view, selection2, "pointer");
-    if (selection2 instanceof TextSelection && doc6.eq(view.state.doc))
+    if (selection2 instanceof TextSelection2 && doc6.eq(view.state.doc))
       view.input.mouseDown = new TripleClickDrag(view, selection2);
     return true;
   }
   function selectionForTripleClick(view, inside, selectNodes) {
     let doc6 = view.state.doc;
     if (inside == -1)
-      return doc6.inlineContent ? TextSelection.create(doc6, 0, doc6.content.size) : null;
+      return doc6.inlineContent ? TextSelection2.create(doc6, 0, doc6.content.size) : null;
     let $pos = doc6.resolve(inside);
     for (let i4 = $pos.depth + 1; i4 > 0; i4--) {
       let node2 = i4 > $pos.depth ? $pos.nodeAfter : $pos.node(i4);
       let nodePos = $pos.before(i4);
       if (node2.inlineContent)
-        return TextSelection.create(doc6, nodePos + 1, nodePos + 1 + node2.content.size);
+        return TextSelection2.create(doc6, nodePos + 1, nodePos + 1 + node2.content.size);
       else if (selectNodes && NodeSelection.isSelectable(node2))
         return NodeSelection.create(doc6, nodePos);
     }
@@ -82137,7 +82137,7 @@
       return;
     }
     if (!change) {
-      if (typeOver && sel instanceof TextSelection && !sel.empty && sel.$head.sameParent(sel.$anchor) && !view.composing && !(parse2.sel && parse2.sel.anchor != parse2.sel.head)) {
+      if (typeOver && sel instanceof TextSelection2 && !sel.empty && sel.$head.sameParent(sel.$anchor) && !view.composing && !(parse2.sel && parse2.sel.anchor != parse2.sel.head)) {
         change = { start: sel.from, endA: sel.to, endB: sel.to };
       } else {
         if (parse2.sel) {
@@ -82152,7 +82152,7 @@
         return;
       }
     }
-    if (view.state.selection.from < view.state.selection.to && change.start == change.endB && view.state.selection instanceof TextSelection) {
+    if (view.state.selection.from < view.state.selection.to && change.start == change.endB && view.state.selection instanceof TextSelection2) {
       if (change.start > view.state.selection.from && change.start <= view.state.selection.from + 2 && view.state.selection.from >= parse2.from) {
         change.start = view.state.selection.from;
       } else if (change.endA < view.state.selection.to && change.endA >= view.state.selection.to - 2 && view.state.selection.to <= parse2.to) {
@@ -83099,7 +83099,7 @@
         }
         localCompositionInfo(view, pos) {
           let { from: from4, to } = view.state.selection;
-          if (!(view.state.selection instanceof TextSelection) || from4 < pos || to > pos + this.node.content.size)
+          if (!(view.state.selection instanceof TextSelection2) || from4 < pos || to > pos + this.node.content.size)
             return null;
           let textNode = view.input.compositionNode;
           if (!textNode || !this.dom.contains(textNode.parentNode))
@@ -83608,7 +83608,7 @@
           return;
         }
         let sel = view.state.selection;
-        if (!(sel instanceof TextSelection) || !sel.$from.sameParent(sel.$to)) {
+        if (!(sel instanceof TextSelection2) || !sel.$from.sameParent(sel.$to)) {
           let text11 = String.fromCharCode(event.charCode);
           let deflt = () => view.state.tr.insertText(text11).scrollIntoView();
           if (!/[\r\n]/.test(text11) && !view.someProp("handleTextInput", (f) => f(view, sel.$from.pos, sel.$to.pos, text11, deflt)))
@@ -83787,7 +83787,7 @@
             return;
           let { doc: doc6 } = this.view.state, start2 = this.startSelection;
           let [anchor, head] = target.from < start2.from ? [start2.to, target.from] : [start2.from, target.to];
-          updateSelection(this.view, TextSelection.create(doc6, anchor, head), "pointer");
+          updateSelection(this.view, TextSelection2.create(doc6, anchor, head), "pointer");
         }
       };
       handlers2.touchstart = (view) => {
@@ -83805,7 +83805,7 @@
         if (!view.composing) {
           view.domObserver.flush();
           let { state } = view, $pos = state.selection.$to;
-          if (state.selection instanceof TextSelection && state.selection.empty && (state.storedMarks || !$pos.textOffset && $pos.parentOffset && $pos.nodeBefore.marks.some((m) => m.type.spec.inclusive === false) || chrome3 && windows3 && selectionBeforeUneditable(view))) {
+          if (state.selection instanceof TextSelection2 && state.selection.empty && (state.storedMarks || !$pos.textOffset && $pos.parentOffset && $pos.nodeBefore.marks.some((m) => m.type.spec.inclusive === false) || chrome3 && windows3 && selectionBeforeUneditable(view))) {
             view.markCursor = view.state.storedMarks || $pos.marks();
             endComposition(view, true);
             view.markCursor = null;
@@ -91646,7 +91646,7 @@
           this.#_shouldShow = (view) => {
             const { doc: doc6, selection: selection2 } = view.state;
             const { empty: empty4, from: from4, to } = selection2;
-            const isEmptyTextBlock = !doc6.textBetween(from4, to).length && view.state.selection instanceof TextSelection;
+            const isEmptyTextBlock = !doc6.textBetween(from4, to).length && view.state.selection instanceof TextSelection2;
             const isTooltipChildren = this.element.contains(document.activeElement);
             const notHasFocus = !view.hasFocus() && !isTooltipChildren;
             const isReadonly2 = !view.editable;
@@ -100707,7 +100707,7 @@ Expected function or array of functions, received type ${typeof value}.`
   function liftFirstListItem(ctx) {
     return (state, dispatch, view) => {
       const { selection: selection2 } = state;
-      if (!(selection2 instanceof TextSelection)) return false;
+      if (!(selection2 instanceof TextSelection2)) return false;
       const { empty: empty4, $from } = selection2;
       if (!empty4 || $from.parentOffset !== 0) return false;
       if ($from.node(-1).type !== listItemSchema.type(ctx)) return false;
@@ -101094,7 +101094,7 @@ Expected function or array of functions, received type ${typeof value}.`
           ...payload
         });
         if (!linkMark) return false;
-        dispatch(tr.removeMark(start2, end2, mark).addMark(start2, end2, linkMark).setSelection(new TextSelection(tr.selection.$anchor)).scrollIntoView());
+        dispatch(tr.removeMark(start2, end2, mark).addMark(start2, end2, linkMark).setSelection(new TextSelection2(tr.selection.$anchor)).scrollIntoView());
         return true;
       });
       withMeta6(updateLinkCommand, {
@@ -101740,7 +101740,7 @@ Expected function or array of functions, received type ${typeof value}.`
       });
       insertHardbreakCommand = $command("InsertHardbreak", (ctx) => () => (state, dispatch) => {
         const { selection: selection2, tr } = state;
-        if (!(selection2 instanceof TextSelection)) return false;
+        if (!(selection2 instanceof TextSelection2)) return false;
         if (selection2.empty) {
           const node2 = selection2.$from.node();
           if (node2.childCount > 0 && node2.lastChild?.type.name === "hardbreak") {
@@ -102328,7 +102328,7 @@ Expected function or array of functions, received type ${typeof value}.`
         const tr = state.tr;
         try {
           const $pos = state.doc.resolve(clamp2(pos, 0, state.doc.content.size));
-          tr.setSelection(TextSelection.near($pos));
+          tr.setSelection(TextSelection2.near($pos));
         } catch {
           return false;
         }
@@ -102834,7 +102834,7 @@ Expected function or array of functions, received type ${typeof value}.`
           this.getContent = (view, matchNode = (node2) => node2.type.name === "paragraph") => {
             const { selection: selection2 } = view.state;
             const { empty: empty4, $from } = selection2;
-            const isTextBlock = view.state.selection instanceof TextSelection;
+            const isTextBlock = view.state.selection instanceof TextSelection2;
             if (typeof document === "undefined") return;
             const isSlashChildren = this.element.contains(document.activeElement);
             const notHasFocus = !view.hasFocus() && !isSlashChildren;
@@ -103902,8 +103902,8 @@ Expected function or array of functions, received type ${typeof value}.`
         const lastCell = start2 + map6.map[map6.width * map6.height - 1];
         normalize3 = CellSelection.create(doc6, start2 + 1, lastCell);
       }
-    } else if (sel instanceof TextSelection && isCellBoundarySelection(sel)) normalize3 = TextSelection.create(doc6, sel.from);
-    else if (sel instanceof TextSelection && isTextSelectionAcrossCells(sel)) normalize3 = TextSelection.create(doc6, sel.$from.start(), sel.$from.end());
+    } else if (sel instanceof TextSelection2 && isCellBoundarySelection(sel)) normalize3 = TextSelection2.create(doc6, sel.from);
+    else if (sel instanceof TextSelection2 && isTextSelectionAcrossCells(sel)) normalize3 = TextSelection2.create(doc6, sel.$from.start(), sel.$from.end());
     if (normalize3) (tr || (tr = state.tr)).setSelection(normalize3);
     return tr;
   }
@@ -104549,7 +104549,7 @@ Expected function or array of functions, received type ${typeof value}.`
       if (cell == null) return false;
       if (dispatch) {
         const $cell = state.doc.resolve(cell);
-        dispatch(state.tr.setSelection(TextSelection.between($cell, moveCellForward($cell))).scrollIntoView());
+        dispatch(state.tr.setSelection(TextSelection2.between($cell, moveCellForward($cell))).scrollIntoView());
       }
       return true;
     };
@@ -104912,7 +104912,7 @@ Expected function or array of functions, received type ${typeof value}.`
     view.root.addEventListener("mousemove", move);
   }
   function atEndOfCell(view, axis, dir) {
-    if (!(view.state.selection instanceof TextSelection)) return null;
+    if (!(view.state.selection instanceof TextSelection2)) return null;
     const { $head } = view.state.selection;
     for (let d3 = $head.depth - 1; d3 >= 0; d3--) {
       const parent = $head.node(d3);
@@ -105342,7 +105342,7 @@ Expected function or array of functions, received type ${typeof value}.`
             else if (tableChanged && this.isColSelection()) return CellSelection2.colSelection($anchorCell, $headCell);
             else return new CellSelection2($anchorCell, $headCell);
           }
-          return TextSelection.between($anchorCell, $headCell);
+          return TextSelection2.between($anchorCell, $headCell);
         }
         content() {
           const table2 = this.$anchorCell.node(-1);
@@ -108496,7 +108496,7 @@ Expected function or array of functions, received type ${typeof value}.`
         if (!$start.node(-1).canReplaceWith($start.index(-1), $start.indexAfter(-1), tableSchema.type(ctx))) return null;
         const tableNode = createTable(ctx, Math.max(Number(match2.groups?.row ?? 0), 2), Number(match2.groups?.col));
         const tr = state.tr.replaceRangeWith(start2, end2, tableNode);
-        return tr.setSelection(TextSelection.create(tr.doc, start2 + 3)).scrollIntoView();
+        return tr.setSelection(TextSelection2.create(tr.doc, start2 + 3)).scrollIntoView();
       }));
       withMeta8(insertTableInputRule, {
         displayName: "InputRule<insertTableInputRule>",
@@ -111251,7 +111251,7 @@ Expected function or array of functions, received type ${typeof value}.`
                 else tr.delete(offset3 + fromA, offset3 + toA);
                 offset3 += toB - fromB - (toA - fromA);
               });
-              tr.setSelection(TextSelection.create(tr.doc, selFrom, selTo));
+              tr.setSelection(TextSelection2.create(tr.doc, selFrom, selTo));
               this.view.dispatch(tr);
             }
           };
@@ -111302,7 +111302,7 @@ Expected function or array of functions, received type ${typeof value}.`
                     pos + this.node.nodeSize,
                     state.schema.nodes.paragraph.createChecked({}, this.node.content)
                   );
-                  tr.setSelection(TextSelection.near(tr.doc.resolve(pos)));
+                  tr.setSelection(TextSelection2.near(tr.doc.resolve(pos)));
                   this.view.dispatch(tr);
                   this.view.focus();
                   return true;
@@ -111318,7 +111318,7 @@ Expected function or array of functions, received type ${typeof value}.`
             if (unit === "line") main2 = state.doc.lineAt(main2.head);
             if (dir < 0 ? main2.from > 0 : main2.to < state.doc.length) return false;
             const targetPos = ((_a3 = this.getPos()) != null ? _a3 : 0) + (dir < 0 ? 0 : this.node.nodeSize);
-            const selection2 = TextSelection.near(
+            const selection2 = TextSelection2.near(
               this.view.state.doc.resolve(targetPos),
               dir
             );
@@ -113450,7 +113450,7 @@ Expected function or array of functions, received type ${typeof value}.`
     });
   }
   function selectionBetween2(view, $anchor, $head, bias) {
-    return view.someProp("createSelectionBetween", (f) => f(view, $anchor, $head)) || TextSelection.between($anchor, $head, bias);
+    return view.someProp("createSelectionBetween", (f) => f(view, $anchor, $head)) || TextSelection2.between($anchor, $head, bias);
   }
   function createDropIndicatorView(view, getTarget, options) {
     const dom = view.dom;
@@ -113570,7 +113570,7 @@ Expected function or array of functions, received type ${typeof value}.`
     return function(state, dispatch, view) {
       let sel = state.selection;
       let $start = dir > 0 ? sel.$to : sel.$from, mustMove = sel.empty;
-      if (sel instanceof TextSelection) {
+      if (sel instanceof TextSelection2) {
         if (!view.endOfTextblock(dirStr) || $start.depth == 0)
           return false;
         mustMove = false;
@@ -113607,7 +113607,7 @@ Expected function or array of functions, received type ${typeof value}.`
     for (let i4 = insert2.length - 1; i4 >= 0; i4--)
       frag = Fragment.from(insert2[i4].createAndFill(null, frag));
     let tr = view.state.tr.replace($from.pos, $from.pos, new Slice2(frag, 0, 0));
-    tr.setSelection(TextSelection.near(tr.doc.resolve($from.pos + 1)));
+    tr.setSelection(TextSelection2.near(tr.doc.resolve($from.pos + 1)));
     view.dispatch(tr);
     return false;
   }
@@ -113916,13 +113916,13 @@ Expected function or array of functions, received type ${typeof value}.`
           }
           if (event.key === "ArrowLeft" && $pos.textOffset === 1) {
             view.dispatch(
-              view.state.tr.setSelection(TextSelection.create(view.state.doc, $pos.pos - 1)).setStoredMarks($pos.marks())
+              view.state.tr.setSelection(TextSelection2.create(view.state.doc, $pos.pos - 1)).setStoredMarks($pos.marks())
             );
             return true;
           }
           if (event.key === "ArrowRight" && $pos.textOffset + 1 === ((_a22 = $pos.parent.maybeChild($pos.index())) == null ? void 0 : _a22.nodeSize)) {
             view.dispatch(
-              view.state.tr.setSelection(TextSelection.create(view.state.doc, $pos.pos + 1)).setStoredMarks($pos.marks())
+              view.state.tr.setSelection(TextSelection2.create(view.state.doc, $pos.pos + 1)).setStoredMarks($pos.marks())
             );
             return true;
           }
@@ -129512,7 +129512,7 @@ Expected function or array of functions, received type ${typeof value}.`
             }));
             const view2 = this.ctx.get(editorViewCtx);
             view2.dispatch(
-              view2.state.tr.setSelection(TextSelection.create(view2.state.doc, from4, to))
+              view2.state.tr.setSelection(TextSelection2.create(view2.state.doc, from4, to))
             );
             __privateGet$1(this, _provider$1).show(
               { getBoundingClientRect: () => posToDOMRect(view2, from4, to) },
@@ -129527,7 +129527,7 @@ Expected function or array of functions, received type ${typeof value}.`
           this.update = (view2) => {
             const { state } = view2;
             const { selection: selection2 } = state;
-            if (!(selection2 instanceof TextSelection)) return;
+            if (!(selection2 instanceof TextSelection2)) return;
             const { from: from4, to } = selection2;
             if (from4 === __privateGet$1(this, _data).from && to === __privateGet$1(this, _data).to) return;
             __privateGet$1(this, _reset).call(this);
@@ -130035,7 +130035,7 @@ Expected function or array of functions, received type ${typeof value}.`
                 if (anchor > docSize || head > docSize) return;
                 const anchorPos = state.doc.resolve(anchor);
                 const headPos = state.doc.resolve(head);
-                const selection2 = TextSelection.between(anchorPos, headPos);
+                const selection2 = TextSelection2.between(anchorPos, headPos);
                 view.dispatch(state.tr.setSelection(selection2));
               });
             };
@@ -131167,7 +131167,7 @@ Expected function or array of functions, received type ${typeof value}.`
           (node22) => node22.type.name === "table_cell" || node22.type.name === "table_header"
         )($pos);
         if (!node2) return false;
-        if (state.selection instanceof TextSelection) {
+        if (state.selection instanceof TextSelection2) {
           const currentNode = findParent(
             (node22) => node22.type.name === "table_cell" || node22.type.name === "table_header"
           )(state.selection.$from);
@@ -131281,7 +131281,7 @@ Expected function or array of functions, received type ${typeof value}.`
                 if (text11 && language2) {
                   const { tr } = view.state;
                   const codeBlock = getNodeFromSchema("code_block", schema4);
-                  tr.replaceSelectionWith(codeBlock.create({ language: language2 })).setSelection(TextSelection.near(tr.doc.resolve(Math.max(0, tr.selection.from - 2)))).insertText(text11.replace(/\r\n?/g, "\n"));
+                  tr.replaceSelectionWith(codeBlock.create({ language: language2 })).setSelection(TextSelection2.near(tr.doc.resolve(Math.max(0, tr.selection.from - 2)))).insertText(text11.replace(/\r\n?/g, "\n"));
                   view.dispatch(tr);
                   return true;
                 }
@@ -131385,7 +131385,7 @@ Expected function or array of functions, received type ${typeof value}.`
   function updateIndent(tr, options) {
     const { doc: doc6, selection: selection2 } = tr;
     if (!doc6 || !selection2) return tr;
-    if (!(selection2 instanceof TextSelection || selection2 instanceof AllSelection)) return tr;
+    if (!(selection2 instanceof TextSelection2 || selection2 instanceof AllSelection)) return tr;
     const { to } = selection2;
     const text11 = options.type === "space" ? Array(options.size).fill(" ").join("") : "	";
     return tr.insertText(text11, to);
@@ -132465,7 +132465,7 @@ Expected function or array of functions, received type ${typeof value}.`
     });
   }
   function isSelectionAtEndOfNode(selection2) {
-    if (!(selection2 instanceof TextSelection)) return false;
+    if (!(selection2 instanceof TextSelection2)) return false;
     const { $head } = selection2;
     const parent = $head.parent;
     const offset3 = $head.parentOffset;
@@ -132769,7 +132769,7 @@ Expected function or array of functions, received type ${typeof value}.`
     if (state.storedMarks) {
       return state.storedMarks.some((m) => m.type === markType);
     }
-    if (state.selection instanceof TextSelection) {
+    if (state.selection instanceof TextSelection2) {
       const { $cursor } = state.selection;
       if ($cursor) {
         return $cursor.marks().some((m) => m.type === markType);
@@ -134025,7 +134025,7 @@ Expected function or array of functions, received type ${typeof value}.`
             const to = Math.min(Math.max(session.lastTo, 0), doc6.content.size);
             editorView2.dispatch(
               editorView2.state.tr.setSelection(
-                TextSelection.create(editorView2.state.doc, from4, to)
+                TextSelection2.create(editorView2.state.doc, from4, to)
               )
             );
             commands4.call(runAICmd.key, {
@@ -134526,7 +134526,7 @@ Expected function or array of functions, received type ${typeof value}.`
           };
           this.update = (view2, prevState) => {
             const { selection: selection2 } = view2.state;
-            const isTextSelection2 = selection2 instanceof TextSelection;
+            const isTextSelection2 = selection2 instanceof TextSelection2;
             const movedRange = selection2.from !== __privateGet$8(this, _from) || selection2.to !== __privateGet$8(this, _to);
             if (!isTextSelection2 || movedRange) {
               __privateSet$8(this, _wantsShow, false);
@@ -135126,7 +135126,7 @@ Expected function or array of functions, received type ${typeof value}.`
             const $pos = active.$pos;
             const pos = $pos.pos + active.node.nodeSize;
             let tr = state.tr.insert(pos, paragraphSchema.type(ctx2).create());
-            tr = tr.setSelection(TextSelection.near(tr.doc.resolve(pos)));
+            tr = tr.setSelection(TextSelection2.near(tr.doc.resolve(pos)));
             dispatch(tr.scrollIntoView());
             __privateGet$4(this, _provider$12).hide();
             ctx2.get(menuAPI.key).show(tr.selection.from);
@@ -135370,7 +135370,7 @@ Expected function or array of functions, received type ${typeof value}.`
           if (dispatch) {
             dispatch(
               _tr.setSelection(
-                TextSelection.create(_tr.doc, from4, to + content5.length - 1)
+                TextSelection2.create(_tr.doc, from4, to + content5.length - 1)
               )
             );
           }
@@ -135797,8 +135797,8 @@ Expected function or array of functions, received type ${typeof value}.`
             shouldShow(view2) {
               const { doc: doc6, selection: selection2 } = view2.state;
               const { empty: empty4, from: from4, to } = selection2;
-              const isEmptyTextBlock = !doc6.textBetween(from4, to).length && selection2 instanceof TextSelection;
-              const isNotTextBlock = !(selection2 instanceof TextSelection);
+              const isEmptyTextBlock = !doc6.textBetween(from4, to).length && selection2 instanceof TextSelection2;
+              const isNotTextBlock = !(selection2 instanceof TextSelection2);
               const activeElement = view2.dom.getRootNode().activeElement;
               const isTooltipChildren = content5.contains(activeElement);
               const notHasFocus = !view2.hasFocus() && !isTooltipChildren;
@@ -137340,24 +137340,69 @@ Expected function or array of functions, received type ${typeof value}.`
           return tr.docChanged ? tr : null;
         }
       }));
+      var headingFoldPluginKey = new PluginKey("headingFoldPlugin");
+      function unfoldHeadingCoveringPos(view, targetPos) {
+        if (!view || !view.state || typeof targetPos !== "number") return;
+        const pluginState = headingFoldPluginKey ? headingFoldPluginKey.getState(view.state) : null;
+        if (!pluginState || !pluginState.folded || pluginState.folded.size === 0) return;
+        const headings = [];
+        view.state.doc.descendants((node2, pos) => {
+          if (node2.type.name === "heading") {
+            headings.push({ pos, level: node2.attrs.level || 1, node: node2, size: node2.nodeSize });
+          }
+        });
+        const toUnfold = [];
+        headings.forEach((h2, idx2) => {
+          if (!pluginState.folded.has(h2.pos)) return;
+          let foldEnd = view.state.doc.content.size;
+          for (let j = idx2 + 1; j < headings.length; j++) {
+            if (headings[j].level <= h2.level) {
+              foldEnd = headings[j].pos;
+              break;
+            }
+          }
+          if (targetPos >= h2.pos && targetPos <= foldEnd) {
+            toUnfold.push(h2.pos);
+          }
+        });
+        if (toUnfold.length > 0) {
+          let tr = view.state.tr;
+          toUnfold.forEach((pos) => {
+            tr = tr.setMeta(headingFoldPluginKey, { unfoldPos: pos });
+          });
+          view.dispatch(tr);
+        }
+      }
       var headingFoldPlugin = $prose(() => {
-        const key6 = new PluginKey("headingFoldPlugin");
         return new Plugin({
-          key: key6,
+          key: headingFoldPluginKey,
           state: {
             init() {
               return { folded: /* @__PURE__ */ new Set() };
             },
             apply(tr, value, oldState, newState) {
-              const meta2 = tr.getMeta(key6);
-              if (meta2 && meta2.togglePos !== void 0) {
-                const newFolded = new Set(value.folded);
-                if (newFolded.has(meta2.togglePos)) {
-                  newFolded.delete(meta2.togglePos);
-                } else {
-                  newFolded.add(meta2.togglePos);
+              const meta2 = tr.getMeta(headingFoldPluginKey);
+              if (meta2) {
+                if (meta2.togglePos !== void 0) {
+                  const newFolded = new Set(value.folded);
+                  if (newFolded.has(meta2.togglePos)) {
+                    newFolded.delete(meta2.togglePos);
+                  } else {
+                    newFolded.add(meta2.togglePos);
+                  }
+                  return { folded: newFolded };
                 }
-                return { folded: newFolded };
+                if (meta2.unfoldPos !== void 0) {
+                  if (value.folded.has(meta2.unfoldPos)) {
+                    const newFolded = new Set(value.folded);
+                    newFolded.delete(meta2.unfoldPos);
+                    return { folded: newFolded };
+                  }
+                  return value;
+                }
+                if (meta2.unfoldAll) {
+                  return { folded: /* @__PURE__ */ new Set() };
+                }
               }
               if (tr.docChanged) {
                 const newFolded = /* @__PURE__ */ new Set();
@@ -137399,7 +137444,7 @@ Expected function or array of functions, received type ${typeof value}.`
                   e.stopPropagation();
                   const view = getEditorView();
                   if (view) {
-                    view.dispatch(view.state.tr.setMeta(key6, { togglePos: h2.pos }));
+                    view.dispatch(view.state.tr.setMeta(headingFoldPluginKey, { togglePos: h2.pos }));
                   }
                 };
                 btn.addEventListener("pointerdown", toggleAction);
@@ -137433,6 +137478,15 @@ Expected function or array of functions, received type ${typeof value}.`
                       break;
                     }
                   }
+                  if (foldEnd === state.doc.content.size) {
+                    const lastChild = state.doc.lastChild;
+                    if (lastChild && lastChild.type.name === "paragraph" && lastChild.content.size === 0) {
+                      const lastChildPos = state.doc.content.size - lastChild.nodeSize;
+                      if (lastChildPos > h2.pos + h2.size) {
+                        foldEnd = lastChildPos;
+                      }
+                    }
+                  }
                   const foldStart = h2.pos + h2.size;
                   if (foldEnd > foldStart) {
                     state.doc.nodesBetween(foldStart, foldEnd, (childNode, childPos) => {
@@ -137453,7 +137507,7 @@ Expected function or array of functions, received type ${typeof value}.`
                 const hPosStr = foldBtn.dataset.headingPos;
                 if (hPosStr != null) {
                   const hPos = parseInt(hPosStr, 10);
-                  view.dispatch(view.state.tr.setMeta(key6, { togglePos: hPos }));
+                  view.dispatch(view.state.tr.setMeta(headingFoldPluginKey, { togglePos: hPos }));
                   return true;
                 }
               }
@@ -138037,10 +138091,23 @@ Expected function or array of functions, received type ${typeof value}.`
           const current = findState2.matches[findState2.currentIndex];
           if (!current || !current.range) return;
           try {
-            const el = current.range.startContainer.nodeType === Node.ELEMENT_NODE ? current.range.startContainer : current.range.startContainer.parentElement;
-            if (el && el.scrollIntoView) {
-              el.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+            const view = getEditorView();
+            if (view) {
+              try {
+                const matchPos = view.posAtDOM(current.range.startContainer, current.range.startOffset);
+                if (typeof matchPos === "number") {
+                  unfoldHeadingCoveringPos(view, matchPos);
+                }
+              } catch (err) {
+              }
             }
+            setTimeout(() => {
+              const el = current.range.startContainer.nodeType === Node.ELEMENT_NODE ? current.range.startContainer : current.range.startContainer.parentElement;
+              if (el && el.scrollIntoView) {
+                el.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+              }
+              renderHighlights();
+            }, 30);
           } catch (e) {
             console.warn("[FindWidget] scroll error:", e);
           }
@@ -138185,19 +138252,44 @@ Expected function or array of functions, received type ${typeof value}.`
             if (findReplaceInputEl) findReplaceInputEl.focus();
           }
         }
+        function getMatchDocRange(view, range) {
+          if (!view || !view.state || !range) return null;
+          try {
+            const from4 = view.posAtDOM(range.startContainer, range.startOffset);
+            const to = view.posAtDOM(range.endContainer, range.endOffset);
+            if (typeof from4 === "number" && typeof to === "number" && from4 <= to) {
+              return { from: from4, to };
+            }
+          } catch (e) {
+          }
+          return null;
+        }
         function doFindReplaceCurrent() {
           if (findState2.matches.length === 0 || findState2.currentIndex < 0) return;
           const match2 = findState2.matches[findState2.currentIndex];
           const rep = findReplaceInputEl && findReplaceInputEl.value || "";
-          try {
-            const sel = window.getSelection();
-            if (sel) {
-              sel.removeAllRanges();
-              sel.addRange(match2.range);
-              document.execCommand("insertText", false, rep);
+          const view = getEditorView();
+          let handled = false;
+          if (view && view.state) {
+            const pmRange = getMatchDocRange(view, match2.range);
+            if (pmRange) {
+              unfoldHeadingCoveringPos(view, pmRange.from);
+              const tr = view.state.tr.insertText(rep, pmRange.from, pmRange.to);
+              view.dispatch(tr);
+              handled = true;
             }
-          } catch (e) {
-            console.error("[FindWidget] Replace failed:", e);
+          }
+          if (!handled) {
+            try {
+              const sel = window.getSelection();
+              if (sel) {
+                sel.removeAllRanges();
+                sel.addRange(match2.range);
+                document.execCommand("insertText", false, rep);
+              }
+            } catch (e) {
+              console.error("[FindWidget] Replace failed:", e);
+            }
           }
           setTimeout(() => {
             performFind(findInputEl && findInputEl.value || "", false);
@@ -138206,16 +138298,39 @@ Expected function or array of functions, received type ${typeof value}.`
         function doFindReplaceAll() {
           if (findState2.matches.length === 0) return;
           const rep = findReplaceInputEl && findReplaceInputEl.value || "";
-          const sel = window.getSelection();
-          for (let i4 = findState2.matches.length - 1; i4 >= 0; i4--) {
-            const match2 = findState2.matches[i4];
-            try {
-              if (sel) {
-                sel.removeAllRanges();
-                sel.addRange(match2.range);
-                document.execCommand("insertText", false, rep);
+          const view = getEditorView();
+          if (view && view.state) {
+            const docRanges = [];
+            const fallbackMatches = [];
+            findState2.matches.forEach((m) => {
+              const pmRange = getMatchDocRange(view, m.range);
+              if (pmRange) {
+                docRanges.push(pmRange);
+              } else {
+                fallbackMatches.push(m);
               }
-            } catch (e) {
+            });
+            if (docRanges.length > 0) {
+              docRanges.sort((a2, b) => b.from - a2.from);
+              let tr = view.state.tr;
+              for (const r4 of docRanges) {
+                unfoldHeadingCoveringPos(view, r4.from);
+                tr = tr.insertText(rep, r4.from, r4.to);
+              }
+              view.dispatch(tr);
+            }
+            if (fallbackMatches.length > 0) {
+              const sel = window.getSelection();
+              for (let i4 = fallbackMatches.length - 1; i4 >= 0; i4--) {
+                try {
+                  if (sel) {
+                    sel.removeAllRanges();
+                    sel.addRange(fallbackMatches[i4].range);
+                    document.execCommand("insertText", false, rep);
+                  }
+                } catch (e) {
+                }
+              }
             }
           }
           setTimeout(() => {
@@ -138298,6 +138413,39 @@ Expected function or array of functions, received type ${typeof value}.`
           editorContainer.addEventListener("input", () => {
             if (findState2.isOpen && findInputEl && findInputEl.value) {
               performFind(findInputEl.value, true);
+            }
+          });
+          editorContainer.addEventListener("click", (e) => {
+            if (e.target.closest(".heading-fold-btn, .heading-fold-badge, .format-menu, .bubble-menu, .slash-menu, .find-widget, .cm-editor, table, a, input, button, .tools")) {
+              return;
+            }
+            const view = getEditorView();
+            if (!view || !view.state) return;
+            const pm = document.querySelector(".milkdown .ProseMirror");
+            if (!pm) return;
+            const visibleElements = Array.from(pm.children).filter((el) => {
+              return el.offsetParent !== null && !el.classList.contains("heading-folded-hidden") && !el.classList.contains("prosemirror-virtual-cursor");
+            });
+            let lastBottom = 0;
+            if (visibleElements.length > 0) {
+              const lastEl = visibleElements[visibleElements.length - 1];
+              lastBottom = lastEl.getBoundingClientRect().bottom;
+            } else {
+              lastBottom = pm.getBoundingClientRect().top;
+            }
+            if (e.clientY > lastBottom) {
+              const { state, dispatch } = view;
+              const lastChild = state.doc.lastChild;
+              const hasTrailingEmptyP = lastChild && lastChild.type.name === "paragraph" && lastChild.content.size === 0;
+              let tr = state.tr;
+              if (!hasTrailingEmptyP) {
+                const emptyPara = state.schema.nodes.paragraph.create();
+                tr = tr.insert(state.doc.content.size, emptyPara);
+              }
+              const targetPos = Math.max(0, tr.doc.content.size - 1);
+              tr = tr.setSelection(TextSelection.near(tr.doc.resolve(targetPos))).scrollIntoView();
+              dispatch(tr);
+              view.focus();
             }
           });
         }

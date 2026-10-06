@@ -120,14 +120,61 @@
       pointer-events: none !important;
       visibility: hidden !important;
     }
-    /* Obsidian & Word Heading Folding Styles */
-    .milkdown .ProseMirror h1,
-    .milkdown .ProseMirror h2,
-    .milkdown .ProseMirror h3,
-    .milkdown .ProseMirror h4,
+    /* Obsidian & Word Heading Folding Styles and Compact Margins */
+    .milkdown .ProseMirror h1 {
+      position: relative;
+      font-size: 1.85em !important;
+      font-weight: 700 !important;
+      margin-top: 18px !important;
+      margin-bottom: 6px !important;
+      line-height: 1.25 !important;
+    }
+    .milkdown .ProseMirror h2 {
+      position: relative;
+      font-size: 1.5em !important;
+      font-weight: 600 !important;
+      margin-top: 14px !important;
+      margin-bottom: 5px !important;
+      line-height: 1.3 !important;
+    }
+    .milkdown .ProseMirror h3 {
+      position: relative;
+      font-size: 1.25em !important;
+      font-weight: 600 !important;
+      margin-top: 12px !important;
+      margin-bottom: 4px !important;
+      line-height: 1.35 !important;
+    }
+    .milkdown .ProseMirror h4 {
+      position: relative;
+      font-size: 1.1em !important;
+      font-weight: 600 !important;
+      margin-top: 10px !important;
+      margin-bottom: 3px !important;
+    }
     .milkdown .ProseMirror h5,
     .milkdown .ProseMirror h6 {
       position: relative;
+      font-size: 1.0em !important;
+      font-weight: 600 !important;
+      margin-top: 8px !important;
+      margin-bottom: 3px !important;
+    }
+    .milkdown .ProseMirror > *:first-child {
+      margin-top: 0 !important;
+    }
+    .milkdown ul, .milkdown ol {
+      margin: 4px 0 !important;
+    }
+    .milkdown .milkdown-list-item-block {
+      margin: 2px 0 !important;
+    }
+    .milkdown .list-item {
+      margin: 2px 0 !important;
+    }
+    .milkdown .ProseMirror p {
+      margin: 4px 0 !important;
+      padding: 0 !important;
     }
     .heading-fold-btn {
       position: absolute;
