@@ -495,7 +495,129 @@ server.listen(9876, async () => {
                 })()`,
                 returnByValue: true
             });
-            console.log('Select All Result:', JSON.stringify(selectAllResult.result?.result?.value || selectAllResult));
+            // --- TEST 10: Multi-Select Bullet List Conversion ---
+            console.log('--- TEST 10: Multi-Select Bullet List Conversion ---');
+            await send('Runtime.evaluate', {
+                expression: `window.setMarkdown("vault activation\\n\\ncomponents installation\\n\\nPTA simulation")`,
+                returnByValue: true
+            });
+            await new Promise(r => setTimeout(r, 400));
+
+            const test10Result = await send('Runtime.evaluate', {
+                expression: `(() => {
+                    const ps = document.querySelectorAll('.ProseMirror p');
+                    const range = document.createRange();
+                    range.setStart(ps[0].firstChild, 0);
+                    range.setEnd(ps[2].firstChild, ps[2].firstChild.textContent.length);
+                    const sel = window.getSelection();
+                    sel.removeAllRanges();
+                    sel.addRange(range);
+
+                    // Click menu bullet action
+                    const bulletBtn = document.querySelector('[data-action="bullet"]');
+                    if (bulletBtn) bulletBtn.click();
+
+                    return {
+                        markdown: window.getMarkdown(),
+                        bulletCount: document.querySelectorAll('.ProseMirror ul li').length
+                    };
+                })()`,
+                returnByValue: true
+            });
+            console.log('Test 10 Bullet Result:', JSON.stringify(test10Result.result?.result?.value || test10Result));
+
+            // Test 10b: Convert multi-selected items to Numbered list
+            const test10NumberResult = await send('Runtime.evaluate', {
+                expression: `(() => {
+                    const lis = document.querySelectorAll('.ProseMirror li');
+                    const range = document.createRange();
+                    range.setStartBefore(lis[0]);
+                    range.setEndAfter(lis[2]);
+                    const sel = window.getSelection();
+                    sel.removeAllRanges();
+                    sel.addRange(range);
+
+                    const numberBtn = document.querySelector('[data-action="number"]');
+                    if (numberBtn) numberBtn.click();
+
+                    return {
+                        markdown: window.getMarkdown(),
+                        orderedCount: document.querySelectorAll('.ProseMirror ol li').length
+                    };
+                })()`,
+                returnByValue: true
+            });
+            console.log('Test 10b Numbered List Result:', JSON.stringify(test10NumberResult.result?.result?.value || test10NumberResult));
+
+            // Test 10c: Convert multi-selected items to To-do list
+            const test10TodoResult = await send('Runtime.evaluate', {
+                expression: `(() => {
+                    const lis = document.querySelectorAll('.ProseMirror li');
+                    const range = document.createRange();
+                    range.setStartBefore(lis[0]);
+                    range.setEndAfter(lis[2]);
+                    const sel = window.getSelection();
+                    sel.removeAllRanges();
+                    sel.addRange(range);
+
+                    const todoBtn = document.querySelector('[data-action="todo"]');
+                    if (todoBtn) todoBtn.click();
+
+                    return {
+                        markdown: window.getMarkdown(),
+                        todoCount: (window.getMarkdown().match(/\[ \]/g) || []).length
+                    };
+                })()`,
+                returnByValue: true
+            });
+            console.log('Test 10c To-do List Result:', JSON.stringify(test10TodoResult.result?.result?.value || test10TodoResult));
+
+            // Test 10d: Convert multi-selected items to Headings (H2)
+            const test10H2Result = await send('Runtime.evaluate', {
+                expression: `(() => {
+                    const lis = document.querySelectorAll('.ProseMirror li');
+                    const range = document.createRange();
+                    range.setStartBefore(lis[0]);
+                    range.setEndAfter(lis[2]);
+                    const sel = window.getSelection();
+                    sel.removeAllRanges();
+                    sel.addRange(range);
+
+                    const h2Btn = document.querySelector('[data-action="h2"]');
+                    if (h2Btn) h2Btn.click();
+
+                    return {
+                        markdown: window.getMarkdown(),
+                        h2Count: document.querySelectorAll('.ProseMirror h2').length
+                    };
+                })()`,
+                returnByValue: true
+            });
+            console.log('Test 10d Heading H2 Result:', JSON.stringify(test10H2Result.result?.result?.value || test10H2Result));
+
+            // Test 10e: Toggle off H2 back to plain paragraphs
+            const test10ToggleOffResult = await send('Runtime.evaluate', {
+                expression: `(() => {
+                    const h2s = document.querySelectorAll('.ProseMirror h2');
+                    const range = document.createRange();
+                    range.setStartBefore(h2s[0]);
+                    range.setEndAfter(h2s[2]);
+                    const sel = window.getSelection();
+                    sel.removeAllRanges();
+                    sel.addRange(range);
+
+                    const h2Btn = document.querySelector('[data-action="h2"]');
+                    if (h2Btn) h2Btn.click();
+
+                    return {
+                        markdown: window.getMarkdown(),
+                        h2Count: document.querySelectorAll('.ProseMirror h2').length,
+                        pCount: document.querySelectorAll('.ProseMirror p').length
+                    };
+                })()`,
+                returnByValue: true
+            });
+            console.log('Test 10e Toggle-Off H2 Result:', JSON.stringify(test10ToggleOffResult.result?.result?.value || test10ToggleOffResult));
 
             console.log('ALL TESTS PASSED SUCCESSFULLY!');
             cleanup();

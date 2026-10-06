@@ -1893,6 +1893,14 @@ function setupContextMenu() {
                 break;
               }
             }
+
+            if (!isInsideSelection) {
+              const b = range.getBoundingClientRect();
+              if (e.clientY >= b.top - 4 && e.clientY <= b.bottom + 4 &&
+                  e.clientX >= b.left - 20 && e.clientX <= b.right + 20) {
+                isInsideSelection = true;
+              }
+            }
           }
 
           if (!isInsideSelection) {
@@ -1905,7 +1913,16 @@ function setupContextMenu() {
           }
         }
 
-        if (!isInsideSelection) {
+        if (isInsideSelection) {
+          const eff = getEffectiveSelection(view);
+          if (!eff.empty && (view.state.selection.from !== eff.from || view.state.selection.to !== eff.to)) {
+            try {
+              const $f = view.state.doc.resolve(eff.from);
+              const $t = view.state.doc.resolve(eff.to);
+              view.dispatch(view.state.tr.setSelection(new TextSelection($f, $t)));
+            } catch {}
+          }
+        } else {
           const posInfo = view.posAtCoords({ left: e.clientX, top: e.clientY });
           if (posInfo && typeof posInfo.pos === 'number') {
             const targetPos = Math.max(0, Math.min(posInfo.pos, view.state.doc.content.size));
@@ -2050,200 +2067,270 @@ function hideContextMenu() {
   if (menu) menu.style.display = 'none';
 }
 
+function extractInlineContent(schema, node) {
+  if (!node || !node.content || node.content.size === 0) {
+    return [];
+  }
+  const children = [];
+  node.content.forEach((child) => {
+    children.push(child);
+  });
+
+  // Strip leading manual markdown syntax if user typed or pasted raw markers like "- ", "* ", "1. ", "> ", "- [ ] "
+  if (children.length > 0 && children[0].isText) {
+    const rawText = children[0].text;
+    const cleanedText = rawText.replace(/^([-*+]\s*\[\s*[xX]?\s*\]\s*|[-*+]\s+|>\s*|\d+\.\s*|#{1,6}\s+)/, '');
+    if (cleanedText !== rawText) {
+      if (cleanedText.length > 0) {
+        children[0] = schema.text(cleanedText, children[0].marks);
+      } else {
+        children.shift();
+      }
+    }
+  }
+
+  return children;
+}
+
+function splitByHardBreaks(schema, inlineNodes) {
+  const lines = [];
+  let currentLine = [];
+
+  for (const node of inlineNodes) {
+    if (node.type && node.type.name === 'hard_break') {
+      if (currentLine.length > 0) {
+        lines.push(currentLine);
+        currentLine = [];
+      }
+    } else {
+      currentLine.push(node);
+    }
+  }
+  if (currentLine.length > 0) {
+    lines.push(currentLine);
+  }
+
+  return lines.length > 0 ? lines : [[]];
+}
+
 function convertBlock(view, targetType) {
   if (!view || !view.state) return false;
   const { state, dispatch } = view;
-  const { schema, selection } = state;
-  let $from = selection.$from;
+  const { schema } = state;
 
-  // Find nearest textblock
-  let textblock = $from.parent;
-  let textblockDepth = $from.depth;
-  while (textblock && !textblock.isTextblock && textblockDepth > 0) {
-    textblockDepth--;
-    textblock = $from.node(textblockDepth);
+  const eff = getEffectiveSelection(view);
+  let from = eff.from;
+  let to = eff.to;
+  let isRangeSelection = !eff.empty && from !== to;
+
+  if (!isRangeSelection) {
+    from = state.selection.from;
+    to = state.selection.to;
+    isRangeSelection = !state.selection.empty && from !== to;
   }
 
-  if (!textblock || !textblock.isTextblock) {
-    const near = Selection.near($from);
-    if (near && near.$from.parent && near.$from.parent.isTextblock) {
-      $from = near.$from;
-      textblock = $from.parent;
-      textblockDepth = $from.depth;
-    } else {
-      return false;
+  // Collect all blocks in the selection
+  const selectedBlocks = [];
+
+  if (!isRangeSelection) {
+    // Single cursor: find nearest textblock or list_item
+    let $from = state.doc.resolve(from);
+    let listItemDepth = -1;
+    let blockquoteDepth = -1;
+    let textblockDepth = -1;
+    for (let d = $from.depth; d > 0; d--) {
+      const node = $from.node(d);
+      if (node.type === schema.nodes.list_item && listItemDepth < 0) {
+        listItemDepth = d;
+      }
+      if (node.type === schema.nodes.blockquote && blockquoteDepth < 0) {
+        blockquoteDepth = d;
+      }
+      if (node.isTextblock && textblockDepth < 0) {
+        textblockDepth = d;
+      }
+    }
+
+    if (listItemDepth > 0) {
+      const parentList = $from.node(listItemDepth - 1);
+      selectedBlocks.push({
+        pos: $from.before(listItemDepth),
+        end: $from.after(listItemDepth),
+        node: $from.node(listItemDepth),
+        type: 'list_item',
+        parentType: parentList ? parentList.type.name : 'bullet_list',
+        parentPos: parentList ? $from.before(listItemDepth - 1) : $from.before(listItemDepth),
+        parentEnd: parentList ? $from.after(listItemDepth - 1) : $from.after(listItemDepth),
+        parentList: parentList
+      });
+    } else if (textblockDepth > 0) {
+      selectedBlocks.push({
+        pos: blockquoteDepth > 0 ? $from.before(blockquoteDepth) : $from.before(textblockDepth),
+        end: blockquoteDepth > 0 ? $from.after(blockquoteDepth) : $from.after(textblockDepth),
+        node: $from.node(textblockDepth),
+        type: $from.node(textblockDepth).type.name,
+        parentType: blockquoteDepth > 0 ? 'blockquote' : 'doc',
+        parentPos: blockquoteDepth > 0 ? $from.before(blockquoteDepth) : 0,
+        parentEnd: blockquoteDepth > 0 ? $from.after(blockquoteDepth) : state.doc.content.size
+      });
+    }
+  } else {
+    // Multi-selection range: iterate document
+    state.doc.forEach((topNode, topPos) => {
+      const topEnd = topPos + topNode.nodeSize;
+      if (topPos >= to || topEnd <= from) return;
+
+      if (topNode.type === schema.nodes.bullet_list || topNode.type === schema.nodes.ordered_list) {
+        topNode.forEach((itemNode, itemOffset) => {
+          const itemPos = topPos + 1 + itemOffset;
+          const itemEnd = itemPos + itemNode.nodeSize;
+          if (itemPos < to && itemEnd > from) {
+            selectedBlocks.push({
+              pos: itemPos,
+              end: itemEnd,
+              node: itemNode,
+              type: 'list_item',
+              parentType: topNode.type.name,
+              parentPos: topPos,
+              parentEnd: topEnd,
+              parentList: topNode
+            });
+          }
+        });
+      } else if (topNode.type === schema.nodes.blockquote) {
+        topNode.forEach((childNode, childOffset) => {
+          const childPos = topPos + 1 + childOffset;
+          const childEnd = childPos + childNode.nodeSize;
+          if (childPos < to && childEnd > from) {
+            selectedBlocks.push({
+              pos: childPos,
+              end: childEnd,
+              node: childNode,
+              type: childNode.type.name,
+              parentType: 'blockquote',
+              parentPos: topPos,
+              parentEnd: topEnd
+            });
+          }
+        });
+      } else if (topNode.isTextblock || topNode.type.name === 'paragraph' || topNode.type.name === 'heading') {
+        selectedBlocks.push({
+          pos: topPos,
+          end: topEnd,
+          node: topNode,
+          type: topNode.type.name,
+          parentType: 'doc',
+          parentPos: 0,
+          parentEnd: state.doc.content.size
+        });
+      }
+    });
+  }
+
+  if (selectedBlocks.length === 0) return false;
+
+  // Extract content items from selected blocks
+  const items = [];
+  for (const block of selectedBlocks) {
+    let contentNode = block.node;
+    if (block.type === 'list_item') {
+      contentNode = block.node.firstChild || block.node;
+    }
+    const inlineNodes = extractInlineContent(schema, contentNode);
+    const lines = splitByHardBreaks(schema, inlineNodes);
+    for (const line of lines) {
+      items.push({
+        inlineNodes: line,
+        originalType: block.type,
+        attrs: block.node.attrs || {},
+        parentType: block.parentType,
+        parentList: block.parentList ? block.parentList.type.name : null,
+        parentListNode: block.parentList,
+        pos: block.pos,
+        end: block.end,
+        node: block.node
+      });
     }
   }
 
-  // 1. Find enclosing list_item and blockquote
-  let listItemDepth = -1;
-  let blockquoteDepth = -1;
-  for (let d = $from.depth; d > 0; d--) {
-    const node = $from.node(d);
-    if (node.type === schema.nodes.list_item && listItemDepth < 0) {
-      listItemDepth = d;
-    }
-    if (node.type === schema.nodes.blockquote && blockquoteDepth < 0) {
-      blockquoteDepth = d;
-    }
+  if (items.length === 0) return false;
+
+  // Compute replacement range
+  let replaceFrom = selectedBlocks[0].pos;
+  let replaceTo = selectedBlocks[selectedBlocks.length - 1].end;
+
+  // If first item starts a list and all items up to the list end are selected, expand range
+  if (selectedBlocks[0].parentList && selectedBlocks[0].pos === selectedBlocks[0].parentPos + 1) {
+    replaceFrom = selectedBlocks[0].parentPos;
   }
-
-  let text = textblock.textContent || '';
-  // Strip leading manual markdown syntax if user typed or pasted raw markers
-  text = text.replace(/^[-*+]\s*\[\s*[xX]?\s*\]\s*|^[-*+]\s*\\\[\s*\\\]\s*|^\[\s*\]\s*|^[-*+]\s+|^>\s*|^\d+\.\s*|^#{1,6}\s+/, '');
-
-  const textNode = text ? schema.text(text) : null;
-  const paraNode = schema.nodes.paragraph.create(null, textNode);
+  if (selectedBlocks[selectedBlocks.length - 1].parentList && selectedBlocks[selectedBlocks.length - 1].end === selectedBlocks[selectedBlocks.length - 1].parentEnd - 1) {
+    replaceTo = selectedBlocks[selectedBlocks.length - 1].parentEnd;
+  }
 
   let tr = state.tr;
 
-  if (targetType === 'todo') {
-    if (listItemDepth > 0) {
-      const itemNode = $from.node(listItemDepth);
-      const itemPos = $from.before(listItemDepth);
-      if (itemNode.attrs.checked !== null && itemNode.attrs.checked !== undefined) {
-        // Toggle checked state
-        tr.setNodeMarkup(itemPos, undefined, { ...itemNode.attrs, checked: !itemNode.attrs.checked, listType: 'bullet' });
-      } else {
-        // Convert existing bullet item to todo
-        tr.setNodeMarkup(itemPos, undefined, { ...itemNode.attrs, checked: false, listType: 'bullet' });
-      }
-      if (text !== textblock.textContent) {
-        tr.replaceWith($from.start(textblockDepth), $from.end(textblockDepth), textNode ? [textNode] : []);
-      }
-      dispatch(tr.scrollIntoView());
-      view.focus();
-      return true;
-    }
-
-    // Replace current block or blockquote with bullet_list containing task item
-    const replaceFrom = blockquoteDepth > 0 ? $from.before(blockquoteDepth) : $from.before(textblockDepth);
-    const replaceTo = blockquoteDepth > 0 ? $from.after(blockquoteDepth) : $from.after(textblockDepth);
-
-    const itemNode = schema.nodes.list_item.create({ checked: false, listType: 'bullet', spread: false }, paraNode);
-    const listNode = schema.nodes.bullet_list.create({ spread: false }, itemNode);
-    tr.replaceRangeWith(replaceFrom, replaceTo, listNode);
-    const newSelPos = Math.min(replaceFrom + 2, tr.doc.content.size);
-    tr.setSelection(Selection.near(tr.doc.resolve(newSelPos))).scrollIntoView();
-    dispatch(tr);
-    view.focus();
-    return true;
-  }
-
-  if (targetType === 'quote') {
-    if (blockquoteDepth > 0) {
-      // Already in blockquote: toggle off to paragraph
-      const bqPos = $from.before(blockquoteDepth);
-      const bqEnd = $from.after(blockquoteDepth);
-      tr.replaceRangeWith(bqPos, bqEnd, paraNode);
-      const newSelPos = Math.min(bqPos + 1, tr.doc.content.size);
-      tr.setSelection(Selection.near(tr.doc.resolve(newSelPos))).scrollIntoView();
-      dispatch(tr);
-      view.focus();
-      return true;
-    }
-
-    const replaceFrom = listItemDepth > 0 ? $from.before(listItemDepth) : $from.before(textblockDepth);
-    const replaceTo = listItemDepth > 0 ? $from.after(listItemDepth) : $from.after(textblockDepth);
-    const bqNode = schema.nodes.blockquote.create(null, paraNode);
-    tr.replaceRangeWith(replaceFrom, replaceTo, bqNode);
-    const newSelPos = Math.min(replaceFrom + 2, tr.doc.content.size);
-    tr.setSelection(Selection.near(tr.doc.resolve(newSelPos))).scrollIntoView();
-    dispatch(tr);
-    view.focus();
-    return true;
-  }
-
   if (targetType === 'bullet') {
-    if (listItemDepth > 0) {
-      const itemNode = $from.node(listItemDepth);
-      const itemPos = $from.before(listItemDepth);
-      const parentList = $from.node(listItemDepth - 1);
-      if (parentList && parentList.type === schema.nodes.bullet_list && itemNode.attrs.checked === null) {
-        // Already regular bullet list: toggle off to paragraph
-        const listPos = $from.before(listItemDepth - 1);
-        const listEnd = $from.after(listItemDepth - 1);
-        tr.replaceRangeWith(listPos, listEnd, paraNode);
-        const newSelPos = Math.min(listPos + 1, tr.doc.content.size);
-        tr.setSelection(Selection.near(tr.doc.resolve(newSelPos))).scrollIntoView();
-      } else {
-        tr.setNodeMarkup(itemPos, undefined, { ...itemNode.attrs, checked: null, listType: 'bullet' });
-      }
-      if (text !== textblock.textContent) {
-        tr.replaceWith($from.start(textblockDepth), $from.end(textblockDepth), textNode ? [textNode] : []);
-      }
-      dispatch(tr.scrollIntoView());
-      view.focus();
-      return true;
-    }
-
-    const replaceFrom = blockquoteDepth > 0 ? $from.before(blockquoteDepth) : $from.before(textblockDepth);
-    const replaceTo = blockquoteDepth > 0 ? $from.after(blockquoteDepth) : $from.after(textblockDepth);
-    const itemNode = schema.nodes.list_item.create({ checked: null, listType: 'bullet', spread: false }, paraNode);
-    const listNode = schema.nodes.bullet_list.create({ spread: false }, itemNode);
-    tr.replaceRangeWith(replaceFrom, replaceTo, listNode);
-    const newSelPos = Math.min(replaceFrom + 2, tr.doc.content.size);
-    tr.setSelection(Selection.near(tr.doc.resolve(newSelPos))).scrollIntoView();
-    dispatch(tr);
-    view.focus();
-    return true;
-  }
-
-  if (targetType === 'number') {
-    if (listItemDepth > 0) {
-      const itemNode = $from.node(listItemDepth);
-      const itemPos = $from.before(listItemDepth);
-      const parentList = $from.node(listItemDepth - 1);
-      if (parentList && parentList.type === schema.nodes.ordered_list) {
-        // Already ordered list: toggle off to paragraph
-        const listPos = $from.before(listItemDepth - 1);
-        const listEnd = $from.after(listItemDepth - 1);
-        tr.replaceRangeWith(listPos, listEnd, paraNode);
-        const newSelPos = Math.min(listPos + 1, tr.doc.content.size);
-        tr.setSelection(Selection.near(tr.doc.resolve(newSelPos))).scrollIntoView();
-      } else {
-        tr.setNodeMarkup(itemPos, undefined, { ...itemNode.attrs, checked: null, listType: 'ordered' });
-      }
-      if (text !== textblock.textContent) {
-        tr.replaceWith($from.start(textblockDepth), $from.end(textblockDepth), textNode ? [textNode] : []);
-      }
-      dispatch(tr.scrollIntoView());
-      view.focus();
-      return true;
-    }
-
-    const replaceFrom = blockquoteDepth > 0 ? $from.before(blockquoteDepth) : $from.before(textblockDepth);
-    const replaceTo = blockquoteDepth > 0 ? $from.after(blockquoteDepth) : $from.after(textblockDepth);
-    const itemNode = schema.nodes.list_item.create({ checked: null, listType: 'ordered', spread: false }, paraNode);
-    const listNode = schema.nodes.ordered_list.create({ order: 1, spread: false }, itemNode);
-    tr.replaceRangeWith(replaceFrom, replaceTo, listNode);
-    const newSelPos = Math.min(replaceFrom + 2, tr.doc.content.size);
-    tr.setSelection(Selection.near(tr.doc.resolve(newSelPos))).scrollIntoView();
-    dispatch(tr);
-    view.focus();
-    return true;
-  }
-
-  if (targetType.startsWith('h')) {
-    const level = parseInt(targetType.slice(1), 10) || 1;
-    const replaceFrom = listItemDepth > 0 ? $from.before(listItemDepth) : (blockquoteDepth > 0 ? $from.before(blockquoteDepth) : $from.before(textblockDepth));
-    const replaceTo = listItemDepth > 0 ? $from.after(listItemDepth) : (blockquoteDepth > 0 ? $from.after(blockquoteDepth) : $from.after(textblockDepth));
-
-    if (textblock.type === schema.nodes.heading && textblock.attrs.level === level) {
-      // Toggle off to paragraph
-      tr.replaceRangeWith(replaceFrom, replaceTo, paraNode);
+    const allAlreadyBullet = items.every(it => (it.parentType === 'bullet_list' || it.parentList === 'bullet_list') && it.attrs.checked === null);
+    if (allAlreadyBullet) {
+      // Toggle off to plain paragraphs
+      const paraNodes = items.map(it => schema.nodes.paragraph.create(null, it.inlineNodes));
+      tr.replaceRangeWith(replaceFrom, replaceTo, paraNodes);
     } else {
-      const headingNode = schema.nodes.heading.create({ level }, textNode);
-      tr.replaceRangeWith(replaceFrom, replaceTo, headingNode);
+      const itemNodes = items.map(it => schema.nodes.list_item.create({ checked: null, listType: 'bullet', spread: false }, schema.nodes.paragraph.create(null, it.inlineNodes)));
+      const listNode = schema.nodes.bullet_list.create({ spread: false }, itemNodes);
+      tr.replaceRangeWith(replaceFrom, replaceTo, listNode);
     }
-    const newSelPos = Math.min(replaceFrom + 1, tr.doc.content.size);
-    tr.setSelection(Selection.near(tr.doc.resolve(newSelPos))).scrollIntoView();
-    dispatch(tr);
-    view.focus();
-    return true;
+  } else if (targetType === 'number') {
+    const allAlreadyOrdered = items.every(it => it.parentType === 'ordered_list' || it.parentList === 'ordered_list');
+    if (allAlreadyOrdered) {
+      // Toggle off to plain paragraphs
+      const paraNodes = items.map(it => schema.nodes.paragraph.create(null, it.inlineNodes));
+      tr.replaceRangeWith(replaceFrom, replaceTo, paraNodes);
+    } else {
+      const itemNodes = items.map(it => schema.nodes.list_item.create({ checked: null, listType: 'ordered', spread: false }, schema.nodes.paragraph.create(null, it.inlineNodes)));
+      const listNode = schema.nodes.ordered_list.create({ order: 1, spread: false }, itemNodes);
+      tr.replaceRangeWith(replaceFrom, replaceTo, listNode);
+    }
+  } else if (targetType === 'todo') {
+    const allAlreadyTodo = items.every(it => it.attrs.checked !== null && it.attrs.checked !== undefined);
+    if (allAlreadyTodo) {
+      const anyUnchecked = items.some(it => !it.attrs.checked);
+      const newChecked = anyUnchecked;
+      const itemNodes = items.map(it => schema.nodes.list_item.create({ checked: newChecked, listType: 'bullet', spread: false }, schema.nodes.paragraph.create(null, it.inlineNodes)));
+      const listNode = schema.nodes.bullet_list.create({ spread: false }, itemNodes);
+      tr.replaceRangeWith(replaceFrom, replaceTo, listNode);
+    } else {
+      const itemNodes = items.map(it => schema.nodes.list_item.create({ checked: false, listType: 'bullet', spread: false }, schema.nodes.paragraph.create(null, it.inlineNodes)));
+      const listNode = schema.nodes.bullet_list.create({ spread: false }, itemNodes);
+      tr.replaceRangeWith(replaceFrom, replaceTo, listNode);
+    }
+  } else if (targetType === 'quote') {
+    const allAlreadyQuote = items.every(it => it.parentType === 'blockquote');
+    if (allAlreadyQuote) {
+      const paraNodes = items.map(it => schema.nodes.paragraph.create(null, it.inlineNodes));
+      tr.replaceRangeWith(replaceFrom, replaceTo, paraNodes);
+    } else {
+      const paraNodes = items.map(it => schema.nodes.paragraph.create(null, it.inlineNodes));
+      const bqNode = schema.nodes.blockquote.create(null, paraNodes);
+      tr.replaceRangeWith(replaceFrom, replaceTo, bqNode);
+    }
+  } else if (targetType.startsWith('h')) {
+    const level = parseInt(targetType.slice(1), 10) || 1;
+    const allAlreadyHeading = items.every(it => it.originalType === 'heading' && it.attrs.level === level);
+    if (allAlreadyHeading) {
+      const paraNodes = items.map(it => schema.nodes.paragraph.create(null, it.inlineNodes));
+      tr.replaceRangeWith(replaceFrom, replaceTo, paraNodes);
+    } else {
+      const headingNodes = items.map(it => schema.nodes.heading.create({ level }, it.inlineNodes));
+      tr.replaceRangeWith(replaceFrom, replaceTo, headingNodes);
+    }
   }
 
-  return false;
+  const newPos = Math.min(replaceFrom + 2, tr.doc.content.size);
+  tr.setSelection(Selection.near(tr.doc.resolve(newPos))).scrollIntoView();
+  dispatch(tr);
+  view.focus();
+  return true;
 }
 
 function executeAction(action) {
@@ -2323,19 +2410,29 @@ function executeAction(action) {
     case 'quote':
       convertBlock(view, action);
       break;
-    case 'code':
-      try {
-        const ctx = crepeInstance.editor.ctx;
-        const commands = ctx.get(commandsCtx);
-        const codeBlock = codeBlockSchema.type(ctx);
-        commands.call(clearTextInCurrentBlockCommand.key);
-        commands.call(setBlockTypeCommand.key, {
-          nodeType: codeBlock,
-        });
+    case 'code': {
+      const eff = getEffectiveSelection(view);
+      if (!eff.empty && eff.from !== eff.to) {
+        const selectedText = view.state.doc.textBetween(eff.from, eff.to, '\n');
+        const codeNode = view.state.schema.nodes.code_block.create(null, selectedText ? view.state.schema.text(selectedText) : null);
+        view.dispatch(view.state.tr.replaceRangeWith(eff.from, eff.to, codeNode).scrollIntoView());
         view.focus();
-      } catch (e) {
-        insertText('\n```\n\n```\n');
+      } else {
+        try {
+          const ctx = crepeInstance.editor.ctx;
+          const commands = ctx.get(commandsCtx);
+          const codeBlock = codeBlockSchema.type(ctx);
+          commands.call(clearTextInCurrentBlockCommand.key);
+          commands.call(setBlockTypeCommand.key, {
+            nodeType: codeBlock,
+          });
+          view.focus();
+        } catch (e) {
+          insertText('\n```\n\n```\n');
+        }
       }
+      break;
+    }
       break;
     case 'table':
       try {

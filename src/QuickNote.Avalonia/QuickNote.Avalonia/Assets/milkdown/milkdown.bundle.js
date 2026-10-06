@@ -138842,6 +138842,12 @@ Expected function or array of functions, received type ${typeof value}.`
                       break;
                     }
                   }
+                  if (!isInsideSelection) {
+                    const b = range.getBoundingClientRect();
+                    if (e.clientY >= b.top - 4 && e.clientY <= b.bottom + 4 && e.clientX >= b.left - 20 && e.clientX <= b.right + 20) {
+                      isInsideSelection = true;
+                    }
+                  }
                 }
                 if (!isInsideSelection) {
                   const posInfo = view.posAtCoords({ left: e.clientX, top: e.clientY });
@@ -138852,7 +138858,17 @@ Expected function or array of functions, received type ${typeof value}.`
                   }
                 }
               }
-              if (!isInsideSelection) {
+              if (isInsideSelection) {
+                const eff = getEffectiveSelection(view);
+                if (!eff.empty && (view.state.selection.from !== eff.from || view.state.selection.to !== eff.to)) {
+                  try {
+                    const $f = view.state.doc.resolve(eff.from);
+                    const $t = view.state.doc.resolve(eff.to);
+                    view.dispatch(view.state.tr.setSelection(new TextSelection($f, $t)));
+                  } catch {
+                  }
+                }
+              } else {
                 const posInfo = view.posAtCoords({ left: e.clientX, top: e.clientY });
                 if (posInfo && typeof posInfo.pos === "number") {
                   const targetPos = Math.max(0, Math.min(posInfo.pos, view.state.doc.content.size));
@@ -138981,172 +138997,241 @@ Expected function or array of functions, received type ${typeof value}.`
         const menu2 = document.getElementById("format-menu");
         if (menu2) menu2.style.display = "none";
       }
+      function extractInlineContent(schema4, node2) {
+        if (!node2 || !node2.content || node2.content.size === 0) {
+          return [];
+        }
+        const children = [];
+        node2.content.forEach((child) => {
+          children.push(child);
+        });
+        if (children.length > 0 && children[0].isText) {
+          const rawText3 = children[0].text;
+          const cleanedText = rawText3.replace(/^([-*+]\s*\[\s*[xX]?\s*\]\s*|[-*+]\s+|>\s*|\d+\.\s*|#{1,6}\s+)/, "");
+          if (cleanedText !== rawText3) {
+            if (cleanedText.length > 0) {
+              children[0] = schema4.text(cleanedText, children[0].marks);
+            } else {
+              children.shift();
+            }
+          }
+        }
+        return children;
+      }
+      function splitByHardBreaks(schema4, inlineNodes) {
+        const lines = [];
+        let currentLine = [];
+        for (const node2 of inlineNodes) {
+          if (node2.type && node2.type.name === "hard_break") {
+            if (currentLine.length > 0) {
+              lines.push(currentLine);
+              currentLine = [];
+            }
+          } else {
+            currentLine.push(node2);
+          }
+        }
+        if (currentLine.length > 0) {
+          lines.push(currentLine);
+        }
+        return lines.length > 0 ? lines : [[]];
+      }
       function convertBlock(view, targetType) {
         if (!view || !view.state) return false;
         const { state, dispatch } = view;
-        const { schema: schema4, selection: selection2 } = state;
-        let $from = selection2.$from;
-        let textblock = $from.parent;
-        let textblockDepth = $from.depth;
-        while (textblock && !textblock.isTextblock && textblockDepth > 0) {
-          textblockDepth--;
-          textblock = $from.node(textblockDepth);
+        const { schema: schema4 } = state;
+        const eff = getEffectiveSelection(view);
+        let from4 = eff.from;
+        let to = eff.to;
+        let isRangeSelection = !eff.empty && from4 !== to;
+        if (!isRangeSelection) {
+          from4 = state.selection.from;
+          to = state.selection.to;
+          isRangeSelection = !state.selection.empty && from4 !== to;
         }
-        if (!textblock || !textblock.isTextblock) {
-          const near = Selection.near($from);
-          if (near && near.$from.parent && near.$from.parent.isTextblock) {
-            $from = near.$from;
-            textblock = $from.parent;
-            textblockDepth = $from.depth;
-          } else {
-            return false;
+        const selectedBlocks = [];
+        if (!isRangeSelection) {
+          let $from = state.doc.resolve(from4);
+          let listItemDepth = -1;
+          let blockquoteDepth = -1;
+          let textblockDepth = -1;
+          for (let d3 = $from.depth; d3 > 0; d3--) {
+            const node2 = $from.node(d3);
+            if (node2.type === schema4.nodes.list_item && listItemDepth < 0) {
+              listItemDepth = d3;
+            }
+            if (node2.type === schema4.nodes.blockquote && blockquoteDepth < 0) {
+              blockquoteDepth = d3;
+            }
+            if (node2.isTextblock && textblockDepth < 0) {
+              textblockDepth = d3;
+            }
+          }
+          if (listItemDepth > 0) {
+            const parentList = $from.node(listItemDepth - 1);
+            selectedBlocks.push({
+              pos: $from.before(listItemDepth),
+              end: $from.after(listItemDepth),
+              node: $from.node(listItemDepth),
+              type: "list_item",
+              parentType: parentList ? parentList.type.name : "bullet_list",
+              parentPos: parentList ? $from.before(listItemDepth - 1) : $from.before(listItemDepth),
+              parentEnd: parentList ? $from.after(listItemDepth - 1) : $from.after(listItemDepth),
+              parentList
+            });
+          } else if (textblockDepth > 0) {
+            selectedBlocks.push({
+              pos: blockquoteDepth > 0 ? $from.before(blockquoteDepth) : $from.before(textblockDepth),
+              end: blockquoteDepth > 0 ? $from.after(blockquoteDepth) : $from.after(textblockDepth),
+              node: $from.node(textblockDepth),
+              type: $from.node(textblockDepth).type.name,
+              parentType: blockquoteDepth > 0 ? "blockquote" : "doc",
+              parentPos: blockquoteDepth > 0 ? $from.before(blockquoteDepth) : 0,
+              parentEnd: blockquoteDepth > 0 ? $from.after(blockquoteDepth) : state.doc.content.size
+            });
+          }
+        } else {
+          state.doc.forEach((topNode, topPos) => {
+            const topEnd = topPos + topNode.nodeSize;
+            if (topPos >= to || topEnd <= from4) return;
+            if (topNode.type === schema4.nodes.bullet_list || topNode.type === schema4.nodes.ordered_list) {
+              topNode.forEach((itemNode, itemOffset) => {
+                const itemPos = topPos + 1 + itemOffset;
+                const itemEnd = itemPos + itemNode.nodeSize;
+                if (itemPos < to && itemEnd > from4) {
+                  selectedBlocks.push({
+                    pos: itemPos,
+                    end: itemEnd,
+                    node: itemNode,
+                    type: "list_item",
+                    parentType: topNode.type.name,
+                    parentPos: topPos,
+                    parentEnd: topEnd,
+                    parentList: topNode
+                  });
+                }
+              });
+            } else if (topNode.type === schema4.nodes.blockquote) {
+              topNode.forEach((childNode, childOffset) => {
+                const childPos = topPos + 1 + childOffset;
+                const childEnd = childPos + childNode.nodeSize;
+                if (childPos < to && childEnd > from4) {
+                  selectedBlocks.push({
+                    pos: childPos,
+                    end: childEnd,
+                    node: childNode,
+                    type: childNode.type.name,
+                    parentType: "blockquote",
+                    parentPos: topPos,
+                    parentEnd: topEnd
+                  });
+                }
+              });
+            } else if (topNode.isTextblock || topNode.type.name === "paragraph" || topNode.type.name === "heading") {
+              selectedBlocks.push({
+                pos: topPos,
+                end: topEnd,
+                node: topNode,
+                type: topNode.type.name,
+                parentType: "doc",
+                parentPos: 0,
+                parentEnd: state.doc.content.size
+              });
+            }
+          });
+        }
+        if (selectedBlocks.length === 0) return false;
+        const items = [];
+        for (const block4 of selectedBlocks) {
+          let contentNode = block4.node;
+          if (block4.type === "list_item") {
+            contentNode = block4.node.firstChild || block4.node;
+          }
+          const inlineNodes = extractInlineContent(schema4, contentNode);
+          const lines = splitByHardBreaks(schema4, inlineNodes);
+          for (const line of lines) {
+            items.push({
+              inlineNodes: line,
+              originalType: block4.type,
+              attrs: block4.node.attrs || {},
+              parentType: block4.parentType,
+              parentList: block4.parentList ? block4.parentList.type.name : null,
+              parentListNode: block4.parentList,
+              pos: block4.pos,
+              end: block4.end,
+              node: block4.node
+            });
           }
         }
-        let listItemDepth = -1;
-        let blockquoteDepth = -1;
-        for (let d3 = $from.depth; d3 > 0; d3--) {
-          const node2 = $from.node(d3);
-          if (node2.type === schema4.nodes.list_item && listItemDepth < 0) {
-            listItemDepth = d3;
-          }
-          if (node2.type === schema4.nodes.blockquote && blockquoteDepth < 0) {
-            blockquoteDepth = d3;
-          }
+        if (items.length === 0) return false;
+        let replaceFrom = selectedBlocks[0].pos;
+        let replaceTo = selectedBlocks[selectedBlocks.length - 1].end;
+        if (selectedBlocks[0].parentList && selectedBlocks[0].pos === selectedBlocks[0].parentPos + 1) {
+          replaceFrom = selectedBlocks[0].parentPos;
         }
-        let text11 = textblock.textContent || "";
-        text11 = text11.replace(/^[-*+]\s*\[\s*[xX]?\s*\]\s*|^[-*+]\s*\\\[\s*\\\]\s*|^\[\s*\]\s*|^[-*+]\s+|^>\s*|^\d+\.\s*|^#{1,6}\s+/, "");
-        const textNode = text11 ? schema4.text(text11) : null;
-        const paraNode = schema4.nodes.paragraph.create(null, textNode);
+        if (selectedBlocks[selectedBlocks.length - 1].parentList && selectedBlocks[selectedBlocks.length - 1].end === selectedBlocks[selectedBlocks.length - 1].parentEnd - 1) {
+          replaceTo = selectedBlocks[selectedBlocks.length - 1].parentEnd;
+        }
         let tr = state.tr;
-        if (targetType === "todo") {
-          if (listItemDepth > 0) {
-            const itemNode2 = $from.node(listItemDepth);
-            const itemPos = $from.before(listItemDepth);
-            if (itemNode2.attrs.checked !== null && itemNode2.attrs.checked !== void 0) {
-              tr.setNodeMarkup(itemPos, void 0, { ...itemNode2.attrs, checked: !itemNode2.attrs.checked, listType: "bullet" });
-            } else {
-              tr.setNodeMarkup(itemPos, void 0, { ...itemNode2.attrs, checked: false, listType: "bullet" });
-            }
-            if (text11 !== textblock.textContent) {
-              tr.replaceWith($from.start(textblockDepth), $from.end(textblockDepth), textNode ? [textNode] : []);
-            }
-            dispatch(tr.scrollIntoView());
-            view.focus();
-            return true;
-          }
-          const replaceFrom = blockquoteDepth > 0 ? $from.before(blockquoteDepth) : $from.before(textblockDepth);
-          const replaceTo = blockquoteDepth > 0 ? $from.after(blockquoteDepth) : $from.after(textblockDepth);
-          const itemNode = schema4.nodes.list_item.create({ checked: false, listType: "bullet", spread: false }, paraNode);
-          const listNode = schema4.nodes.bullet_list.create({ spread: false }, itemNode);
-          tr.replaceRangeWith(replaceFrom, replaceTo, listNode);
-          const newSelPos = Math.min(replaceFrom + 2, tr.doc.content.size);
-          tr.setSelection(Selection.near(tr.doc.resolve(newSelPos))).scrollIntoView();
-          dispatch(tr);
-          view.focus();
-          return true;
-        }
-        if (targetType === "quote") {
-          if (blockquoteDepth > 0) {
-            const bqPos = $from.before(blockquoteDepth);
-            const bqEnd = $from.after(blockquoteDepth);
-            tr.replaceRangeWith(bqPos, bqEnd, paraNode);
-            const newSelPos2 = Math.min(bqPos + 1, tr.doc.content.size);
-            tr.setSelection(Selection.near(tr.doc.resolve(newSelPos2))).scrollIntoView();
-            dispatch(tr);
-            view.focus();
-            return true;
-          }
-          const replaceFrom = listItemDepth > 0 ? $from.before(listItemDepth) : $from.before(textblockDepth);
-          const replaceTo = listItemDepth > 0 ? $from.after(listItemDepth) : $from.after(textblockDepth);
-          const bqNode = schema4.nodes.blockquote.create(null, paraNode);
-          tr.replaceRangeWith(replaceFrom, replaceTo, bqNode);
-          const newSelPos = Math.min(replaceFrom + 2, tr.doc.content.size);
-          tr.setSelection(Selection.near(tr.doc.resolve(newSelPos))).scrollIntoView();
-          dispatch(tr);
-          view.focus();
-          return true;
-        }
         if (targetType === "bullet") {
-          if (listItemDepth > 0) {
-            const itemNode2 = $from.node(listItemDepth);
-            const itemPos = $from.before(listItemDepth);
-            const parentList = $from.node(listItemDepth - 1);
-            if (parentList && parentList.type === schema4.nodes.bullet_list && itemNode2.attrs.checked === null) {
-              const listPos = $from.before(listItemDepth - 1);
-              const listEnd = $from.after(listItemDepth - 1);
-              tr.replaceRangeWith(listPos, listEnd, paraNode);
-              const newSelPos2 = Math.min(listPos + 1, tr.doc.content.size);
-              tr.setSelection(Selection.near(tr.doc.resolve(newSelPos2))).scrollIntoView();
-            } else {
-              tr.setNodeMarkup(itemPos, void 0, { ...itemNode2.attrs, checked: null, listType: "bullet" });
-            }
-            if (text11 !== textblock.textContent) {
-              tr.replaceWith($from.start(textblockDepth), $from.end(textblockDepth), textNode ? [textNode] : []);
-            }
-            dispatch(tr.scrollIntoView());
-            view.focus();
-            return true;
-          }
-          const replaceFrom = blockquoteDepth > 0 ? $from.before(blockquoteDepth) : $from.before(textblockDepth);
-          const replaceTo = blockquoteDepth > 0 ? $from.after(blockquoteDepth) : $from.after(textblockDepth);
-          const itemNode = schema4.nodes.list_item.create({ checked: null, listType: "bullet", spread: false }, paraNode);
-          const listNode = schema4.nodes.bullet_list.create({ spread: false }, itemNode);
-          tr.replaceRangeWith(replaceFrom, replaceTo, listNode);
-          const newSelPos = Math.min(replaceFrom + 2, tr.doc.content.size);
-          tr.setSelection(Selection.near(tr.doc.resolve(newSelPos))).scrollIntoView();
-          dispatch(tr);
-          view.focus();
-          return true;
-        }
-        if (targetType === "number") {
-          if (listItemDepth > 0) {
-            const itemNode2 = $from.node(listItemDepth);
-            const itemPos = $from.before(listItemDepth);
-            const parentList = $from.node(listItemDepth - 1);
-            if (parentList && parentList.type === schema4.nodes.ordered_list) {
-              const listPos = $from.before(listItemDepth - 1);
-              const listEnd = $from.after(listItemDepth - 1);
-              tr.replaceRangeWith(listPos, listEnd, paraNode);
-              const newSelPos2 = Math.min(listPos + 1, tr.doc.content.size);
-              tr.setSelection(Selection.near(tr.doc.resolve(newSelPos2))).scrollIntoView();
-            } else {
-              tr.setNodeMarkup(itemPos, void 0, { ...itemNode2.attrs, checked: null, listType: "ordered" });
-            }
-            if (text11 !== textblock.textContent) {
-              tr.replaceWith($from.start(textblockDepth), $from.end(textblockDepth), textNode ? [textNode] : []);
-            }
-            dispatch(tr.scrollIntoView());
-            view.focus();
-            return true;
-          }
-          const replaceFrom = blockquoteDepth > 0 ? $from.before(blockquoteDepth) : $from.before(textblockDepth);
-          const replaceTo = blockquoteDepth > 0 ? $from.after(blockquoteDepth) : $from.after(textblockDepth);
-          const itemNode = schema4.nodes.list_item.create({ checked: null, listType: "ordered", spread: false }, paraNode);
-          const listNode = schema4.nodes.ordered_list.create({ order: 1, spread: false }, itemNode);
-          tr.replaceRangeWith(replaceFrom, replaceTo, listNode);
-          const newSelPos = Math.min(replaceFrom + 2, tr.doc.content.size);
-          tr.setSelection(Selection.near(tr.doc.resolve(newSelPos))).scrollIntoView();
-          dispatch(tr);
-          view.focus();
-          return true;
-        }
-        if (targetType.startsWith("h")) {
-          const level = parseInt(targetType.slice(1), 10) || 1;
-          const replaceFrom = listItemDepth > 0 ? $from.before(listItemDepth) : blockquoteDepth > 0 ? $from.before(blockquoteDepth) : $from.before(textblockDepth);
-          const replaceTo = listItemDepth > 0 ? $from.after(listItemDepth) : blockquoteDepth > 0 ? $from.after(blockquoteDepth) : $from.after(textblockDepth);
-          if (textblock.type === schema4.nodes.heading && textblock.attrs.level === level) {
-            tr.replaceRangeWith(replaceFrom, replaceTo, paraNode);
+          const allAlreadyBullet = items.every((it) => (it.parentType === "bullet_list" || it.parentList === "bullet_list") && it.attrs.checked === null);
+          if (allAlreadyBullet) {
+            const paraNodes = items.map((it) => schema4.nodes.paragraph.create(null, it.inlineNodes));
+            tr.replaceRangeWith(replaceFrom, replaceTo, paraNodes);
           } else {
-            const headingNode = schema4.nodes.heading.create({ level }, textNode);
-            tr.replaceRangeWith(replaceFrom, replaceTo, headingNode);
+            const itemNodes = items.map((it) => schema4.nodes.list_item.create({ checked: null, listType: "bullet", spread: false }, schema4.nodes.paragraph.create(null, it.inlineNodes)));
+            const listNode = schema4.nodes.bullet_list.create({ spread: false }, itemNodes);
+            tr.replaceRangeWith(replaceFrom, replaceTo, listNode);
           }
-          const newSelPos = Math.min(replaceFrom + 1, tr.doc.content.size);
-          tr.setSelection(Selection.near(tr.doc.resolve(newSelPos))).scrollIntoView();
-          dispatch(tr);
-          view.focus();
-          return true;
+        } else if (targetType === "number") {
+          const allAlreadyOrdered = items.every((it) => it.parentType === "ordered_list" || it.parentList === "ordered_list");
+          if (allAlreadyOrdered) {
+            const paraNodes = items.map((it) => schema4.nodes.paragraph.create(null, it.inlineNodes));
+            tr.replaceRangeWith(replaceFrom, replaceTo, paraNodes);
+          } else {
+            const itemNodes = items.map((it) => schema4.nodes.list_item.create({ checked: null, listType: "ordered", spread: false }, schema4.nodes.paragraph.create(null, it.inlineNodes)));
+            const listNode = schema4.nodes.ordered_list.create({ order: 1, spread: false }, itemNodes);
+            tr.replaceRangeWith(replaceFrom, replaceTo, listNode);
+          }
+        } else if (targetType === "todo") {
+          const allAlreadyTodo = items.every((it) => it.attrs.checked !== null && it.attrs.checked !== void 0);
+          if (allAlreadyTodo) {
+            const anyUnchecked = items.some((it) => !it.attrs.checked);
+            const newChecked = anyUnchecked;
+            const itemNodes = items.map((it) => schema4.nodes.list_item.create({ checked: newChecked, listType: "bullet", spread: false }, schema4.nodes.paragraph.create(null, it.inlineNodes)));
+            const listNode = schema4.nodes.bullet_list.create({ spread: false }, itemNodes);
+            tr.replaceRangeWith(replaceFrom, replaceTo, listNode);
+          } else {
+            const itemNodes = items.map((it) => schema4.nodes.list_item.create({ checked: false, listType: "bullet", spread: false }, schema4.nodes.paragraph.create(null, it.inlineNodes)));
+            const listNode = schema4.nodes.bullet_list.create({ spread: false }, itemNodes);
+            tr.replaceRangeWith(replaceFrom, replaceTo, listNode);
+          }
+        } else if (targetType === "quote") {
+          const allAlreadyQuote = items.every((it) => it.parentType === "blockquote");
+          if (allAlreadyQuote) {
+            const paraNodes = items.map((it) => schema4.nodes.paragraph.create(null, it.inlineNodes));
+            tr.replaceRangeWith(replaceFrom, replaceTo, paraNodes);
+          } else {
+            const paraNodes = items.map((it) => schema4.nodes.paragraph.create(null, it.inlineNodes));
+            const bqNode = schema4.nodes.blockquote.create(null, paraNodes);
+            tr.replaceRangeWith(replaceFrom, replaceTo, bqNode);
+          }
+        } else if (targetType.startsWith("h")) {
+          const level = parseInt(targetType.slice(1), 10) || 1;
+          const allAlreadyHeading = items.every((it) => it.originalType === "heading" && it.attrs.level === level);
+          if (allAlreadyHeading) {
+            const paraNodes = items.map((it) => schema4.nodes.paragraph.create(null, it.inlineNodes));
+            tr.replaceRangeWith(replaceFrom, replaceTo, paraNodes);
+          } else {
+            const headingNodes = items.map((it) => schema4.nodes.heading.create({ level }, it.inlineNodes));
+            tr.replaceRangeWith(replaceFrom, replaceTo, headingNodes);
+          }
         }
-        return false;
+        const newPos = Math.min(replaceFrom + 2, tr.doc.content.size);
+        tr.setSelection(Selection.near(tr.doc.resolve(newPos))).scrollIntoView();
+        dispatch(tr);
+        view.focus();
+        return true;
       }
       function executeAction(action) {
         if (!crepeInstance) return;
@@ -139225,17 +139310,28 @@ Expected function or array of functions, received type ${typeof value}.`
             convertBlock(view, action);
             break;
           case "code":
-            try {
-              const ctx = crepeInstance.editor.ctx;
-              const commands4 = ctx.get(commandsCtx);
-              const codeBlock = codeBlockSchema.type(ctx);
-              commands4.call(clearTextInCurrentBlockCommand.key);
-              commands4.call(setBlockTypeCommand.key, {
-                nodeType: codeBlock
-              });
-              view.focus();
-            } catch (e) {
-              insertText("\n```\n\n```\n");
+            {
+              const eff = getEffectiveSelection(view);
+              if (!eff.empty && eff.from !== eff.to) {
+                const selectedText = view.state.doc.textBetween(eff.from, eff.to, "\n");
+                const codeNode = view.state.schema.nodes.code_block.create(null, selectedText ? view.state.schema.text(selectedText) : null);
+                view.dispatch(view.state.tr.replaceRangeWith(eff.from, eff.to, codeNode).scrollIntoView());
+                view.focus();
+              } else {
+                try {
+                  const ctx = crepeInstance.editor.ctx;
+                  const commands4 = ctx.get(commandsCtx);
+                  const codeBlock = codeBlockSchema.type(ctx);
+                  commands4.call(clearTextInCurrentBlockCommand.key);
+                  commands4.call(setBlockTypeCommand.key, {
+                    nodeType: codeBlock
+                  });
+                  view.focus();
+                } catch (e) {
+                  insertText("\n```\n\n```\n");
+                }
+              }
+              break;
             }
             break;
           case "table":
