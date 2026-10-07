@@ -89,6 +89,7 @@ namespace QuickNote.Avalonia.ViewModels
         [ObservableProperty] private FolderDestinationItem? _selectedDestinationFolder;
         [ObservableProperty] private FolderNode? _clipboardCutNode;
         [ObservableProperty] private bool _isProfileDialogVisible;
+        [ObservableProperty] private bool _isTrashBinDialogVisible;
         [ObservableProperty] private ObservableCollection<ProfileItemViewModel> _availableProfiles = new();
         [ObservableProperty] private ProfileItemViewModel? _selectedProfile;
         [ObservableProperty] private bool _migrateNotesOnSwitch;
@@ -107,20 +108,28 @@ namespace QuickNote.Avalonia.ViewModels
 
         // ── Derived / computed ────────────────────────────────────────
         public string NotesRoot => _notesRoot;
+        public ITrashBinService TrashBinService => _trashBinService;
         public bool HasClipboardCutNode => ClipboardCutNode != null;
         public bool HasCurrentNote => CurrentNote != null;
         public bool HasNoCurrentNote => CurrentNote == null;
 
-        public bool IsNotionEditorActive => IsNotionMode && !IsRenameDialogVisible && !IsMoveDialogVisible && !IsProfileDialogVisible;
+        public bool IsNotionEditorActive => IsNotionMode && !IsRenameDialogVisible && !IsMoveDialogVisible && !IsProfileDialogVisible && !IsTrashBinDialogVisible;
 
         public bool IsProfileTabActive => ProfileDialogTabIndex == 0;
         public bool IsDictionaryTabActive => ProfileDialogTabIndex == 1;
         public bool IsShortcutsTabActive => ProfileDialogTabIndex == 2;
 
+        [RelayCommand]
+        public void OpenTrashBin()
+        {
+            IsTrashBinDialogVisible = true;
+        }
+
         partial void OnIsNotionModeChanged(bool value) => OnPropertyChanged(nameof(IsNotionEditorActive));
         partial void OnIsRenameDialogVisibleChanged(bool value) => OnPropertyChanged(nameof(IsNotionEditorActive));
         partial void OnIsMoveDialogVisibleChanged(bool value) => OnPropertyChanged(nameof(IsNotionEditorActive));
         partial void OnIsProfileDialogVisibleChanged(bool value) => OnPropertyChanged(nameof(IsNotionEditorActive));
+        partial void OnIsTrashBinDialogVisibleChanged(bool value) => OnPropertyChanged(nameof(IsNotionEditorActive));
         partial void OnProfileDialogTabIndexChanged(int value)
         {
             OnPropertyChanged(nameof(IsProfileTabActive));

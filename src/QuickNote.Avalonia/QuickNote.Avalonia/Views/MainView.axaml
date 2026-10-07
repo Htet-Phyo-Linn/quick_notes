@@ -141,7 +141,7 @@
                     <Button Command="{Binding RefreshCommand}" Background="#2f333a" Foreground="#e5e7eb" CornerRadius="6" Padding="7,5" ToolTip.Tip="Refresh Notes">
                         <PathIcon Data="{StaticResource IconRefresh}" Width="13" Height="13" Foreground="#9ca3af" />
                     </Button>
-                    <Button Command="{Binding DeleteCommand}" Background="#2f333a" Foreground="#ef4444" CornerRadius="6" Padding="7,5" ToolTip.Tip="Move to Trash">
+                    <Button Command="{Binding DeleteCommand}" Background="#2f333a" Foreground="#ef4444" CornerRadius="6" Padding="7,5" ToolTip.Tip="Delete Note (Move to Trash)">
                         <PathIcon Data="{StaticResource IconTrash}" Width="13" Height="13" Foreground="#ef4444" />
                     </Button>
 
@@ -215,6 +215,16 @@
                             Padding="6,5"
                             ToolTip.Tip="Toggle Outline Sidebar">
                         <PathIcon Data="{StaticResource IconSidebarRight}" Width="15" Height="15" />
+                    </Button>
+
+                    <!-- Trash Bin Button -->
+                    <Button Command="{Binding OpenTrashBinCommand}"
+                            Background="Transparent"
+                            Foreground="#9ca3af"
+                            CornerRadius="6"
+                            Padding="6,5"
+                            ToolTip.Tip="Trash Bin (View &amp; Restore Deleted Notes)">
+                        <PathIcon Data="{StaticResource IconTrash}" Width="15" Height="15" />
                     </Button>
 
                     <!-- Settings & Profiles Button -->
@@ -377,6 +387,12 @@
                                                 <PathIcon Data="{StaticResource IconTrash}" Width="12" Height="12" Foreground="#ef4444" />
                                             </MenuItem.Icon>
                                         </MenuItem>
+                                        <Separator />
+                                        <MenuItem Header="Open Trash Bin..." Click="OnOpenTrashBinClick">
+                                            <MenuItem.Icon>
+                                                <PathIcon Data="{StaticResource IconTrash}" Width="12" Height="12" Foreground="#9ca3af" />
+                                            </MenuItem.Icon>
+                                        </MenuItem>
                                     </ContextMenu>
                                 </Setter>
                             </Style>
@@ -455,8 +471,22 @@
                     </TreeView>
 
                     <!-- Sidebar Footer -->
-                    <Border Grid.Row="2" Padding="12,8" BorderBrush="#2d2d2d" BorderThickness="0,1,0,0" Background="#1a1a1a">
-                        <TextBlock Text="{Binding NotesCountText}" Foreground="#6b7280" FontSize="12" />
+                    <Border Grid.Row="2" Padding="10,6" BorderBrush="#2d2d2d" BorderThickness="0,1,0,0" Background="#1a1a1a">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Text="{Binding NotesCountText}" Foreground="#6b7280" FontSize="12" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                            <Button Grid.Column="1"
+                                    Command="{Binding OpenTrashBinCommand}"
+                                    Background="Transparent"
+                                    Foreground="#9ca3af"
+                                    CornerRadius="4"
+                                    Padding="6,4"
+                                    ToolTip.Tip="Trash Bin (View &amp; Restore Deleted Notes)">
+                                <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                    <PathIcon Data="{StaticResource IconTrash}" Width="12" Height="12" Foreground="#9ca3af" VerticalAlignment="Center" />
+                                    <TextBlock Text="Trash" FontSize="11" Foreground="#9ca3af" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                        </Grid>
                     </Border>
                 </Grid>
             </Border>

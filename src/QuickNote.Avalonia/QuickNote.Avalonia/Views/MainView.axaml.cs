@@ -295,6 +295,23 @@ namespace QuickNote.Avalonia.Views
                     _ = OpenSettingsWindowAsync();
                 }
             }
+            else if (e.PropertyName == nameof(MainViewModel.IsTrashBinDialogVisible))
+            {
+                if (_viewModel?.IsTrashBinDialogVisible == true)
+                {
+                    _ = OpenTrashBinWindowAsync();
+                }
+            }
+        }
+
+        private async Task OpenTrashBinWindowAsync()
+        {
+            var parentWindow = TopLevel.GetTopLevel(this) as Window;
+            if (parentWindow == null || _viewModel == null) return;
+
+            var trashWindow = new TrashBinWindow(_viewModel.TrashBinService, _viewModel);
+            await trashWindow.ShowDialog(parentWindow);
+            _viewModel.IsTrashBinDialogVisible = false;
         }
 
         private async Task OpenSettingsWindowAsync()

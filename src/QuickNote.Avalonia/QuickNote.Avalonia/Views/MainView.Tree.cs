@@ -458,6 +458,14 @@ namespace QuickNote.Avalonia.Views
             }
         }
 
+        private void OnOpenTrashBinClick(object? sender, RoutedEventArgs e)
+        {
+            if (_viewModel != null)
+            {
+                _viewModel.OpenTrashBin();
+            }
+        }
+
         // ── Empty-area context-menu actions ───────────────────────────
         private async void OnEmptyNewNoteClick(object? sender, RoutedEventArgs e)
         {
