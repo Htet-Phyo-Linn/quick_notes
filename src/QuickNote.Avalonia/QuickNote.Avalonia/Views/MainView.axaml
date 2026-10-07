@@ -217,16 +217,6 @@
                         <PathIcon Data="{StaticResource IconSidebarRight}" Width="15" Height="15" />
                     </Button>
 
-                    <!-- Trash Bin Button -->
-                    <Button Command="{Binding OpenTrashBinCommand}"
-                            Background="Transparent"
-                            Foreground="#9ca3af"
-                            CornerRadius="6"
-                            Padding="6,5"
-                            ToolTip.Tip="Trash Bin (View &amp; Restore Deleted Notes)">
-                        <PathIcon Data="{StaticResource IconTrash}" Width="15" Height="15" />
-                    </Button>
-
                     <!-- Settings & Profiles Button -->
                     <Button Command="{Binding ShowProfileDialogCommand}"
                             Background="Transparent"
