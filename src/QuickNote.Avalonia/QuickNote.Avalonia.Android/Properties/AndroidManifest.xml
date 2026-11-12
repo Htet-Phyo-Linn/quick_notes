@@ -1,5 +1,19 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" android:installLocation="auto">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+          android:versionCode="1"
+          android:versionName="1.0"
+          package="com.quicknote.android"
+          android:installLocation="auto">
 	<uses-permission android:name="android.permission.INTERNET" />
-	<application android:label="QuickNote.Avalonia" android:icon="@drawable/Icon" />
+	<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+	<application android:label="QuickNote"
+	             android:icon="@drawable/Icon"
+	             android:supportsRtl="true"
+	             android:allowBackup="true" />
+	<queries>
+		<intent>
+			<action android:name="android.intent.action.VIEW" />
+			<data android:scheme="https" />
+		</intent>
+	</queries>
 </manifest>

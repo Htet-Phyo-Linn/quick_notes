@@ -5,7 +5,9 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+#if !ANDROID
 using Microsoft.Win32;
+#endif
 using QuickNote.Core.Interfaces;
 using QuickNote.Infrastructure.Interfaces;
 
@@ -37,6 +39,7 @@ namespace QuickNote.Infrastructure.Cloud
             var accounts = new List<OneDriveAccountInfo>();
             var registeredFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
+#if !ANDROID
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
                 try
@@ -74,6 +77,7 @@ namespace QuickNote.Infrastructure.Cloud
                 }
                 catch { }
             }
+#endif
 
             // Fallback: Check environment variables
             var envBusiness = Environment.GetEnvironmentVariable("OneDriveCommercial");
@@ -226,7 +230,15 @@ namespace QuickNote.Infrastructure.Cloud
             }
             else
             {
-                bool isOneDriveRunning = Process.GetProcessesByName("OneDrive").Length > 0;
+                bool isOneDriveRunning = false;
+                try
+                {
+                    if (OperatingSystem.IsWindows())
+                    {
+                        isOneDriveRunning = Process.GetProcessesByName("OneDrive").Length > 0;
+                    }
+                }
+                catch { }
                 newStatus = new CloudSyncStatus
                 {
                     State = isOneDriveRunning ? CloudSyncState.Synced : CloudSyncState.Warning,

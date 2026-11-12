@@ -1,3 +1,4 @@
+using System;
 using Microsoft.Extensions.DependencyInjection;
 using QuickNote.Core.Interfaces;
 using QuickNote.Core.Markdown;
@@ -52,7 +53,14 @@ namespace QuickNote.Avalonia.DependencyInjection
             services.AddSingleton<ISettingsService>(sp =>
                 new JsonSettingsService(notesRoot));
 
-            services.AddSingleton<ICloudSyncService, OneDriveSyncService>();
+            if (OperatingSystem.IsAndroid())
+            {
+                services.AddSingleton<ICloudSyncService, AndroidCloudSyncService>();
+            }
+            else
+            {
+                services.AddSingleton<ICloudSyncService, OneDriveSyncService>();
+            }
         }
     }
 }

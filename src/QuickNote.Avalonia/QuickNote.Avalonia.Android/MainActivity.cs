@@ -6,7 +6,7 @@ using Avalonia.Android;
 namespace QuickNote.Avalonia.Android;
 
 [Activity(
-    Label = "QuickNote.Avalonia.Android",
+    Label = "QuickNote",
     Theme = "@style/MyTheme.NoActionBar",
     Icon = "@drawable/icon",
     MainLauncher = true,

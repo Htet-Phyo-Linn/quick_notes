@@ -25,7 +25,7 @@ public partial class App : Application
     public override void OnFrameworkInitializationCompleted()
     {
         string defaultNotesRoot = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+            Environment.GetFolderPath(OperatingSystem.IsAndroid() ? Environment.SpecialFolder.Personal : Environment.SpecialFolder.MyDocuments),
             "QuickNote");
 
         // Attempt to load settings to respect any configured OneDrive or custom notes folder
@@ -71,11 +71,11 @@ public partial class App : Application
         }
         else if (ApplicationLifetime is IActivityApplicationLifetime singleViewFactoryApplicationLifetime)
         {
-            singleViewFactoryApplicationLifetime.MainViewFactory = () => new MainView { DataContext = mainViewModel };
+            singleViewFactoryApplicationLifetime.MainViewFactory = () => new MobileMainView { DataContext = mainViewModel };
         }
         else if (ApplicationLifetime is ISingleViewApplicationLifetime singleViewPlatform)
         {
-            singleViewPlatform.MainView = new MainView
+            singleViewPlatform.MainView = new MobileMainView
             {
                 DataContext = mainViewModel
             };
