@@ -29,7 +29,7 @@
       height: 100%;
       overflow-y: auto;
       overflow-x: hidden;
-      padding: 10px 28px 120px 28px;
+      padding: 24px 28px 120px 28px;
       scrollbar-width: thin;
       scrollbar-color: #374151 transparent;
       box-sizing: border-box;
@@ -57,6 +57,7 @@
       box-sizing: border-box;
     }
     .milkdown .ProseMirror {
+      display: flow-root;
       outline: none;
       min-height: calc(100vh - 160px);
       font-size: 15px;
@@ -72,6 +73,9 @@
       background-color: #141414 !important;
       border: 1px solid #2d2d2d !important;
       border-radius: 6px !important;
+    }
+    .milkdown .milkdown-code-block .cm-content {
+      padding-left: 6px !important;
     }
     .milkdown code:not(pre code) {
       background-color: #27272a !important;
@@ -118,7 +122,9 @@
     }
     .milkdown .milkdown-block-handle,
     .crepe-block-handle,
-    [data-crepe-block-handle] {
+    [data-crepe-block-handle],
+    body.context-menu-open .milkdown .milkdown-toolbar,
+    body.context-menu-open .milkdown .crepe-toolbar {
       display: none !important;
       opacity: 0 !important;
       pointer-events: none !important;
@@ -165,61 +171,72 @@
       text-align: center !important;
     }
 
-    /* Obsidian & Word Heading Folding Styles and Compact Margins */
+    /* Obsidian & Word Heading Folding Styles and Balanced Margins */
     .milkdown .ProseMirror h1 {
       position: relative;
       font-size: 1.85em !important;
       font-weight: 700 !important;
-      margin-top: 18px !important;
-      margin-bottom: 6px !important;
-      line-height: 1.25 !important;
+      margin-top: 20px !important;
+      margin-bottom: 8px !important;
+      line-height: 1.4 !important;
     }
     .milkdown .ProseMirror h2 {
       position: relative;
       font-size: 1.5em !important;
       font-weight: 600 !important;
-      margin-top: 14px !important;
-      margin-bottom: 5px !important;
-      line-height: 1.3 !important;
+      margin-top: 16px !important;
+      margin-bottom: 6px !important;
+      line-height: 1.4 !important;
     }
     .milkdown .ProseMirror h3 {
       position: relative;
       font-size: 1.25em !important;
       font-weight: 600 !important;
-      margin-top: 12px !important;
-      margin-bottom: 4px !important;
-      line-height: 1.35 !important;
+      margin-top: 14px !important;
+      margin-bottom: 6px !important;
+      line-height: 1.45 !important;
     }
     .milkdown .ProseMirror h4 {
       position: relative;
       font-size: 1.1em !important;
       font-weight: 600 !important;
-      margin-top: 10px !important;
-      margin-bottom: 3px !important;
+      margin-top: 12px !important;
+      margin-bottom: 4px !important;
+      line-height: 1.5 !important;
     }
     .milkdown .ProseMirror h5,
     .milkdown .ProseMirror h6 {
       position: relative;
       font-size: 1.0em !important;
       font-weight: 600 !important;
-      margin-top: 8px !important;
-      margin-bottom: 3px !important;
+      margin-top: 10px !important;
+      margin-bottom: 4px !important;
+      line-height: 1.5 !important;
     }
-    .milkdown .ProseMirror > *:first-child {
+    .milkdown .ProseMirror > :nth-child(1 of :not(.ProseMirror-widget):not(.prosemirror-virtual-cursor)) {
       margin-top: 0 !important;
     }
     .milkdown ul, .milkdown ol {
-      margin: 4px 0 !important;
+      margin: 6px 0 !important;
     }
     .milkdown .milkdown-list-item-block {
-      margin: 2px 0 !important;
+      margin: 3px 0 !important;
+      line-height: 1.65 !important;
     }
     .milkdown .list-item {
-      margin: 2px 0 !important;
+      margin: 3px 0 !important;
+      line-height: 1.65 !important;
     }
     .milkdown .ProseMirror p {
-      margin: 4px 0 !important;
+      margin: 6px 0 !important;
       padding: 0 !important;
+      line-height: 1.65 !important;
+    }
+    ::selection,
+    .milkdown .ProseMirror ::selection,
+    .milkdown .ProseMirror *::selection {
+      background-color: rgba(59, 130, 246, 0.35) !important;
+      color: inherit !important;
     }
     .heading-fold-btn {
       position: absolute;
@@ -300,8 +317,8 @@
       box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.3);
       border-radius: 8px;
       padding: 6px;
-      width: 220px;
-      max-height: 420px;
+      width: 245px;
+      max-height: 480px;
       overflow-y: auto;
       font-size: 13px;
       color: #e5e7eb;
@@ -962,6 +979,13 @@
         <span class="label">Paste</span>
         <span class="shortcut">Ctrl+V</span>
       </button>
+      <button type="button" class="menu-item" id="menu-paste-plain" data-action="paste-plain">
+        <span class="icon">
+          <svg viewBox="0 0 24 24"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>
+        </span>
+        <span class="label">Paste plain text</span>
+        <span class="shortcut">Ctrl+Shift+V</span>
+      </button>
       <button type="button" class="menu-item" id="menu-select-all" data-action="select-all">
         <span class="icon">
           <svg viewBox="0 0 24 24"><path d="M3 3h4v2H5v2H3V3zm14 0h4v4h-2V5h-2V3zM3 17h2v2h2v2H3v-4zm18 0v4h-4v-2h2v-2h2zM9 3h6v2H9V3zm0 16h6v2H9v-2zM3 9h2v6H3V9zm16 0h2v6h-2V9z"/></svg>
@@ -984,6 +1008,10 @@
     </button>
     <div class="menu-divider" id="menu-ignore-divider" style="display: none;"></div>
     <div class="menu-section-title">Insert / Convert</div>
+    <button type="button" class="menu-item" data-action="paragraph" title="Reset block to normal paragraph (&lt;p&gt;)">
+      <span class="icon">P</span>
+      <span class="label">Normal text (Paragraph)</span>
+    </button>
     <button type="button" class="menu-item" data-action="h1">
       <span class="icon">H1</span>
       <span class="label">Heading 1</span>
@@ -1065,6 +1093,12 @@
       <button type="button" class="inline-btn" data-action="strike" title="Strikethrough"><s>S</s></button>
       <button type="button" class="inline-btn" data-action="inline-code" title="Inline code"><code>&lt;/&gt;</code></button>
     </div>
+    <button type="button" class="menu-item" data-action="clear-format" title="Clear inline formatting and reset to normal text" style="margin-top: 4px;">
+      <span class="icon">
+        <svg viewBox="0 0 24 24"><path d="M4 7h11l-4 13"/><path d="M5 19l14-14"/></svg>
+      </span>
+      <span class="label">Clear formatting</span>
+    </button>
   </div>
 
   <div id="link-dialog" class="link-dialog" style="display: none;">

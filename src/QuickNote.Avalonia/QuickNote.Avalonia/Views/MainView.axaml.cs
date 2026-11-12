@@ -302,6 +302,26 @@ namespace QuickNote.Avalonia.Views
                     _ = OpenTrashBinWindowAsync();
                 }
             }
+            else if (e.PropertyName == nameof(MainViewModel.IsMoveDialogVisible))
+            {
+                if (_viewModel?.IsMoveDialogVisible == true)
+                {
+                    _ = OpenMoveToWindowAsync();
+                }
+            }
+        }
+
+        private async Task OpenMoveToWindowAsync()
+        {
+            var parentWindow = TopLevel.GetTopLevel(this) as Window;
+            if (parentWindow == null || _viewModel == null) return;
+
+            var moveWindow = new MoveToWindow(_viewModel);
+            await moveWindow.ShowDialog(parentWindow);
+            if (_viewModel.IsMoveDialogVisible)
+            {
+                _viewModel.CancelMove();
+            }
         }
 
         private async Task OpenTrashBinWindowAsync()

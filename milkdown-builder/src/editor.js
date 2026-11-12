@@ -199,7 +199,22 @@ const autoInlineCodePlugin = $prose(() => new Plugin({
       }
     }
 
-    return tr && tr.docChanged ? tr : null;
+    // Do not carry inline code mark onto a brand new empty paragraph created via Enter
+    const $selFrom = newState.selection.$from;
+    const $oldSelFrom = oldState.selection.$from;
+    if (newState.selection.empty &&
+        $selFrom.parent &&
+        $selFrom.parent.type.name === 'paragraph' &&
+        $selFrom.parent.content.size === 0 &&
+        $oldSelFrom.parent !== $selFrom.parent) {
+      const activeMarks = newState.storedMarks || $selFrom.marks();
+      if (activeMarks && activeMarks.some(m => m.type.name === 'code_inline' || m.type.name === 'inlineCode')) {
+        if (!tr) tr = newState.tr;
+        tr = tr.setStoredMarks(activeMarks.filter(m => m.type.name !== 'code_inline' && m.type.name !== 'inlineCode'));
+      }
+    }
+
+    return tr && (tr.docChanged || tr.storedMarksSet) ? tr : null;
   }
 }));
 
@@ -737,6 +752,9 @@ window.addEventListener('keydown', (e) => {
       e.preventDefault();
       sendMessage({ type: 'shortcut', action: 'newFolder' });
       return;
+    }
+    if (e.key.toLowerCase() === 'v') {
+      lastPlainPasteTimestamp = Date.now();
     }
   } else if (e.key === 'F5') {
     e.preventDefault();
@@ -1552,6 +1570,24 @@ async function init() {
   if (findReplaceBtn) findReplaceBtn.addEventListener('click', doFindReplaceCurrent);
   if (findReplaceAllBtn) findReplaceAllBtn.addEventListener('click', doFindReplaceAll);
 
+  function focusOrInsertLeadingParagraph(view) {
+    if (!view || !view.state) return;
+    const { state, dispatch } = view;
+    const firstChild = state.doc.firstChild;
+    const hasLeadingEmptyP = firstChild && firstChild.type.name === 'paragraph' && firstChild.content.size === 0;
+
+    let tr = state.tr;
+    if (!hasLeadingEmptyP) {
+      const pType = state.schema.nodes.paragraph;
+      if (!pType) return;
+      tr = tr.insert(0, pType.create());
+    }
+    const targetPos = Math.min(1, tr.doc.content.size);
+    tr = tr.setSelection(Selection.near(tr.doc.resolve(targetPos))).scrollIntoView();
+    dispatch(tr);
+    view.focus();
+  }
+
   const editorContainer = document.getElementById('editor-container');
   if (editorContainer) {
     editorContainer.addEventListener('input', () => {
@@ -1565,15 +1601,83 @@ async function init() {
       mouseDownPos = { x: e.clientX, y: e.clientY };
     }, true);
 
-    editorContainer.addEventListener('click', (e) => {
-      // Don't trigger if clicked on controls, buttons, menus, inputs, tables, etc.
-      if (e.target.closest('.heading-fold-btn, .heading-fold-badge, .format-menu, .bubble-menu, .slash-menu, .find-widget, .cm-editor, table, a, input, button, .tools')) {
-        return;
+    // Allow ArrowUp / ArrowLeft at start of a leading code block to place cursor above it
+    editorContainer.addEventListener('keydown', (e) => {
+      if (e.ctrlKey || e.altKey || e.metaKey || e.shiftKey) return;
+      if (e.key !== 'ArrowUp' && e.key !== 'ArrowLeft') return;
+      const cmContent = e.target && e.target.closest ? e.target.closest('.cm-content') : null;
+      if (!cmContent) return;
+
+      const codeBlockEl = cmContent.closest('.milkdown-code-block');
+      const pm = document.querySelector('.milkdown .ProseMirror');
+      if (!codeBlockEl || !pm) return;
+
+      const firstLine = cmContent.firstElementChild;
+      const sel = window.getSelection();
+      if (!firstLine || !sel || !sel.isCollapsed || !firstLine.contains(sel.anchorNode)) return;
+
+      if (e.key === 'ArrowLeft') {
+        const preRange = document.createRange();
+        preRange.setStart(firstLine, 0);
+        preRange.setEnd(sel.anchorNode, sel.anchorOffset);
+        if (preRange.toString().length !== 0) return;
       }
 
+      const view = getEditorView();
+      if (!view || !view.state) return;
+
+      const firstCodeBlock = pm.querySelector('.milkdown-code-block');
+      const firstDocChild = view.state.doc.firstChild;
+      if (firstCodeBlock === codeBlockEl && firstDocChild && firstDocChild.type.name === 'code_block') {
+        e.preventDefault();
+        e.stopPropagation();
+        focusOrInsertLeadingParagraph(view);
+      }
+    }, true);
+
+    editorContainer.addEventListener('click', (e) => {
       // If user was dragging to select, don't trigger click action
       const moveDist = Math.hypot(e.clientX - mouseDownPos.x, e.clientY - mouseDownPos.y);
       if (moveDist > 4) {
+        return;
+      }
+
+      // Clicking in a code block's left gutter or left padding places cursor at column 0 of that line
+      const clickedCodeBlock = e.target && e.target.closest ? e.target.closest('.milkdown-code-block') : null;
+      if (clickedCodeBlock && !e.target.closest('.tools, button, input, .cm-content, [title*="Fold"], [title*="Unfold"]')) {
+        const cmContent = clickedCodeBlock.querySelector('.cm-content');
+        const lines = cmContent ? Array.from(cmContent.querySelectorAll('.cm-line')) : [];
+        if (cmContent && lines.length > 0) {
+          let targetLine = lines[0];
+          let bestDist = Infinity;
+          for (const line of lines) {
+            const r = line.getBoundingClientRect();
+            if (e.clientY >= r.top && e.clientY <= r.bottom) {
+              targetLine = line;
+              bestDist = 0;
+              break;
+            }
+            const dist = Math.min(Math.abs(e.clientY - r.top), Math.abs(e.clientY - r.bottom));
+            if (dist < bestDist) {
+              bestDist = dist;
+              targetLine = line;
+            }
+          }
+          cmContent.focus();
+          const sel = window.getSelection();
+          if (sel) {
+            const range = document.createRange();
+            range.setStart(targetLine, 0);
+            range.collapse(true);
+            sel.removeAllRanges();
+            sel.addRange(range);
+          }
+          return;
+        }
+      }
+
+      // Don't trigger if clicked on controls, buttons, menus, inputs, tables, etc.
+      if (e.target.closest('.heading-fold-btn, .heading-fold-badge, .format-menu, .bubble-menu, .slash-menu, .find-widget, .cm-editor, table, a, input, button, .tools')) {
         return;
       }
 
@@ -1592,8 +1696,16 @@ async function init() {
 
       // Find all visible non-virtual elements
       const visibleElements = Array.from(pm.children).filter(el => {
-        return el.offsetParent !== null && !el.classList.contains('heading-folded-hidden') && !el.classList.contains('prosemirror-virtual-cursor');
+        return el.offsetParent !== null &&
+          !el.classList.contains('heading-folded-hidden') &&
+          !el.classList.contains('prosemirror-virtual-cursor') &&
+          !el.classList.contains('ProseMirror-widget') &&
+          el.getBoundingClientRect().height > 0;
       });
+
+      const firstTop = visibleElements.length > 0
+        ? visibleElements[0].getBoundingClientRect().top
+        : pm.getBoundingClientRect().top;
 
       let lastBottom = 0;
       if (visibleElements.length > 0) {
@@ -1601,6 +1713,14 @@ async function init() {
         lastBottom = lastEl.getBoundingClientRect().bottom;
       } else {
         lastBottom = pm.getBoundingClientRect().top;
+      }
+
+      const isContainerBg = (e.target === editorContainer || e.target === pm || e.target === pm.parentElement);
+
+      // Clicking strictly ABOVE all document content on the top container padding places cursor before first block
+      if (e.clientY <= firstTop + 2 && isContainerBg) {
+        focusOrInsertLeadingParagraph(view);
+        return;
       }
 
       // Only trigger if clicked strictly BELOW all document content on the empty container
@@ -1682,6 +1802,8 @@ function applySpellCheck(enabled) {
 
 let contextMenuX = 0;
 let contextMenuY = 0;
+let contextMenuCodeBlockEl = null;
+let lastPlainPasteTimestamp = 0;
 
 window.setIgnoredWords = (words) => {
   if (Array.isArray(words)) {
@@ -1872,9 +1994,11 @@ function setupContextMenu() {
     hideSpellPopup();
     contextMenuX = e.clientX;
     contextMenuY = e.clientY;
+    contextMenuCodeBlockEl = e.target && e.target.closest ? e.target.closest('.milkdown-code-block') : null;
 
+    const isInsideCodeMirror = !!(e.target && e.target.closest && e.target.closest('.cm-editor'));
     const view = getEditorView();
-    if (view && view.state) {
+    if (view && view.state && !isInsideCodeMirror) {
       try {
         const domSel = window.getSelection();
         const { from, to, empty } = view.state.selection;
@@ -1964,7 +2088,12 @@ function setupContextMenu() {
       spellPopupTimer = setTimeout(checkCaretSpelling, 150);
     } else if (e.key === 'Escape') {
       hideSpellPopup();
+      hideContextMenu();
     }
+  });
+
+  window.addEventListener('blur', () => {
+    hideContextMenu();
   });
 
   menu.querySelectorAll('[data-action]').forEach((btn) => {
@@ -2051,10 +2180,14 @@ function showContextMenu(x, y) {
     }
   }
 
+  document.body.classList.add('context-menu-open');
+  document.querySelectorAll('.milkdown-toolbar, .crepe-toolbar').forEach((tb) => {
+    tb.setAttribute('data-show', 'false');
+  });
   menu.style.display = 'block';
 
-  const menuWidth = 230;
-  const menuHeight = menu.offsetHeight || 380;
+  const menuWidth = 250;
+  const menuHeight = menu.offsetHeight || 420;
   const posX = (x + menuWidth > window.innerWidth) ? Math.max(10, window.innerWidth - menuWidth - 10) : x;
   const posY = (y + menuHeight > window.innerHeight) ? Math.max(10, window.innerHeight - menuHeight - 10) : y;
 
@@ -2063,6 +2196,7 @@ function showContextMenu(x, y) {
 }
 
 function hideContextMenu() {
+  document.body.classList.remove('context-menu-open');
   const menu = document.getElementById('format-menu');
   if (menu) menu.style.display = 'none';
 }
@@ -2213,7 +2347,7 @@ function convertBlock(view, targetType) {
             });
           }
         });
-      } else if (topNode.isTextblock || topNode.type.name === 'paragraph' || topNode.type.name === 'heading') {
+      } else if (topNode.isTextblock || topNode.type.name === 'paragraph' || topNode.type.name === 'heading' || topNode.type.name === 'code_block') {
         selectedBlocks.push({
           pos: topPos,
           end: topEnd,
@@ -2232,6 +2366,24 @@ function convertBlock(view, targetType) {
   // Extract content items from selected blocks
   const items = [];
   for (const block of selectedBlocks) {
+    if (block.type === 'code_block') {
+      const codeLines = (block.node.textContent || '').replace(/\r\n/g, '\n').split('\n');
+      for (const codeLine of codeLines) {
+        items.push({
+          inlineNodes: codeLine ? [schema.text(codeLine)] : [],
+          originalType: 'code_block',
+          attrs: block.node.attrs || {},
+          parentType: block.parentType,
+          parentList: null,
+          parentListNode: null,
+          pos: block.pos,
+          end: block.end,
+          node: block.node
+        });
+      }
+      continue;
+    }
+
     let contentNode = block.node;
     if (block.type === 'list_item') {
       contentNode = block.node.firstChild || block.node;
@@ -2314,6 +2466,10 @@ function convertBlock(view, targetType) {
       const bqNode = schema.nodes.blockquote.create(null, paraNodes);
       tr.replaceRangeWith(replaceFrom, replaceTo, bqNode);
     }
+  } else if (targetType === 'paragraph') {
+    const paraNodes = items.map(it => schema.nodes.paragraph.create(null, it.inlineNodes));
+    tr.replaceRangeWith(replaceFrom, replaceTo, paraNodes);
+    tr.setStoredMarks([]);
   } else if (targetType.startsWith('h')) {
     const level = parseInt(targetType.slice(1), 10) || 1;
     const allAlreadyHeading = items.every(it => it.originalType === 'heading' && it.attrs.level === level);
@@ -2326,17 +2482,219 @@ function convertBlock(view, targetType) {
     }
   }
 
-  const newPos = Math.min(replaceFrom + 2, tr.doc.content.size);
+  const newPos = Math.min(replaceFrom + 1, tr.doc.content.size);
   tr.setSelection(Selection.near(tr.doc.resolve(newPos))).scrollIntoView();
   dispatch(tr);
   view.focus();
   return true;
 }
 
+function resetCodeBlockToParagraphs(view, codeBlockEl) {
+  if (!view || !view.state) return false;
+  const { state, dispatch } = view;
+  const { schema } = state;
+  const pType = schema.nodes.paragraph;
+  if (!pType) return false;
+
+  let targetPos = -1;
+  let targetNode = null;
+
+  if (codeBlockEl) {
+    try {
+      const domPos = view.posAtDOM(codeBlockEl, 0);
+      const $pos = state.doc.resolve(Math.max(0, Math.min(domPos, state.doc.content.size)));
+      for (let d = $pos.depth; d >= 0; d--) {
+        const n = $pos.node(d);
+        if (n.type.name === 'code_block') {
+          targetPos = $pos.before(d);
+          targetNode = n;
+          break;
+        }
+      }
+      if (!targetNode && $pos.nodeAfter && $pos.nodeAfter.type.name === 'code_block') {
+        targetPos = $pos.pos;
+        targetNode = $pos.nodeAfter;
+      }
+    } catch {}
+  }
+
+  if (!targetNode) {
+    const $from = state.selection.$from;
+    for (let d = $from.depth; d > 0; d--) {
+      if ($from.node(d).type.name === 'code_block') {
+        targetPos = $from.before(d);
+        targetNode = $from.node(d);
+        break;
+      }
+    }
+  }
+
+  if (!targetNode || targetPos < 0) return false;
+
+  const lines = (targetNode.textContent || '').replace(/\r\n/g, '\n').split('\n');
+  const paraNodes = lines.map(l => pType.create(null, l ? schema.text(l) : null));
+  let tr = state.tr.replaceRangeWith(targetPos, targetPos + targetNode.nodeSize, paraNodes);
+  tr = tr.setStoredMarks([]);
+  const selPos = Math.min(targetPos + 1, tr.doc.content.size);
+  tr = tr.setSelection(Selection.near(tr.doc.resolve(selPos))).scrollIntoView();
+  dispatch(tr);
+  view.focus();
+  return true;
+}
+
+function getMarkedSpanAroundPos(doc, pos) {
+  const $pos = doc.resolve(pos);
+  const parent = $pos.parent;
+  if (!parent || !parent.isTextblock || parent.content.size === 0) return null;
+
+  const parentStart = $pos.start();
+  const offset = $pos.parentOffset;
+
+  // Walk child nodes in this textblock to find the child at or immediately before caret
+  let targetIdx = -1;
+  let running = 0;
+  const children = [];
+  parent.forEach((child, childOffset) => {
+    children.push({ node: child, start: parentStart + childOffset, end: parentStart + childOffset + child.nodeSize, relStart: childOffset, relEnd: childOffset + child.nodeSize });
+  });
+
+  for (let i = 0; i < children.length; i++) {
+    const c = children[i];
+    if (offset > c.relStart && offset < c.relEnd) {
+      targetIdx = i;
+      break;
+    }
+    if (offset === c.relEnd && c.node.marks && c.node.marks.length > 0) {
+      targetIdx = i;
+      break;
+    }
+    if (offset === c.relStart && c.node.marks && c.node.marks.length > 0) {
+      targetIdx = i;
+      break;
+    }
+  }
+
+  if (targetIdx < 0 || !children[targetIdx].node.marks || children[targetIdx].node.marks.length === 0) {
+    return null;
+  }
+
+  let left = targetIdx;
+  while (left > 0 && children[left - 1].node.marks && children[left - 1].node.marks.length > 0) {
+    left--;
+  }
+  let right = targetIdx;
+  while (right < children.length - 1 && children[right + 1].node.marks && children[right + 1].node.marks.length > 0) {
+    right++;
+  }
+
+  return { from: children[left].start, to: children[right].end };
+}
+
+function clearFormattingAndReset(view, codeBlockElOverride) {
+  if (!view || !view.state) return;
+
+  if (codeBlockElOverride || isInsideCodeBlock(view)) {
+    if (resetCodeBlockToParagraphs(view, codeBlockElOverride)) {
+      return;
+    }
+  }
+
+  let state = view.state;
+  const eff = getEffectiveSelection(view);
+  let from = eff.from;
+  let to = eff.to;
+  let wasEmpty = eff.empty || from === to;
+
+  const isBlockResetNeeded = (() => {
+    const $pos = state.doc.resolve(Math.min(from, state.doc.content.size));
+    for (let d = $pos.depth; d > 0; d--) {
+      const n = $pos.node(d).type.name;
+      if (n === 'list_item' || n === 'blockquote' || n === 'heading' || n === 'code_block') return true;
+    }
+    return false;
+  })();
+
+  if (wasEmpty) {
+    const $f = state.doc.resolve(from);
+    if (isBlockResetNeeded && $f.parent && $f.parent.isTextblock) {
+      from = $f.start();
+      to = $f.end();
+    } else {
+      const span = getMarkedSpanAroundPos(state.doc, from);
+      if (span) {
+        from = span.from;
+        to = span.to;
+      } else if ($f.parent && $f.parent.isTextblock) {
+        from = $f.start();
+        to = $f.end();
+      }
+    }
+  }
+
+  let tr = state.tr;
+  if (to > from) {
+    Object.values(state.schema.marks).forEach((markType) => {
+      if (markType) {
+        tr = tr.removeMark(from, to, markType);
+      }
+    });
+  }
+  tr = tr.setStoredMarks([]);
+  view.dispatch(tr);
+
+  // Also reset block to plain <p> if caret was empty OR selection covered non-paragraph block(s)
+  state = view.state;
+  const $afterFrom = state.doc.resolve(Math.min(from, state.doc.content.size));
+  const $afterTo = state.doc.resolve(Math.min(to, state.doc.content.size));
+  const parentFrom = $afterFrom.parent;
+  const isInsideListOrQuote = (() => {
+    for (let d = $afterFrom.depth; d > 0; d--) {
+      const n = $afterFrom.node(d).type.name;
+      if (n === 'list_item' || n === 'blockquote' || n === 'heading' || n === 'code_block') return true;
+    }
+    return false;
+  })();
+
+  const coversWholeBlock = parentFrom && from <= $afterFrom.start() && to >= $afterFrom.end();
+  const spansMultipleBlocks = !$afterFrom.sameParent($afterTo);
+
+  if (isInsideListOrQuote && (wasEmpty || coversWholeBlock || spansMultipleBlocks)) {
+    convertBlock(view, 'paragraph');
+  } else {
+    view.focus();
+  }
+}
+
+function pastePlainText(view, rawText) {
+  if (!view || !view.state || !rawText) return;
+  const { state, dispatch } = view;
+  const eff = getEffectiveSelection(view);
+  const normalized = rawText.replace(/\r\n/g, '\n');
+
+  let tr = state.tr.setStoredMarks([]);
+  if (normalized.includes('\n') && !isInsideCodeBlock(view)) {
+    const pType = state.schema.nodes.paragraph;
+    if (pType) {
+      const lines = normalized.split('\n');
+      const paraNodes = lines.map(l => pType.create(null, l ? state.schema.text(l) : null));
+      tr = tr.replaceRangeWith(eff.from, eff.to, paraNodes);
+    } else {
+      tr = tr.replaceWith(eff.from, eff.to, state.schema.text(normalized));
+    }
+  } else {
+    tr = tr.replaceWith(eff.from, eff.to, state.schema.text(normalized));
+  }
+  tr = tr.setStoredMarks([]);
+  dispatch(tr.scrollIntoView());
+  view.focus();
+}
+
 function executeAction(action) {
   if (!crepeInstance) return;
   const view = crepeInstance.editor.ctx.get(editorViewCtx);
   if (!view) return;
+  const activeCodeBlockEl = contextMenuCodeBlockEl;
+  contextMenuCodeBlockEl = null;
 
   switch (action) {
     case 'cut': {
@@ -2392,12 +2750,35 @@ function executeAction(action) {
       view.focus();
       break;
     }
+    case 'paste-plain': {
+      if (navigator.clipboard && navigator.clipboard.readText) {
+        navigator.clipboard.readText().then((text) => {
+          if (text) {
+            pastePlainText(view, text);
+          }
+        }).catch(() => {
+          view.focus();
+        });
+      }
+      view.focus();
+      break;
+    }
     case 'select-all': {
       const tr = view.state.tr.setSelection(new AllSelection(view.state.doc));
       view.dispatch(tr);
       view.focus();
       break;
     }
+    case 'paragraph':
+      if (activeCodeBlockEl || isInsideCodeBlock(view)) {
+        resetCodeBlockToParagraphs(view, activeCodeBlockEl);
+      } else {
+        convertBlock(view, 'paragraph');
+      }
+      break;
+    case 'clear-format':
+      clearFormattingAndReset(view, activeCodeBlockEl);
+      break;
     case 'h1':
     case 'h2':
     case 'h3':
@@ -3316,6 +3697,16 @@ function handlePaste(e) {
 
   const rawText = e.clipboardData ? e.clipboardData.getData('text/plain') : '';
   if (!rawText) return;
+
+  // Ctrl+Shift+V: Paste as plain text without any inline/block formatting
+  if (Date.now() - lastPlainPasteTimestamp < 400) {
+    lastPlainPasteTimestamp = 0;
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+    pastePlainText(view, rawText);
+    return;
+  }
 
   const trimmed = rawText.trim();
 

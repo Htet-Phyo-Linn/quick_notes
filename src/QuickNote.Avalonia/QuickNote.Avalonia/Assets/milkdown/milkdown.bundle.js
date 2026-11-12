@@ -137386,7 +137386,16 @@ Expected function or array of functions, received type ${typeof value}.`
               tr = tr.insert(currentDoc.content.size, pType.create());
             }
           }
-          return tr && tr.docChanged ? tr : null;
+          const $selFrom = newState.selection.$from;
+          const $oldSelFrom = oldState.selection.$from;
+          if (newState.selection.empty && $selFrom.parent && $selFrom.parent.type.name === "paragraph" && $selFrom.parent.content.size === 0 && $oldSelFrom.parent !== $selFrom.parent) {
+            const activeMarks = newState.storedMarks || $selFrom.marks();
+            if (activeMarks && activeMarks.some((m) => m.type.name === "code_inline" || m.type.name === "inlineCode")) {
+              if (!tr) tr = newState.tr;
+              tr = tr.setStoredMarks(activeMarks.filter((m) => m.type.name !== "code_inline" && m.type.name !== "inlineCode"));
+            }
+          }
+          return tr && (tr.docChanged || tr.storedMarksSet) ? tr : null;
         }
       }));
       var headingFoldPluginKey = new PluginKey("headingFoldPlugin");
@@ -137842,6 +137851,9 @@ Expected function or array of functions, received type ${typeof value}.`
             e.preventDefault();
             sendMessage({ type: "shortcut", action: "newFolder" });
             return;
+          }
+          if (e.key.toLowerCase() === "v") {
+            lastPlainPasteTimestamp = Date.now();
           }
         } else if (e.key === "F5") {
           e.preventDefault();
@@ -138565,6 +138577,22 @@ Expected function or array of functions, received type ${typeof value}.`
         if (findCloseBtn) findCloseBtn.addEventListener("click", closeFindWidget);
         if (findReplaceBtn) findReplaceBtn.addEventListener("click", doFindReplaceCurrent);
         if (findReplaceAllBtn) findReplaceAllBtn.addEventListener("click", doFindReplaceAll);
+        function focusOrInsertLeadingParagraph(view) {
+          if (!view || !view.state) return;
+          const { state, dispatch } = view;
+          const firstChild = state.doc.firstChild;
+          const hasLeadingEmptyP = firstChild && firstChild.type.name === "paragraph" && firstChild.content.size === 0;
+          let tr = state.tr;
+          if (!hasLeadingEmptyP) {
+            const pType = state.schema.nodes.paragraph;
+            if (!pType) return;
+            tr = tr.insert(0, pType.create());
+          }
+          const targetPos = Math.min(1, tr.doc.content.size);
+          tr = tr.setSelection(Selection.near(tr.doc.resolve(targetPos))).scrollIntoView();
+          dispatch(tr);
+          view.focus();
+        }
         const editorContainer = document.getElementById("editor-container");
         if (editorContainer) {
           editorContainer.addEventListener("input", () => {
@@ -138576,12 +138604,71 @@ Expected function or array of functions, received type ${typeof value}.`
           editorContainer.addEventListener("mousedown", (e) => {
             mouseDownPos = { x: e.clientX, y: e.clientY };
           }, true);
-          editorContainer.addEventListener("click", (e) => {
-            if (e.target.closest(".heading-fold-btn, .heading-fold-badge, .format-menu, .bubble-menu, .slash-menu, .find-widget, .cm-editor, table, a, input, button, .tools")) {
-              return;
+          editorContainer.addEventListener("keydown", (e) => {
+            if (e.ctrlKey || e.altKey || e.metaKey || e.shiftKey) return;
+            if (e.key !== "ArrowUp" && e.key !== "ArrowLeft") return;
+            const cmContent = e.target && e.target.closest ? e.target.closest(".cm-content") : null;
+            if (!cmContent) return;
+            const codeBlockEl = cmContent.closest(".milkdown-code-block");
+            const pm = document.querySelector(".milkdown .ProseMirror");
+            if (!codeBlockEl || !pm) return;
+            const firstLine = cmContent.firstElementChild;
+            const sel = window.getSelection();
+            if (!firstLine || !sel || !sel.isCollapsed || !firstLine.contains(sel.anchorNode)) return;
+            if (e.key === "ArrowLeft") {
+              const preRange = document.createRange();
+              preRange.setStart(firstLine, 0);
+              preRange.setEnd(sel.anchorNode, sel.anchorOffset);
+              if (preRange.toString().length !== 0) return;
             }
+            const view = getEditorView();
+            if (!view || !view.state) return;
+            const firstCodeBlock = pm.querySelector(".milkdown-code-block");
+            const firstDocChild = view.state.doc.firstChild;
+            if (firstCodeBlock === codeBlockEl && firstDocChild && firstDocChild.type.name === "code_block") {
+              e.preventDefault();
+              e.stopPropagation();
+              focusOrInsertLeadingParagraph(view);
+            }
+          }, true);
+          editorContainer.addEventListener("click", (e) => {
             const moveDist = Math.hypot(e.clientX - mouseDownPos.x, e.clientY - mouseDownPos.y);
             if (moveDist > 4) {
+              return;
+            }
+            const clickedCodeBlock = e.target && e.target.closest ? e.target.closest(".milkdown-code-block") : null;
+            if (clickedCodeBlock && !e.target.closest('.tools, button, input, .cm-content, [title*="Fold"], [title*="Unfold"]')) {
+              const cmContent = clickedCodeBlock.querySelector(".cm-content");
+              const lines = cmContent ? Array.from(cmContent.querySelectorAll(".cm-line")) : [];
+              if (cmContent && lines.length > 0) {
+                let targetLine = lines[0];
+                let bestDist = Infinity;
+                for (const line of lines) {
+                  const r4 = line.getBoundingClientRect();
+                  if (e.clientY >= r4.top && e.clientY <= r4.bottom) {
+                    targetLine = line;
+                    bestDist = 0;
+                    break;
+                  }
+                  const dist2 = Math.min(Math.abs(e.clientY - r4.top), Math.abs(e.clientY - r4.bottom));
+                  if (dist2 < bestDist) {
+                    bestDist = dist2;
+                    targetLine = line;
+                  }
+                }
+                cmContent.focus();
+                const sel = window.getSelection();
+                if (sel) {
+                  const range = document.createRange();
+                  range.setStart(targetLine, 0);
+                  range.collapse(true);
+                  sel.removeAllRanges();
+                  sel.addRange(range);
+                }
+                return;
+              }
+            }
+            if (e.target.closest(".heading-fold-btn, .heading-fold-badge, .format-menu, .bubble-menu, .slash-menu, .find-widget, .cm-editor, table, a, input, button, .tools")) {
               return;
             }
             const domSel = window.getSelection();
@@ -138594,14 +138681,20 @@ Expected function or array of functions, received type ${typeof value}.`
             const pm = document.querySelector(".milkdown .ProseMirror");
             if (!pm) return;
             const visibleElements = Array.from(pm.children).filter((el) => {
-              return el.offsetParent !== null && !el.classList.contains("heading-folded-hidden") && !el.classList.contains("prosemirror-virtual-cursor");
+              return el.offsetParent !== null && !el.classList.contains("heading-folded-hidden") && !el.classList.contains("prosemirror-virtual-cursor") && !el.classList.contains("ProseMirror-widget") && el.getBoundingClientRect().height > 0;
             });
+            const firstTop = visibleElements.length > 0 ? visibleElements[0].getBoundingClientRect().top : pm.getBoundingClientRect().top;
             let lastBottom = 0;
             if (visibleElements.length > 0) {
               const lastEl = visibleElements[visibleElements.length - 1];
               lastBottom = lastEl.getBoundingClientRect().bottom;
             } else {
               lastBottom = pm.getBoundingClientRect().top;
+            }
+            const isContainerBg = e.target === editorContainer || e.target === pm || e.target === pm.parentElement;
+            if (e.clientY <= firstTop + 2 && isContainerBg) {
+              focusOrInsertLeadingParagraph(view);
+              return;
             }
             if (e.clientY > lastBottom + 5 && (e.target === editorContainer || e.target === pm.parentElement)) {
               const { state, dispatch } = view;
@@ -138667,6 +138760,8 @@ Expected function or array of functions, received type ${typeof value}.`
       }
       var contextMenuX = 0;
       var contextMenuY = 0;
+      var contextMenuCodeBlockEl = null;
+      var lastPlainPasteTimestamp = 0;
       window.setIgnoredWords = (words22) => {
         if (Array.isArray(words22)) {
           ignoredWordsSet.clear();
@@ -138824,8 +138919,10 @@ Expected function or array of functions, received type ${typeof value}.`
           hideSpellPopup();
           contextMenuX = e.clientX;
           contextMenuY = e.clientY;
+          contextMenuCodeBlockEl = e.target && e.target.closest ? e.target.closest(".milkdown-code-block") : null;
+          const isInsideCodeMirror = !!(e.target && e.target.closest && e.target.closest(".cm-editor"));
           const view = getEditorView();
-          if (view && view.state) {
+          if (view && view.state && !isInsideCodeMirror) {
             try {
               const domSel = window.getSelection();
               const { from: from4, to, empty: empty4 } = view.state.selection;
@@ -138906,7 +139003,11 @@ Expected function or array of functions, received type ${typeof value}.`
             spellPopupTimer = setTimeout(checkCaretSpelling, 150);
           } else if (e.key === "Escape") {
             hideSpellPopup();
+            hideContextMenu();
           }
+        });
+        window.addEventListener("blur", () => {
+          hideContextMenu();
         });
         menu2.querySelectorAll("[data-action]").forEach((btn) => {
           btn.addEventListener("pointerdown", (e) => {
@@ -138985,15 +139086,20 @@ Expected function or array of functions, received type ${typeof value}.`
             }
           }
         }
+        document.body.classList.add("context-menu-open");
+        document.querySelectorAll(".milkdown-toolbar, .crepe-toolbar").forEach((tb) => {
+          tb.setAttribute("data-show", "false");
+        });
         menu2.style.display = "block";
-        const menuWidth = 230;
-        const menuHeight = menu2.offsetHeight || 380;
+        const menuWidth = 250;
+        const menuHeight = menu2.offsetHeight || 420;
         const posX = x + menuWidth > window.innerWidth ? Math.max(10, window.innerWidth - menuWidth - 10) : x;
         const posY = y + menuHeight > window.innerHeight ? Math.max(10, window.innerHeight - menuHeight - 10) : y;
         menu2.style.left = posX + "px";
         menu2.style.top = posY + "px";
       }
       function hideContextMenu() {
+        document.body.classList.remove("context-menu-open");
         const menu2 = document.getElementById("format-menu");
         if (menu2) menu2.style.display = "none";
       }
@@ -139127,7 +139233,7 @@ Expected function or array of functions, received type ${typeof value}.`
                   });
                 }
               });
-            } else if (topNode.isTextblock || topNode.type.name === "paragraph" || topNode.type.name === "heading") {
+            } else if (topNode.isTextblock || topNode.type.name === "paragraph" || topNode.type.name === "heading" || topNode.type.name === "code_block") {
               selectedBlocks.push({
                 pos: topPos,
                 end: topEnd,
@@ -139143,6 +139249,23 @@ Expected function or array of functions, received type ${typeof value}.`
         if (selectedBlocks.length === 0) return false;
         const items = [];
         for (const block4 of selectedBlocks) {
+          if (block4.type === "code_block") {
+            const codeLines = (block4.node.textContent || "").replace(/\r\n/g, "\n").split("\n");
+            for (const codeLine of codeLines) {
+              items.push({
+                inlineNodes: codeLine ? [schema4.text(codeLine)] : [],
+                originalType: "code_block",
+                attrs: block4.node.attrs || {},
+                parentType: block4.parentType,
+                parentList: null,
+                parentListNode: null,
+                pos: block4.pos,
+                end: block4.end,
+                node: block4.node
+              });
+            }
+            continue;
+          }
           let contentNode = block4.node;
           if (block4.type === "list_item") {
             contentNode = block4.node.firstChild || block4.node;
@@ -139216,6 +139339,10 @@ Expected function or array of functions, received type ${typeof value}.`
             const bqNode = schema4.nodes.blockquote.create(null, paraNodes);
             tr.replaceRangeWith(replaceFrom, replaceTo, bqNode);
           }
+        } else if (targetType === "paragraph") {
+          const paraNodes = items.map((it) => schema4.nodes.paragraph.create(null, it.inlineNodes));
+          tr.replaceRangeWith(replaceFrom, replaceTo, paraNodes);
+          tr.setStoredMarks([]);
         } else if (targetType.startsWith("h")) {
           const level = parseInt(targetType.slice(1), 10) || 1;
           const allAlreadyHeading = items.every((it) => it.originalType === "heading" && it.attrs.level === level);
@@ -139227,16 +139354,193 @@ Expected function or array of functions, received type ${typeof value}.`
             tr.replaceRangeWith(replaceFrom, replaceTo, headingNodes);
           }
         }
-        const newPos = Math.min(replaceFrom + 2, tr.doc.content.size);
+        const newPos = Math.min(replaceFrom + 1, tr.doc.content.size);
         tr.setSelection(Selection.near(tr.doc.resolve(newPos))).scrollIntoView();
         dispatch(tr);
         view.focus();
         return true;
       }
+      function resetCodeBlockToParagraphs(view, codeBlockEl) {
+        if (!view || !view.state) return false;
+        const { state, dispatch } = view;
+        const { schema: schema4 } = state;
+        const pType = schema4.nodes.paragraph;
+        if (!pType) return false;
+        let targetPos = -1;
+        let targetNode = null;
+        if (codeBlockEl) {
+          try {
+            const domPos = view.posAtDOM(codeBlockEl, 0);
+            const $pos = state.doc.resolve(Math.max(0, Math.min(domPos, state.doc.content.size)));
+            for (let d3 = $pos.depth; d3 >= 0; d3--) {
+              const n = $pos.node(d3);
+              if (n.type.name === "code_block") {
+                targetPos = $pos.before(d3);
+                targetNode = n;
+                break;
+              }
+            }
+            if (!targetNode && $pos.nodeAfter && $pos.nodeAfter.type.name === "code_block") {
+              targetPos = $pos.pos;
+              targetNode = $pos.nodeAfter;
+            }
+          } catch {
+          }
+        }
+        if (!targetNode) {
+          const $from = state.selection.$from;
+          for (let d3 = $from.depth; d3 > 0; d3--) {
+            if ($from.node(d3).type.name === "code_block") {
+              targetPos = $from.before(d3);
+              targetNode = $from.node(d3);
+              break;
+            }
+          }
+        }
+        if (!targetNode || targetPos < 0) return false;
+        const lines = (targetNode.textContent || "").replace(/\r\n/g, "\n").split("\n");
+        const paraNodes = lines.map((l) => pType.create(null, l ? schema4.text(l) : null));
+        let tr = state.tr.replaceRangeWith(targetPos, targetPos + targetNode.nodeSize, paraNodes);
+        tr = tr.setStoredMarks([]);
+        const selPos = Math.min(targetPos + 1, tr.doc.content.size);
+        tr = tr.setSelection(Selection.near(tr.doc.resolve(selPos))).scrollIntoView();
+        dispatch(tr);
+        view.focus();
+        return true;
+      }
+      function getMarkedSpanAroundPos(doc6, pos) {
+        const $pos = doc6.resolve(pos);
+        const parent = $pos.parent;
+        if (!parent || !parent.isTextblock || parent.content.size === 0) return null;
+        const parentStart = $pos.start();
+        const offset3 = $pos.parentOffset;
+        let targetIdx = -1;
+        let running = 0;
+        const children = [];
+        parent.forEach((child, childOffset) => {
+          children.push({ node: child, start: parentStart + childOffset, end: parentStart + childOffset + child.nodeSize, relStart: childOffset, relEnd: childOffset + child.nodeSize });
+        });
+        for (let i4 = 0; i4 < children.length; i4++) {
+          const c2 = children[i4];
+          if (offset3 > c2.relStart && offset3 < c2.relEnd) {
+            targetIdx = i4;
+            break;
+          }
+          if (offset3 === c2.relEnd && c2.node.marks && c2.node.marks.length > 0) {
+            targetIdx = i4;
+            break;
+          }
+          if (offset3 === c2.relStart && c2.node.marks && c2.node.marks.length > 0) {
+            targetIdx = i4;
+            break;
+          }
+        }
+        if (targetIdx < 0 || !children[targetIdx].node.marks || children[targetIdx].node.marks.length === 0) {
+          return null;
+        }
+        let left = targetIdx;
+        while (left > 0 && children[left - 1].node.marks && children[left - 1].node.marks.length > 0) {
+          left--;
+        }
+        let right = targetIdx;
+        while (right < children.length - 1 && children[right + 1].node.marks && children[right + 1].node.marks.length > 0) {
+          right++;
+        }
+        return { from: children[left].start, to: children[right].end };
+      }
+      function clearFormattingAndReset(view, codeBlockElOverride) {
+        if (!view || !view.state) return;
+        if (codeBlockElOverride || isInsideCodeBlock(view)) {
+          if (resetCodeBlockToParagraphs(view, codeBlockElOverride)) {
+            return;
+          }
+        }
+        let state = view.state;
+        const eff = getEffectiveSelection(view);
+        let from4 = eff.from;
+        let to = eff.to;
+        let wasEmpty = eff.empty || from4 === to;
+        const isBlockResetNeeded = (() => {
+          const $pos = state.doc.resolve(Math.min(from4, state.doc.content.size));
+          for (let d3 = $pos.depth; d3 > 0; d3--) {
+            const n = $pos.node(d3).type.name;
+            if (n === "list_item" || n === "blockquote" || n === "heading" || n === "code_block") return true;
+          }
+          return false;
+        })();
+        if (wasEmpty) {
+          const $f = state.doc.resolve(from4);
+          if (isBlockResetNeeded && $f.parent && $f.parent.isTextblock) {
+            from4 = $f.start();
+            to = $f.end();
+          } else {
+            const span = getMarkedSpanAroundPos(state.doc, from4);
+            if (span) {
+              from4 = span.from;
+              to = span.to;
+            } else if ($f.parent && $f.parent.isTextblock) {
+              from4 = $f.start();
+              to = $f.end();
+            }
+          }
+        }
+        let tr = state.tr;
+        if (to > from4) {
+          Object.values(state.schema.marks).forEach((markType) => {
+            if (markType) {
+              tr = tr.removeMark(from4, to, markType);
+            }
+          });
+        }
+        tr = tr.setStoredMarks([]);
+        view.dispatch(tr);
+        state = view.state;
+        const $afterFrom = state.doc.resolve(Math.min(from4, state.doc.content.size));
+        const $afterTo = state.doc.resolve(Math.min(to, state.doc.content.size));
+        const parentFrom = $afterFrom.parent;
+        const isInsideListOrQuote = (() => {
+          for (let d3 = $afterFrom.depth; d3 > 0; d3--) {
+            const n = $afterFrom.node(d3).type.name;
+            if (n === "list_item" || n === "blockquote" || n === "heading" || n === "code_block") return true;
+          }
+          return false;
+        })();
+        const coversWholeBlock = parentFrom && from4 <= $afterFrom.start() && to >= $afterFrom.end();
+        const spansMultipleBlocks = !$afterFrom.sameParent($afterTo);
+        if (isInsideListOrQuote && (wasEmpty || coversWholeBlock || spansMultipleBlocks)) {
+          convertBlock(view, "paragraph");
+        } else {
+          view.focus();
+        }
+      }
+      function pastePlainText(view, rawText3) {
+        if (!view || !view.state || !rawText3) return;
+        const { state, dispatch } = view;
+        const eff = getEffectiveSelection(view);
+        const normalized = rawText3.replace(/\r\n/g, "\n");
+        let tr = state.tr.setStoredMarks([]);
+        if (normalized.includes("\n") && !isInsideCodeBlock(view)) {
+          const pType = state.schema.nodes.paragraph;
+          if (pType) {
+            const lines = normalized.split("\n");
+            const paraNodes = lines.map((l) => pType.create(null, l ? state.schema.text(l) : null));
+            tr = tr.replaceRangeWith(eff.from, eff.to, paraNodes);
+          } else {
+            tr = tr.replaceWith(eff.from, eff.to, state.schema.text(normalized));
+          }
+        } else {
+          tr = tr.replaceWith(eff.from, eff.to, state.schema.text(normalized));
+        }
+        tr = tr.setStoredMarks([]);
+        dispatch(tr.scrollIntoView());
+        view.focus();
+      }
       function executeAction(action) {
         if (!crepeInstance) return;
         const view = crepeInstance.editor.ctx.get(editorViewCtx);
         if (!view) return;
+        const activeCodeBlockEl = contextMenuCodeBlockEl;
+        contextMenuCodeBlockEl = null;
         switch (action) {
           case "cut": {
             const domSel = window.getSelection();
@@ -139291,12 +139595,35 @@ Expected function or array of functions, received type ${typeof value}.`
             view.focus();
             break;
           }
+          case "paste-plain": {
+            if (navigator.clipboard && navigator.clipboard.readText) {
+              navigator.clipboard.readText().then((text11) => {
+                if (text11) {
+                  pastePlainText(view, text11);
+                }
+              }).catch(() => {
+                view.focus();
+              });
+            }
+            view.focus();
+            break;
+          }
           case "select-all": {
             const tr = view.state.tr.setSelection(new AllSelection(view.state.doc));
             view.dispatch(tr);
             view.focus();
             break;
           }
+          case "paragraph":
+            if (activeCodeBlockEl || isInsideCodeBlock(view)) {
+              resetCodeBlockToParagraphs(view, activeCodeBlockEl);
+            } else {
+              convertBlock(view, "paragraph");
+            }
+            break;
+          case "clear-format":
+            clearFormattingAndReset(view, activeCodeBlockEl);
+            break;
           case "h1":
           case "h2":
           case "h3":
@@ -140064,6 +140391,14 @@ Expected function or array of functions, received type ${typeof value}.`
         const { from: from4, to, empty: empty4 } = getEffectiveSelection(view);
         const rawText3 = e.clipboardData ? e.clipboardData.getData("text/plain") : "";
         if (!rawText3) return;
+        if (Date.now() - lastPlainPasteTimestamp < 400) {
+          lastPlainPasteTimestamp = 0;
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+          pastePlainText(view, rawText3);
+          return;
+        }
         const trimmed = rawText3.trim();
         const isUrl2 = /^https?:\/\/\S+$/i.test(trimmed) || /^www\.\S+\.\S+$/i.test(trimmed);
         if (isUrl2 && !empty4) {

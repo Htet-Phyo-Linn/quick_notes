@@ -1,0 +1,90 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:QuickNote.Avalonia.ViewModels"
+        x:Class="QuickNote.Avalonia.Views.MoveToWindow"
+        Title="Move to Folder"
+        Width="440" Height="460"
+        MinWidth="360" MinHeight="340"
+        WindowStartupLocation="CenterOwner"
+        Background="#222222"
+        CanResize="True">
+
+    <Window.Resources>
+        <StreamGeometry x:Key="IconFolder">M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z</StreamGeometry>
+        <StreamGeometry x:Key="IconSearch">M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z</StreamGeometry>
+    </Window.Resources>
+
+    <Grid RowDefinitions="Auto,*,Auto" Margin="20">
+        <!-- Header & Filter -->
+        <StackPanel Grid.Row="0" Spacing="10" Margin="0,0,0,12">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <PathIcon Data="{StaticResource IconFolder}" Width="16" Height="16" Foreground="#3b82f6" VerticalAlignment="Center" />
+                <TextBlock x:Name="TitleText" Text="Move to Folder" FontWeight="SemiBold" FontSize="15" Foreground="#f3f4f6" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+
+            <Grid>
+                <PathIcon Data="{StaticResource IconSearch}" Width="12" Height="12" Foreground="#6b7280" Margin="10,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Center" IsHitTestVisible="False" />
+                <TextBox x:Name="SearchBox"
+                         TextChanged="SearchBox_TextChanged"
+                         PlaceholderText="Filter destination folders..."
+                         Background="#1a1a1a"
+                         Foreground="#e5e7eb"
+                         BorderBrush="#374151"
+                         BorderThickness="1"
+                         CornerRadius="5"
+                         Padding="30,5,10,5"
+                         Height="30"
+                         FontSize="12" />
+            </Grid>
+        </StackPanel>
+
+        <!-- Folder List -->
+        <Border Grid.Row="1" Background="#1a1a1a" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="6" Margin="0,0,0,14">
+            <ListBox x:Name="FoldersListBox"
+                     Background="Transparent"
+                     BorderThickness="0"
+                     SelectionMode="Single"
+                     SelectionChanged="FoldersListBox_SelectionChanged"
+                     DoubleTapped="FoldersListBox_DoubleTapped"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                <ListBox.Styles>
+                    <Style Selector="ListBoxItem">
+                        <Setter Property="Padding" Value="10,7" />
+                    </Style>
+                    <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
+                        <Setter Property="Background" Value="#27272a" />
+                    </Style>
+                    <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+                        <Setter Property="Background" Value="#1e3a8a" />
+                    </Style>
+                </ListBox.Styles>
+                <ListBox.ItemTemplate>
+                    <DataTemplate DataType="vm:FolderDestinationItem">
+                        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <PathIcon Data="{StaticResource IconFolder}" Width="13" Height="13" Foreground="#3b82f6" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding Name}" Foreground="#e5e7eb" FontSize="13" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Border>
+
+        <!-- Footer Actions -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+            <Button x:Name="CancelButton"
+                    Click="CancelButton_Click"
+                    Content="Cancel"
+                    Background="Transparent" Foreground="#9ca3af"
+                    BorderThickness="1" BorderBrush="#3f3f46"
+                    CornerRadius="5" Padding="14,7" FontSize="12"
+                    Cursor="Hand" />
+            <Button x:Name="MoveHereButton"
+                    Click="MoveHereButton_Click"
+                    Content="Move Here"
+                    Background="#2563eb" Foreground="White"
+                    BorderThickness="0" CornerRadius="5"
+                    Padding="16,7" FontSize="12" FontWeight="SemiBold"
+                    Cursor="Hand" />
+        </StackPanel>
+    </Grid>
+</Window>

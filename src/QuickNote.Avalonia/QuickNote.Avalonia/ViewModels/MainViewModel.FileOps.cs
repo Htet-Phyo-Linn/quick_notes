@@ -175,7 +175,26 @@ namespace QuickNote.Avalonia.ViewModels
             try
             {
                 StatusText = "Moving item...";
-                await _folderService.MoveItemAsync(sourcePath, targetDirectoryPath);
+
+                if (IsModified && CurrentNote != null)
+                    await SaveNoteAsync();
+                if (IsSplitViewActive && _isRightModified && RightCurrentNote != null)
+                    await SaveRightNoteAsync();
+
+                bool isDir = Directory.Exists(sourcePath);
+                var destPath = await _folderService.MoveItemAsync(sourcePath, targetDirectoryPath);
+
+                if (isDir)
+                {
+                    UpdateTabsInRenamedFolder(sourcePath, destPath);
+                    UpdateExpandedKeysForRenamedFolder(sourcePath, destPath);
+                    UpdateMovedActiveNoteFolderPaths(sourcePath, destPath);
+                }
+                else
+                {
+                    UpdateMovedSingleNotePaths(sourcePath, destPath);
+                }
+
                 await LoadAllAsync();
                 StatusText = "Item moved";
             }
@@ -183,6 +202,59 @@ namespace QuickNote.Avalonia.ViewModels
             {
                 StatusText = $"Move failed: {ex.Message}";
             }
+        }
+
+        private void UpdateMovedSingleNotePaths(string oldPath, string newPath)
+        {
+            var folderPath = Path.GetDirectoryName(newPath) ?? _notesRoot;
+            var relPath = Path.GetRelativePath(_notesRoot, newPath);
+            var newTitle = Path.GetFileNameWithoutExtension(newPath);
+
+            if (CurrentNote != null && string.Equals(CurrentNote.FullPath, oldPath, StringComparison.OrdinalIgnoreCase))
+            {
+                CurrentNote.FullPath = newPath;
+                CurrentNote.FolderPath = folderPath;
+                CurrentNote.RelativePath = relPath;
+                CurrentNote.Title = newTitle;
+            }
+            if (RightCurrentNote != null && string.Equals(RightCurrentNote.FullPath, oldPath, StringComparison.OrdinalIgnoreCase))
+            {
+                RightCurrentNote.FullPath = newPath;
+                RightCurrentNote.FolderPath = folderPath;
+                RightCurrentNote.RelativePath = relPath;
+                RightCurrentNote.Title = newTitle;
+            }
+            foreach (var tab in OpenTabs.Concat(RightOpenTabs))
+            {
+                if (string.Equals(tab.FullPath, oldPath, StringComparison.OrdinalIgnoreCase))
+                {
+                    tab.Note.FullPath = newPath;
+                    tab.Note.FolderPath = folderPath;
+                    tab.Note.RelativePath = relPath;
+                    tab.Note.Title = newTitle;
+                    tab.NotifyPathChanged();
+                }
+            }
+        }
+
+        private void UpdateMovedActiveNoteFolderPaths(string oldFolder, string newFolder)
+        {
+            var oldPrefix = oldFolder.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+            var newPrefix = newFolder.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+
+            void TryUpdateNote(NoteDocument? note)
+            {
+                if (note != null && note.FullPath.StartsWith(oldPrefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    var suffix = note.FullPath.Substring(oldPrefix.Length);
+                    note.FullPath = newPrefix + suffix;
+                    note.FolderPath = Path.GetDirectoryName(note.FullPath) ?? newFolder;
+                    note.RelativePath = Path.GetRelativePath(_notesRoot, note.FullPath);
+                }
+            }
+
+            TryUpdateNote(CurrentNote);
+            TryUpdateNote(RightCurrentNote);
         }
 
         /// <summary>Moves every node in SelectedFolderNodes to targetDirectory.</summary>
@@ -299,7 +371,7 @@ namespace QuickNote.Avalonia.ViewModels
             var oldFolderPrefix = oldFolder.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
             var newFolderPrefix = newFolder.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
 
-            foreach (var tab in OpenTabs)
+            foreach (var tab in OpenTabs.Concat(RightOpenTabs))
             {
                 if (tab.FullPath.StartsWith(oldFolderPrefix, StringComparison.OrdinalIgnoreCase))
                 {
