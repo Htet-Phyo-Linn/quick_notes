@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel;
+using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -16,6 +17,7 @@ namespace QuickNote.Avalonia.Views
         {
             InitializeComponent();
             DataContextChanged += OnDataContextChanged;
+            KeyDown += OnViewKeyDown;
         }
 
         private void OnDataContextChanged(object? sender, EventArgs e)
@@ -43,6 +45,16 @@ namespace QuickNote.Avalonia.Views
                         MobileNotionEditor.LoadMarkdown(_viewModel.EditorContent, force: true);
                     }
                 }
+
+                // If a note is already selected on start, open editor, otherwise show explorer
+                if (_viewModel.CurrentNote != null)
+                {
+                    ShowEditorView();
+                }
+                else
+                {
+                    ShowExplorerView();
+                }
             }
         }
 
@@ -62,7 +74,11 @@ namespace QuickNote.Avalonia.Views
                 MobileNotionEditor.CurrentNoteFolderPath = _viewModel.CurrentNote?.FolderPath;
                 MobileNotionEditor.CurrentNotePath = _viewModel.CurrentNote?.FullPath;
                 MobileNotionEditor.LoadMarkdown(_viewModel.EditorContent ?? string.Empty, force: true);
-                CloseDrawer();
+
+                if (_viewModel.CurrentNote != null)
+                {
+                    ShowEditorView();
+                }
             }
         }
 
@@ -74,71 +90,113 @@ namespace QuickNote.Avalonia.Views
             }
         }
 
-        private void OnDrawerToggleClick(object? sender, RoutedEventArgs e)
+        public void ShowEditorView()
         {
-            ToggleDrawer();
-        }
-
-        private void OnDrawerScrimPressed(object? sender, PointerPressedEventArgs e)
-        {
-            CloseDrawer();
-        }
-
-        private void ToggleDrawer()
-        {
-            bool isVisible = DrawerPanel.IsVisible;
-            SetDrawerVisible(!isVisible);
-        }
-
-        private void CloseDrawer()
-        {
-            SetDrawerVisible(false);
-        }
-
-        private void SetDrawerVisible(bool visible)
-        {
-            DrawerPanel.IsVisible = visible;
-            DrawerScrim.IsVisible = visible;
-        }
-
-        private void OnSearchToggleClick(object? sender, RoutedEventArgs e)
-        {
-            MobileSearchBar.IsVisible = !MobileSearchBar.IsVisible;
-        }
-
-        private void OnMobileNodePressed(object? sender, PointerPressedEventArgs e)
-        {
-            if ((sender as Control)?.DataContext is FolderNode node && !node.IsDirectory)
+            ExplorerView.IsVisible = false;
+            EditorView.IsVisible = true;
+            if (MobileNotionEditor != null)
             {
-                _viewModel?.OpenNode(node);
-                CloseDrawer();
+                MobileNotionEditor.IsVisible = true;
             }
         }
 
-        private void OnMobileNodeTapped(object? sender, TappedEventArgs e)
+        public void ShowExplorerView()
         {
-            if ((sender as Control)?.DataContext is FolderNode node && !node.IsDirectory)
+            EditorView.IsVisible = false;
+            if (MobileNotionEditor != null)
             {
-                _viewModel?.OpenNode(node);
-                CloseDrawer();
+                MobileNotionEditor.IsVisible = false;
+            }
+            ExplorerView.IsVisible = true;
+        }
+
+        private async void OnBackToExplorerClick(object? sender, RoutedEventArgs e)
+        {
+            await SaveAndCloseEditorAsync();
+        }
+
+        private async Task SaveAndCloseEditorAsync()
+        {
+            if (MobileNotionEditor != null)
+            {
+                await MobileNotionEditor.FlushPendingChangesAsync();
+            }
+            if (_viewModel != null)
+            {
+                await _viewModel.SaveNoteAsync();
+            }
+            ShowExplorerView();
+        }
+
+        private async void OnNewNoteClick(object? sender, RoutedEventArgs e)
+        {
+            if (_viewModel == null) return;
+            await _viewModel.NewNoteAsync();
+            ShowEditorView();
+        }
+
+        private void OnNodeItemTapped(object? sender, TappedEventArgs e)
+        {
+            if ((sender as Control)?.DataContext is FolderNode node)
+            {
+                if (node.IsDirectory)
+                {
+                    node.IsExpanded = !node.IsExpanded;
+                }
+                else
+                {
+                    _viewModel?.OpenNode(node);
+                    ShowEditorView();
+                }
             }
         }
 
-        private void OnInsertBoldClick(object? sender, RoutedEventArgs e) => AppendToEditor("**bold**");
-        private void OnInsertItalicClick(object? sender, RoutedEventArgs e) => AppendToEditor("*italic*");
-        private void OnInsertHeadingClick(object? sender, RoutedEventArgs e) => AppendToEditor("\n## Heading\n");
-        private void OnInsertCodeClick(object? sender, RoutedEventArgs e) => AppendToEditor("`code`");
-        private void OnInsertBulletClick(object? sender, RoutedEventArgs e) => AppendToEditor("\n- List item\n");
-        private void OnInsertChecklistClick(object? sender, RoutedEventArgs e) => AppendToEditor("\n- [ ] Task\n");
-        private void OnInsertQuoteClick(object? sender, RoutedEventArgs e) => AppendToEditor("\n> Quote\n");
-
-        private void AppendToEditor(string text)
+        private async void OnDeleteNodeClick(object? sender, RoutedEventArgs e)
         {
-            if (_viewModel == null || MobileNotionEditor == null) return;
-            var current = MobileNotionEditor.GetMarkdown() ?? string.Empty;
-            var updated = current + text;
-            MobileNotionEditor.LoadMarkdown(updated, force: true);
-            _viewModel.EditorContent = updated;
+            if ((sender as Control)?.DataContext is FolderNode node && _viewModel != null)
+            {
+                await _viewModel.DeleteNode(node);
+            }
+        }
+
+        private async void OnDeleteCurrentNoteClick(object? sender, RoutedEventArgs e)
+        {
+            if (_viewModel != null)
+            {
+                await _viewModel.Delete();
+                ShowExplorerView();
+            }
+        }
+
+        private void OnViewKeyDown(object? sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Back || e.Key == Key.Escape)
+            {
+                if (EditorView.IsVisible)
+                {
+                    e.Handled = true;
+                    _ = SaveAndCloseEditorAsync();
+                }
+            }
+        }
+
+        // Formatting actions
+        private async void OnActionBoldClick(object? sender, RoutedEventArgs e) => await ExecuteFormatAction("bold");
+        private async void OnActionItalicClick(object? sender, RoutedEventArgs e) => await ExecuteFormatAction("italic");
+        private async void OnActionH1Click(object? sender, RoutedEventArgs e) => await ExecuteFormatAction("h1");
+        private async void OnActionH2Click(object? sender, RoutedEventArgs e) => await ExecuteFormatAction("h2");
+        private async void OnActionBulletClick(object? sender, RoutedEventArgs e) => await ExecuteFormatAction("bullet");
+        private async void OnActionNumberedClick(object? sender, RoutedEventArgs e) => await ExecuteFormatAction("number");
+        private async void OnActionTodoClick(object? sender, RoutedEventArgs e) => await ExecuteFormatAction("todo");
+        private async void OnActionCodeClick(object? sender, RoutedEventArgs e) => await ExecuteFormatAction("code");
+        private async void OnActionQuoteClick(object? sender, RoutedEventArgs e) => await ExecuteFormatAction("quote");
+
+        private async Task ExecuteFormatAction(string action)
+        {
+            if (MobileNotionEditor != null)
+            {
+                await MobileNotionEditor.ExecuteEditorActionAsync(action);
+            }
         }
     }
 }

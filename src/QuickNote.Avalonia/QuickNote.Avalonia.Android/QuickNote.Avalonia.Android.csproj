@@ -9,12 +9,19 @@
     <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
     <AndroidPackageFormat>apk</AndroidPackageFormat>
     <AndroidEnableProfiledAot>false</AndroidEnableProfiledAot>
+    <EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
   </PropertyGroup>
 
   <ItemGroup>
     <AndroidResource Include="Icon.png">
       <Link>Resources\drawable\Icon.png</Link>
     </AndroidResource>
+  </ItemGroup>
+
+  <ItemGroup>
+    <AndroidAsset Include="..\QuickNote.Avalonia\Assets\milkdown\**">
+      <Link>Assets\milkdown\%(RecursiveDir)%(FileName)%(Extension)</Link>
+    </AndroidAsset>
   </ItemGroup>
 
   <ItemGroup>

@@ -33,6 +33,39 @@ namespace QuickNote.Avalonia.Notion
                     winArgs.UserDataFolder = Path.Combine(localAppData, "QuickNote", "WebView2");
                 }
             };
+            WebViewControl.AdapterCreated += (s, e) =>
+            {
+                try
+                {
+                    var adapterMethod = WebViewControl.GetType().GetMethod("TryGetAdapter", 
+                        System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                    var adapter = adapterMethod?.Invoke(WebViewControl, null);
+                    if (adapter != null)
+                    {
+                        var webViewProp = adapter.GetType().GetProperty("WebView", 
+                            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                        var nativeWv = webViewProp?.GetValue(adapter);
+                        if (nativeWv != null)
+                        {
+                            var settingsProp = nativeWv.GetType().GetProperty("Settings", 
+                                System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                            var settings = settingsProp?.GetValue(nativeWv);
+                            if (settings != null)
+                            {
+                                var st = settings.GetType();
+                                st.GetProperty("AllowFileAccess")?.SetValue(settings, true);
+                                st.GetProperty("AllowContentAccess")?.SetValue(settings, true);
+                                st.GetProperty("AllowFileAccessFromFileURLs")?.SetValue(settings, true);
+                                st.GetProperty("AllowUniversalAccessFromFileURLs")?.SetValue(settings, true);
+                                st.GetProperty("DomStorageEnabled")?.SetValue(settings, true);
+                                st.GetProperty("JavaScriptEnabled")?.SetValue(settings, true);
+                                st.GetProperty("DatabaseEnabled")?.SetValue(settings, true);
+                            }
+                        }
+                    }
+                }
+                catch { }
+            };
             WebViewControl.WebMessageReceived += OnWebMessageReceived;
             WebViewControl.NavigationCompleted += OnNavigationCompleted;
             GotFocus += (s, e) => EditorFocused?.Invoke();
@@ -52,6 +85,11 @@ namespace QuickNote.Avalonia.Notion
                 var fileUri = new Uri(htmlPath);
                 WebViewControl.Navigate(fileUri);
             }
+            else if (OperatingSystem.IsAndroid())
+            {
+                var assetUri = new Uri("file:///android_asset/milkdown/index.html");
+                WebViewControl.Navigate(assetUri);
+            }
             else
             {
                 System.Diagnostics.Debug.WriteLine($"[NotionEditorControl] milkdown index.html not found at: {htmlPath}");
@@ -60,6 +98,14 @@ namespace QuickNote.Avalonia.Notion
 
         private static string ResolveEditorHtmlPath()
         {
+            // 0. Check Android personal storage directory
+            if (OperatingSystem.IsAndroid())
+            {
+                var personalDir = Environment.GetFolderPath(Environment.SpecialFolder.Personal);
+                var androidPath = Path.Combine(personalDir, "Assets", "milkdown", "index.html");
+                if (File.Exists(androidPath)) return androidPath;
+            }
+
             // 1. Check in output directory (Assets/milkdown/index.html)
             var basePath = AppDomain.CurrentDomain.BaseDirectory;
             var path1 = Path.Combine(basePath, "Assets", "milkdown", "index.html");
@@ -637,6 +683,36 @@ namespace QuickNote.Avalonia.Notion
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"[NotionEditorControl] Failed to focus editor: {ex.Message}");
+            }
+        }
+
+        public async Task ExecuteEditorActionAsync(string action)
+        {
+            if (WebViewControl == null || !_isEditorReady) return;
+            string script = action.ToLowerInvariant() switch
+            {
+                "bold" => "(function(){ document.execCommand('bold', false, null); })()",
+                "italic" => "(function(){ document.execCommand('italic', false, null); })()",
+                "h1" => "(function(){ document.execCommand('formatBlock', false, '<h1>'); })()",
+                "h2" => "(function(){ document.execCommand('formatBlock', false, '<h2>'); })()",
+                "h3" => "(function(){ document.execCommand('formatBlock', false, '<h3>'); })()",
+                "bullet" => "(function(){ document.execCommand('insertUnorderedList', false, null); })()",
+                "number" => "(function(){ document.execCommand('insertOrderedList', false, null); })()",
+                "quote" => "(function(){ document.execCommand('formatBlock', false, '<blockquote>'); })()",
+                "todo" => "(function(){ if(window.insertChecklist){ window.insertChecklist(); } else { document.execCommand('insertText', false, '- [ ] '); } })()",
+                "code" => "(function(){ document.execCommand('formatBlock', false, '<pre>'); })()",
+                _ => string.Empty
+            };
+            if (!string.IsNullOrEmpty(script))
+            {
+                try
+                {
+                    await WebViewControl.InvokeScript(script);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[NotionEditorControl] Failed to execute action {action}: {ex.Message}");
+                }
             }
         }
     }

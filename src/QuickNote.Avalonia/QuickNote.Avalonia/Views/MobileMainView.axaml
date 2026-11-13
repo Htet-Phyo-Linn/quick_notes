@@ -3,13 +3,12 @@
              xmlns:vm="using:QuickNote.Avalonia.ViewModels"
              xmlns:models="using:QuickNote.Core.Models"
              xmlns:notion="using:QuickNote.Avalonia.Notion"
-             xmlns:views="using:QuickNote.Avalonia.Views"
              x:Class="QuickNote.Avalonia.Views.MobileMainView"
              x:DataType="vm:MainViewModel"
              Background="#141414">
 
     <UserControl.Resources>
-        <StreamGeometry x:Key="IconMenu">M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z</StreamGeometry>
+        <StreamGeometry x:Key="IconBack">M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z</StreamGeometry>
         <StreamGeometry x:Key="IconPlus">M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z</StreamGeometry>
         <StreamGeometry x:Key="IconSearch">M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z</StreamGeometry>
         <StreamGeometry x:Key="IconClose">M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z</StreamGeometry>
@@ -17,227 +16,213 @@
         <StreamGeometry x:Key="IconFolder">M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z</StreamGeometry>
         <StreamGeometry x:Key="IconDocument">M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z</StreamGeometry>
         <StreamGeometry x:Key="IconBolt">M11 21h-1l1-7H7.5c-.88 0-.33-.75-.31-.78C8.48 10.94 10.42 7.54 13 3h1l-1 7h3.5c.49 0 .56.33.47.51l-5.97 10.49z</StreamGeometry>
+        <StreamGeometry x:Key="IconTrash">M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z</StreamGeometry>
+        <StreamGeometry x:Key="IconFolderPlus">M20 6h-8l-2-2H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-1 8h-3v3h-2v-3h-3v-2h3V9h2v3h3v2z</StreamGeometry>
+        <StreamGeometry x:Key="IconSync">M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z</StreamGeometry>
     </UserControl.Resources>
 
     <Grid>
-        <!-- MAIN VIEW (Single Column Editor) -->
-        <Grid RowDefinitions="Auto,Auto,*,Auto">
-            <!-- Top Mobile Bar -->
-            <Border Grid.Row="0" Background="#1f1f1f" BorderBrush="#2e2e2e" BorderThickness="0,0,0,1" Height="52" Padding="12,0">
+        <!-- SCREEN 1: EXPLORER / NOTE LIST VIEW -->
+        <Grid x:Name="ExplorerView" RowDefinitions="Auto,Auto,*,Auto" Background="#141414" IsVisible="True">
+            <!-- Top Mobile Bar with Safe Area Inset -->
+            <Border Grid.Row="0" Background="#1c1c1e" BorderBrush="#2c2c2e" BorderThickness="0,0,0,1" Padding="16,38,16,12">
                 <Grid ColumnDefinitions="Auto,*,Auto,Auto">
-                    <!-- Hamburger / Menu Button -->
-                    <Button Grid.Column="0"
-                            x:Name="DrawerToggleButton"
-                            Click="OnDrawerToggleClick"
-                            Background="Transparent"
-                            Foreground="#f3f4f6"
-                            Padding="8"
-                            CornerRadius="6"
-                            VerticalAlignment="Center">
-                        <PathIcon Data="{StaticResource IconMenu}" Width="20" Height="20" Foreground="#f3f4f6" />
-                    </Button>
+                    <!-- Brand / Title -->
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <PathIcon Data="{StaticResource IconBolt}" Width="20" Height="20" Foreground="#3b82f6" />
+                        <TextBlock Text="QuickNote" FontSize="18" FontWeight="Bold" Foreground="#ffffff" VerticalAlignment="Center" />
+                    </StackPanel>
 
-                    <!-- Current Note Title in App Bar -->
-                    <TextBlock Grid.Column="1"
-                               Text="{Binding CurrentNote.Title, FallbackValue='QuickNote'}"
-                               Foreground="#f3f4f6"
-                               FontSize="16"
-                               FontWeight="SemiBold"
-                               Margin="12,0,0,0"
-                               VerticalAlignment="Center"
-                               TextTrimming="CharacterEllipsis" />
+                    <!-- Cloud Sync Pill -->
+                    <Border Grid.Column="1" HorizontalAlignment="Right" Margin="0,0,10,0" Background="#262628" CornerRadius="14" Padding="10,4">
+                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                            <PathIcon Data="{StaticResource IconCloud}" Width="13" Height="13" Foreground="#10b981" />
+                            <TextBlock Text="{Binding CloudSyncStatusText, FallbackValue='OneDrive: Ready'}" FontSize="11" Foreground="#9ca3af" VerticalAlignment="Center" MaxWidth="120" TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                    </Border>
 
-                    <!-- Search Toggle -->
+                    <!-- New Folder Button -->
                     <Button Grid.Column="2"
-                            x:Name="SearchToggleButton"
-                            Click="OnSearchToggleClick"
-                            Background="Transparent"
-                            Foreground="#9ca3af"
-                            Padding="8"
-                            CornerRadius="6"
+                            Command="{Binding NewFolderCommand}"
+                            Background="#2c2c2e"
+                            Foreground="#f3f4f6"
+                            Padding="10,7"
+                            CornerRadius="8"
                             VerticalAlignment="Center"
-                            Margin="4,0">
-                        <PathIcon Data="{StaticResource IconSearch}" Width="18" Height="18" Foreground="#9ca3af" />
+                            Margin="0,0,8,0">
+                        <PathIcon Data="{StaticResource IconFolderPlus}" Width="16" Height="16" Foreground="#f3f4f6" />
                     </Button>
 
                     <!-- New Note Button -->
                     <Button Grid.Column="3"
-                            Command="{Binding NewNoteCommand}"
+                            Click="OnNewNoteClick"
                             Background="#2563eb"
                             Foreground="White"
-                            Padding="10,6"
-                            CornerRadius="6"
+                            Padding="14,7"
+                            CornerRadius="8"
                             VerticalAlignment="Center">
-                        <StackPanel Orientation="Horizontal" Spacing="4">
-                            <PathIcon Data="{StaticResource IconPlus}" Width="14" Height="14" Foreground="White" />
-                            <TextBlock Text="Note" FontSize="13" FontWeight="Medium" Foreground="White" />
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <PathIcon Data="{StaticResource IconPlus}" Width="15" Height="15" Foreground="White" />
+                            <TextBlock Text="Note" FontSize="14" FontWeight="SemiBold" Foreground="White" />
                         </StackPanel>
                     </Button>
                 </Grid>
             </Border>
 
-            <!-- Collapsible Mobile Search Row -->
-            <Border Grid.Row="1"
-                    x:Name="MobileSearchBar"
-                    IsVisible="False"
-                    Background="#242424"
-                    BorderBrush="#2e2e2e"
-                    BorderThickness="0,0,0,1"
-                    Padding="12,8">
-                <Grid ColumnDefinitions="*,Auto">
-                    <TextBox Grid.Column="0"
+            <!-- Search Bar -->
+            <Border Grid.Row="1" Background="#18181a" BorderBrush="#2c2c2e" BorderThickness="0,0,0,1" Padding="14,10">
+                <Grid ColumnDefinitions="Auto,*,Auto">
+                    <PathIcon Grid.Column="0" Data="{StaticResource IconSearch}" Width="16" Height="16" Foreground="#6b7280" Margin="8,0,8,0" VerticalAlignment="Center" />
+                    <TextBox Grid.Column="1"
+                             x:Name="SearchBox"
                              Text="{Binding SearchQuery, Mode=TwoWay}"
-                             PlaceholderText="Search notes..."
-                             Background="#1c1c1c"
-                             Foreground="#f3f4f6"
-                             BorderBrush="#383838"
-                             CornerRadius="6"
-                             Height="36"
-                             FontSize="14" />
-                    <Button Grid.Column="1"
-                            Click="OnSearchToggleClick"
+                             PlaceholderText="Search notes by title or content..."
+                             Background="Transparent"
+                             Foreground="#ffffff"
+                             BorderThickness="0"
+                             FontSize="14"
+                             VerticalAlignment="Center" />
+                    <Button Grid.Column="2"
+                            Command="{Binding ClearSearchCommand}"
                             Background="Transparent"
                             Foreground="#9ca3af"
-                            Padding="8"
-                            Margin="6,0,0,0"
+                            Padding="6"
                             VerticalAlignment="Center">
-                        <PathIcon Data="{StaticResource IconClose}" Width="16" Height="16" />
+                        <PathIcon Data="{StaticResource IconClose}" Width="14" Height="14" />
                     </Button>
                 </Grid>
             </Border>
 
-            <!-- Note Content Editor Area -->
-            <Grid Grid.Row="2" RowDefinitions="Auto,*" Background="#191919">
-                <!-- Note Title Input (When note is open) -->
-                <Border Grid.Row="0"
-                        Padding="16,12,16,4"
-                        Background="#191919"
-                        IsVisible="{Binding HasCurrentNote}">
-                    <TextBox Text="{Binding NoteTitle, Mode=TwoWay}"
-                             PlaceholderText="Note Title"
-                             FontSize="20"
-                             FontWeight="Bold"
-                             Foreground="#ffffff"
-                             Background="Transparent"
-                             BorderThickness="0"
-                             Padding="0,4" />
-                </Border>
-
-                <!-- Visual Notion / Markdown Editor Control -->
-                <notion:NotionEditorControl x:Name="MobileNotionEditor"
-                                            Grid.Row="1"
-                                            IsVisible="{Binding HasCurrentNote}"
-                                            HorizontalAlignment="Stretch"
-                                            VerticalAlignment="Stretch" />
-
-                <!-- Empty State (When no note is selected) -->
-                <StackPanel Grid.Row="1"
-                            IsVisible="{Binding !HasCurrentNote}"
-                            HorizontalAlignment="Center"
-                            VerticalAlignment="Center"
-                            Spacing="14">
-                    <PathIcon Data="{StaticResource IconBolt}" Width="40" Height="40" Foreground="#3b82f6" HorizontalAlignment="Center" />
-                    <TextBlock Text="QuickNote" FontSize="20" FontWeight="Bold" Foreground="#f3f4f6" HorizontalAlignment="Center" />
-                    <TextBlock Text="Tap + to create a note or open menu" FontSize="14" Foreground="#9ca3af" HorizontalAlignment="Center" />
-                    <Button Command="{Binding NewNoteCommand}"
-                            Background="#2563eb"
-                            Foreground="White"
-                            Padding="16,8"
-                            CornerRadius="8"
-                            HorizontalAlignment="Center"
-                            Margin="0,8,0,0">
-                        <StackPanel Orientation="Horizontal" Spacing="6">
-                            <PathIcon Data="{StaticResource IconPlus}" Width="14" Height="14" Foreground="White" />
-                            <TextBlock Text="Create New Note" FontSize="14" FontWeight="SemiBold" Foreground="White" />
-                        </StackPanel>
-                    </Button>
-                </StackPanel>
-            </Grid>
-
-            <!-- Bottom Touch-Friendly Quick Toolbar -->
-            <Border Grid.Row="3"
-                    Background="#1f1f1f"
-                    BorderBrush="#2e2e2e"
-                    BorderThickness="0,1,0,0"
-                    Height="44"
-                    Padding="8,0"
-                    IsVisible="{Binding HasCurrentNote}">
-                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
-                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                        <Button x:Name="BtnBold" Click="OnInsertBoldClick" Content="B" FontWeight="Bold" Width="36" Height="34" CornerRadius="6" Background="#2a2a2a" Foreground="#f3f4f6" />
-                        <Button x:Name="BtnItalic" Click="OnInsertItalicClick" Content="I" FontStyle="Italic" Width="36" Height="34" CornerRadius="6" Background="#2a2a2a" Foreground="#f3f4f6" />
-                        <Button x:Name="BtnHeading" Click="OnInsertHeadingClick" Content="H" FontWeight="Bold" Width="36" Height="34" CornerRadius="6" Background="#2a2a2a" Foreground="#f3f4f6" />
-                        <Button x:Name="BtnCode" Click="OnInsertCodeClick" Content="&lt;/&gt;" FontSize="11" Width="36" Height="34" CornerRadius="6" Background="#2a2a2a" Foreground="#f3f4f6" />
-                        <Button x:Name="BtnList" Click="OnInsertBulletClick" Content="• List" FontSize="11" Height="34" CornerRadius="6" Background="#2a2a2a" Foreground="#f3f4f6" Padding="8,0" />
-                        <Button x:Name="BtnTodo" Click="OnInsertChecklistClick" Content="☑ Todo" FontSize="11" Height="34" CornerRadius="6" Background="#2a2a2a" Foreground="#f3f4f6" Padding="8,0" />
-                        <Button x:Name="BtnQuote" Click="OnInsertQuoteClick" Content="&quot; Quote" FontSize="11" Height="34" CornerRadius="6" Background="#2a2a2a" Foreground="#f3f4f6" Padding="8,0" />
-                    </StackPanel>
-                </ScrollViewer>
-            </Border>
-        </Grid>
-
-        <!-- DRAWER OVERLAY (Side menu for folder / note selection) -->
-        <Border x:Name="DrawerScrim"
-                Background="#80000000"
-                IsVisible="False"
-                PointerPressed="OnDrawerScrimPressed" />
-
-        <Border x:Name="DrawerPanel"
-                Width="300"
-                HorizontalAlignment="Left"
-                Background="#181818"
-                BorderBrush="#2e2e2e"
-                BorderThickness="0,0,1,0"
-                IsVisible="False">
-            <Grid RowDefinitions="Auto,*,Auto">
-                <!-- Drawer Header -->
-                <Border Grid.Row="0" Background="#1f1f1f" Padding="14,12" BorderBrush="#2e2e2e" BorderThickness="0,0,0,1">
-                    <Grid ColumnDefinitions="Auto,*,Auto">
-                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                            <PathIcon Data="{StaticResource IconBolt}" Width="16" Height="16" Foreground="#3b82f6" />
-                            <TextBlock Text="QuickNote" FontSize="15" FontWeight="Bold" Foreground="#f3f4f6" VerticalAlignment="Center" />
-                        </StackPanel>
-                        <Button Grid.Column="2" Click="OnDrawerToggleClick" Background="Transparent" Foreground="#9ca3af" Padding="4">
-                            <PathIcon Data="{StaticResource IconClose}" Width="16" Height="16" />
-                        </Button>
-                    </Grid>
-                </Border>
-
-                <!-- Drawer Content: Tree of Folders and Notes -->
-                <ScrollViewer Grid.Row="1" Margin="8,4">
+            <!-- Folder and Note Tree/List -->
+            <ScrollViewer Grid.Row="2" Background="#141414" Padding="12,8">
+                <StackPanel Spacing="4">
                     <TreeView ItemsSource="{Binding FolderNodes}"
                               Background="Transparent">
                         <TreeView.ItemTemplate>
                             <TreeDataTemplate DataType="models:FolderNode" ItemsSource="{Binding Children}">
-                                <Border Height="36" Padding="6,0" Cursor="Hand" DoubleTapped="OnMobileNodeTapped" PointerPressed="OnMobileNodePressed">
-                                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                        <PathIcon Data="{StaticResource IconFolder}" Width="14" Height="14" Foreground="#f59e0b" IsVisible="{Binding IsDirectory}" />
-                                        <PathIcon Data="{StaticResource IconDocument}" Width="14" Height="14" Foreground="#3b82f6" IsVisible="{Binding !IsDirectory}" />
-                                        <TextBlock Text="{Binding DisplayName}" FontSize="13" Foreground="#e5e7eb" VerticalAlignment="Center" />
-                                    </StackPanel>
+                                <Border Height="44" Padding="8,0" CornerRadius="8" Background="Transparent" Tapped="OnNodeItemTapped">
+                                    <Grid ColumnDefinitions="Auto,*,Auto">
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                                            <PathIcon Data="{StaticResource IconFolder}" Width="16" Height="16" Foreground="#f59e0b" IsVisible="{Binding IsDirectory}" />
+                                            <PathIcon Data="{StaticResource IconDocument}" Width="16" Height="16" Foreground="#3b82f6" IsVisible="{Binding !IsDirectory}" />
+                                            <TextBlock Text="{Binding DisplayName}" FontSize="14" FontWeight="Medium" Foreground="#f3f4f6" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="220" />
+                                        </StackPanel>
+                                        <Button Grid.Column="2"
+                                                Click="OnDeleteNodeClick"
+                                                Background="Transparent"
+                                                Foreground="#6b7280"
+                                                Padding="6"
+                                                IsVisible="{Binding !IsDirectory}"
+                                                VerticalAlignment="Center">
+                                            <PathIcon Data="{StaticResource IconTrash}" Width="14" Height="14" />
+                                        </Button>
+                                    </Grid>
                                 </Border>
                             </TreeDataTemplate>
                         </TreeView.ItemTemplate>
                     </TreeView>
-                </ScrollViewer>
+                </StackPanel>
+            </ScrollViewer>
 
-                <!-- Drawer Footer: Cloud Sync Status -->
-                <Border Grid.Row="2" Background="#1f1f1f" Padding="14,10" BorderBrush="#2e2e2e" BorderThickness="0,1,0,0">
-                    <Grid ColumnDefinitions="Auto,*,Auto">
-                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                            <PathIcon Data="{StaticResource IconCloud}" Width="15" Height="15" Foreground="#10b981" />
-                            <TextBlock Text="{Binding CloudSyncStatusText, FallbackValue='OneDrive: Ready'}" FontSize="12" Foreground="#9ca3af" VerticalAlignment="Center" />
+            <!-- Explorer Bottom Bar: Total Notes & Sync -->
+            <Border Grid.Row="3" Background="#1c1c1e" BorderBrush="#2c2c2e" BorderThickness="0,1,0,0" Padding="16,10">
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Grid.Column="0"
+                               Text="{Binding StatusText, FallbackValue='QuickNote ready'}"
+                               FontSize="12"
+                               Foreground="#9ca3af"
+                               VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" />
+                    <Button Grid.Column="1"
+                            Command="{Binding RefreshCommand}"
+                            Background="#262628"
+                            Foreground="#f3f4f6"
+                            Padding="10,6"
+                            CornerRadius="6">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <PathIcon Data="{StaticResource IconSync}" Width="13" Height="13" Foreground="#3b82f6" />
+                            <TextBlock Text="Sync" FontSize="12" FontWeight="Medium" Foreground="#3b82f6" />
                         </StackPanel>
-                        <Button Grid.Column="2"
-                                Command="{Binding RefreshCommand}"
-                                Background="Transparent"
-                                Foreground="#9ca3af"
-                                Padding="4">
-                            <TextBlock Text="Sync" FontSize="11" Foreground="#3b82f6" />
-                        </Button>
-                    </Grid>
-                </Border>
-            </Grid>
-        </Border>
+                    </Button>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- SCREEN 2: NOTE EDITOR VIEW -->
+        <Grid x:Name="EditorView" RowDefinitions="Auto,*,Auto" Background="#191919" IsVisible="False">
+            <!-- Top Editor Navigation Bar with Safe Area Inset -->
+            <Border Grid.Row="0" Background="#1f1f1f" BorderBrush="#2e2e2e" BorderThickness="0,0,0,1" Padding="8,38,12,10">
+                <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+                    <!-- Back Button to Notes List -->
+                    <Button Grid.Column="0"
+                            Click="OnBackToExplorerClick"
+                            Background="Transparent"
+                            Foreground="#ffffff"
+                            Padding="8"
+                            CornerRadius="8"
+                            VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <PathIcon Data="{StaticResource IconBack}" Width="20" Height="20" Foreground="#ffffff" />
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Editable Note Title -->
+                    <TextBox Grid.Column="1"
+                             Text="{Binding NoteTitle, Mode=TwoWay}"
+                             PlaceholderText="Note Title"
+                             FontSize="17"
+                             FontWeight="Bold"
+                             Foreground="#ffffff"
+                             Background="Transparent"
+                             BorderThickness="0"
+                             VerticalAlignment="Center"
+                             Margin="4,0" />
+
+                    <!-- Status Text Indicator -->
+                    <Border Grid.Column="2" Background="#262628" CornerRadius="12" Padding="8,4" VerticalAlignment="Center" Margin="0,0,8,0">
+                        <TextBlock Text="{Binding StatusText, FallbackValue='Saved'}" FontSize="11" Foreground="#10b981" />
+                    </Border>
+
+                    <!-- Delete Current Note Button -->
+                    <Button Grid.Column="3"
+                            Click="OnDeleteCurrentNoteClick"
+                            Background="Transparent"
+                            Foreground="#ef4444"
+                            Padding="8"
+                            CornerRadius="8"
+                            VerticalAlignment="Center">
+                        <PathIcon Data="{StaticResource IconTrash}" Width="18" Height="18" Foreground="#ef4444" />
+                    </Button>
+                </Grid>
+            </Border>
+
+            <!-- Full-Screen Visual Milkdown / Notion Editor -->
+            <notion:NotionEditorControl x:Name="MobileNotionEditor"
+                                        Grid.Row="1"
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Stretch" />
+
+            <!-- Touch-Friendly Bottom Formatting Toolbar -->
+            <Border Grid.Row="2"
+                    Background="#1f1f1f"
+                    BorderBrush="#2e2e2e"
+                    BorderThickness="0,1,0,0"
+                    Height="48"
+                    Padding="8,0">
+                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <Button Click="OnActionBoldClick" Content="B" FontWeight="Bold" Width="38" Height="36" CornerRadius="8" Background="#2c2c2e" Foreground="#ffffff" />
+                        <Button Click="OnActionItalicClick" Content="I" FontStyle="Italic" Width="38" Height="36" CornerRadius="8" Background="#2c2c2e" Foreground="#ffffff" />
+                        <Button Click="OnActionH1Click" Content="H1" FontWeight="Bold" Width="40" Height="36" CornerRadius="8" Background="#2c2c2e" Foreground="#ffffff" />
+                        <Button Click="OnActionH2Click" Content="H2" FontWeight="Bold" Width="40" Height="36" CornerRadius="8" Background="#2c2c2e" Foreground="#ffffff" />
+                        <Button Click="OnActionBulletClick" Content="• List" FontSize="12" Height="36" CornerRadius="8" Background="#2c2c2e" Foreground="#ffffff" Padding="10,0" />
+                        <Button Click="OnActionNumberedClick" Content="1. List" FontSize="12" Height="36" CornerRadius="8" Background="#2c2c2e" Foreground="#ffffff" Padding="10,0" />
+                        <Button Click="OnActionTodoClick" Content="☑ Todo" FontSize="12" Height="36" CornerRadius="8" Background="#2c2c2e" Foreground="#ffffff" Padding="10,0" />
+                        <Button Click="OnActionCodeClick" Content="&lt;/&gt;" FontSize="12" Width="42" Height="36" CornerRadius="8" Background="#2c2c2e" Foreground="#ffffff" />
+                        <Button Click="OnActionQuoteClick" Content="&quot; Quote" FontSize="12" Height="36" CornerRadius="8" Background="#2c2c2e" Foreground="#ffffff" Padding="10,0" />
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+        </Grid>
     </Grid>
 </UserControl>
