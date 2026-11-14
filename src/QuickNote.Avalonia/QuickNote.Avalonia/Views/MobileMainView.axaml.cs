@@ -437,6 +437,7 @@ namespace QuickNote.Avalonia.Views
                 RebuildTagChips();
                 ApplyFilters();
                 ShowNotesFeed();
+                TriggerAutoSyncInBackground(refreshAfterSync: true);
             }
         }
 
@@ -537,8 +538,42 @@ namespace QuickNote.Avalonia.Views
             if (_viewModel != null)
             {
                 await _viewModel.SaveNoteAsync();
+                TriggerAutoSyncInBackground();
             }
             ShowNotesFeed();
+        }
+
+        private void TriggerAutoSyncInBackground(bool refreshAfterSync = false)
+        {
+            if (_viewModel?.CloudSyncService != null && _viewModel.CloudSyncService.IsAuthenticated)
+            {
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        var result = await _viewModel.CloudSyncService.TriggerSyncAsync();
+                        await Dispatcher.UIThread.InvokeAsync(async () =>
+                        {
+                            if (refreshAfterSync)
+                            {
+                                await _viewModel.RefreshFolderTreeAsync();
+                                await _viewModel.Refresh();
+                                RebuildTagChips();
+                                RebuildDrawerFolders();
+                                RebuildDrawerTags();
+                                ApplyFilters();
+                            }
+                            OnPropertyChanged(nameof(LastSyncTimeText));
+                            OnPropertyChanged(nameof(CloudSyncStatusText));
+                            OnPropertyChanged(nameof(TotalNotesCountText));
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[MobileMainView] Background auto-sync error: {ex.Message}");
+                    }
+                });
+            }
         }
 
         // ── Tag Editor & Tag Management in NoteEditorScreen ──────────────────────────
@@ -1575,6 +1610,7 @@ namespace QuickNote.Avalonia.Views
                 UpdateTrashBadge();
                 ApplyFilters();
                 OnPropertyChanged(nameof(TotalNotesCountText));
+                TriggerAutoSyncInBackground();
             }
         }
 
@@ -1588,6 +1624,7 @@ namespace QuickNote.Avalonia.Views
                 UpdateTrashBadge();
                 ApplyFilters();
                 OnPropertyChanged(nameof(TotalNotesCountText));
+                TriggerAutoSyncInBackground();
                 ShowNotesFeed();
             }
         }
