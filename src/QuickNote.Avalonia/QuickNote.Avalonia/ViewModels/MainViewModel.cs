@@ -29,6 +29,7 @@ namespace QuickNote.Avalonia.ViewModels
         private readonly ITrashBinService _trashBinService;
         private readonly IFileWatcher _fileWatcher;
         private readonly ICloudSyncService _cloudSyncService;
+        public ICloudSyncService CloudSyncService => _cloudSyncService;
         private readonly ISettingsService _settingsService;
         private readonly IMarkdownParser _markdownParser;
         private string _notesRoot;

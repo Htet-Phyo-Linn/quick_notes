@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using QuickNote.Core.Models;
 
 namespace QuickNote.Core.Interfaces
 {
@@ -28,6 +29,7 @@ namespace QuickNote.Core.Interfaces
         public string? ActiveNotesPath { get; set; }
         public string? AccountName { get; set; }
         public DateTime? LastSyncTime { get; set; }
+        public int PendingUploadCount { get; set; }
     }
 
     public interface ICloudSyncService
@@ -37,5 +39,15 @@ namespace QuickNote.Core.Interfaces
         Task<bool> DisableOneDriveSyncAsync(string localDocumentsNotesRoot);
         CloudSyncStatus GetSyncStatus();
         event EventHandler<CloudSyncStatus>? SyncStatusChanged;
+
+        // In-App Direct Cloud Sync & Microsoft Authentication
+        bool IsAuthenticated => false;
+        string? UserEmail => null;
+        string? UserName => null;
+        DateTime? LastSyncTime => null;
+        string GetAuthorizationUrl(out string codeVerifier) { codeVerifier = string.Empty; return string.Empty; }
+        Task<bool> CompleteSignInAsync(string code, string codeVerifier) => Task.FromResult(false);
+        Task SignOutAsync() => Task.CompletedTask;
+        Task<SyncResult> TriggerSyncAsync() => Task.FromResult(SyncResult.Ok(0, 0, 0));
     }
 }

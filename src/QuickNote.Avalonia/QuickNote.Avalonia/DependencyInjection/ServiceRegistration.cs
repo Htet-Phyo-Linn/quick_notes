@@ -53,7 +53,7 @@ namespace QuickNote.Avalonia.DependencyInjection
             services.AddSingleton<ISettingsService>(sp =>
                 new JsonSettingsService(notesRoot));
 
-            if (OperatingSystem.IsAndroid())
+            if (OperatingSystem.IsAndroid() || Environment.GetEnvironmentVariable("SIMULATE_MOBILE") == "1" || Environment.CommandLine.Contains("--mobile"))
             {
                 services.AddSingleton<ICloudSyncService, AndroidCloudSyncService>();
             }

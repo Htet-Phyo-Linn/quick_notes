@@ -11,6 +11,12 @@ namespace QuickNote.Core.Interfaces
         public bool IsOneDriveSyncEnabled { get; set; }
         public string? OneDriveNotesPath { get; set; }
         public string? SelectedOneDriveAccountName { get; set; }
+        public string? OneDriveRefreshToken { get; set; }
+        public string? OneDriveUserEmail { get; set; }
+        public string? OneDriveUserName { get; set; }
+        public string? OneDriveFolderId { get; set; }
+        public string? OneDriveClientId { get; set; }
+        public System.DateTime? LastCloudSyncTime { get; set; }
         public bool IsSpellCheckEnabled { get; set; } = true;
         public System.Collections.Generic.List<string> IgnoredWords { get; set; } = new();
 

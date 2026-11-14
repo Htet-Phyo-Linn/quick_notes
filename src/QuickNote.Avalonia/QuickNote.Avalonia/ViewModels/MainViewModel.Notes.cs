@@ -251,6 +251,18 @@ namespace QuickNote.Avalonia.ViewModels
                     }
                 }
                 StatusText = "Saved";
+                if (_cloudSyncService != null && _cloudSyncService.IsAuthenticated)
+                {
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await Task.Delay(1500);
+                            await _cloudSyncService.TriggerSyncAsync();
+                        }
+                        catch { }
+                    });
+                }
                 _ = Task.Delay(2500).ContinueWith(_ =>
                 {
                     Dispatcher.UIThread.Post(() =>

@@ -16,7 +16,14 @@ namespace QuickNote.Avalonia.ViewModels
         [RelayCommand] public async System.Threading.Tasks.Task NewFolder() => await NewFolderAsync();
         [RelayCommand] public async System.Threading.Tasks.Task Save()      => await SaveNoteAsync();
         [RelayCommand] public async System.Threading.Tasks.Task Delete()    => await DeleteNoteAsync();
-        [RelayCommand] public async System.Threading.Tasks.Task Refresh()   => await LoadAllAsync();
+        [RelayCommand] public async System.Threading.Tasks.Task Refresh()
+        {
+            if (_cloudSyncService != null && _cloudSyncService.IsAuthenticated)
+            {
+                try { await _cloudSyncService.TriggerSyncAsync(); } catch { }
+            }
+            await LoadAllAsync();
+        }
 
         // ── Editor mode ────────────────────────────────────────────
         [RelayCommand]

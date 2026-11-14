@@ -101,7 +101,10 @@ namespace QuickNote.Avalonia.Views
             }
         }
 
-        public string CloudSyncStatusText => _viewModel?.CloudSyncStatusText ?? "OneDrive: Ready";
+        public string CloudSyncStatusText => _viewModel?.CloudSyncStatusText ?? "OneDrive: Connect";
+        public string ConnectedAccountEmail => _viewModel?.CloudSyncService?.UserEmail ?? "Not connected";
+        public string LastSyncTimeText => _viewModel?.CloudSyncService?.LastSyncTime?.ToString("MMM d, h:mm tt") ?? "Never";
+        public bool IsSignedInToOneDrive => _viewModel?.CloudSyncService?.IsAuthenticated == true;
 
         public string NoteCountStatus => $"{FilteredNotes.Count} note{(FilteredNotes.Count == 1 ? "" : "s")}";
 
@@ -112,6 +115,11 @@ namespace QuickNote.Avalonia.Views
             InitializeComponent();
             NotesFeedScreen.DataContext = this;
             NoteEditorScreen.DataContext = this;
+            OneDriveAccountModal.DataContext = this;
+            if (AuthWebView != null)
+            {
+                AuthWebView.NavigationCompleted += OnAuthWebViewNavigationCompleted;
+            }
             DataContextChanged += OnDataContextChanged;
             KeyDown += OnViewKeyDown;
         }
@@ -128,6 +136,7 @@ namespace QuickNote.Avalonia.Views
 
             NotesFeedScreen.DataContext = this;
             NoteEditorScreen.DataContext = this;
+            OneDriveAccountModal.DataContext = this;
 
             if (_viewModel != null)
             {
@@ -440,6 +449,117 @@ namespace QuickNote.Avalonia.Views
             {
                 await MobileNotionEditor.ExecuteEditorActionAsync(action);
             }
+        }
+
+        // ── OneDrive Cloud Sync Modals ────────────────────────────────────
+        private string? _pendingCodeVerifier;
+
+        public void OnCloudSyncBadgeTapped(object? sender, TappedEventArgs e)
+        {
+            UpdateModalAccountStatus();
+            OneDriveAccountModal.IsVisible = true;
+        }
+
+        private void UpdateModalAccountStatus()
+        {
+            bool signedIn = IsSignedInToOneDrive;
+            BtnConnectOneDrive.IsVisible = !signedIn;
+            BtnSyncNow.IsVisible = signedIn;
+            BtnDisconnectOneDrive.IsVisible = signedIn;
+            OnPropertyChanged(nameof(ConnectedAccountEmail));
+            OnPropertyChanged(nameof(LastSyncTimeText));
+            OnPropertyChanged(nameof(CloudSyncStatusText));
+        }
+
+        private void OnCloseAccountModalClick(object? sender, RoutedEventArgs e)
+        {
+            OneDriveAccountModal.IsVisible = false;
+        }
+
+        private void OnConnectOneDriveClick(object? sender, RoutedEventArgs e)
+        {
+            if (_viewModel?.CloudSyncService == null) return;
+
+            OneDriveAccountModal.IsVisible = false;
+            var url = _viewModel.CloudSyncService.GetAuthorizationUrl(out _pendingCodeVerifier);
+            if (!string.IsNullOrEmpty(url))
+            {
+                OneDriveAuthModal.IsVisible = true;
+                AuthWebView.Navigate(new Uri(url));
+            }
+        }
+
+        private void OnCloseAuthModalClick(object? sender, RoutedEventArgs e)
+        {
+            OneDriveAuthModal.IsVisible = false;
+        }
+
+        private async void OnAuthWebViewNavigationCompleted(object? sender, WebViewNavigationCompletedEventArgs e)
+        {
+            try
+            {
+                var href = await AuthWebView.InvokeScript("window.location.href");
+                if (!string.IsNullOrEmpty(href) && href.Contains("code="))
+                {
+                    var code = ExtractQueryParam(href, "code");
+                    if (!string.IsNullOrEmpty(code) && !string.IsNullOrEmpty(_pendingCodeVerifier) && _viewModel?.CloudSyncService != null)
+                    {
+                        OneDriveAuthModal.IsVisible = false;
+                        await _viewModel.CloudSyncService.CompleteSignInAsync(code, _pendingCodeVerifier);
+                        await _viewModel.Refresh();
+                        UpdateModalAccountStatus();
+                        ApplyFilters();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[MobileMainView] Auth navigation error: {ex.Message}");
+            }
+        }
+
+        private async void OnSyncNowClick(object? sender, RoutedEventArgs e)
+        {
+            OneDriveAccountModal.IsVisible = false;
+            if (_viewModel?.CloudSyncService != null)
+            {
+                await _viewModel.CloudSyncService.TriggerSyncAsync();
+                await _viewModel.Refresh();
+                RebuildCategoryChips();
+                ApplyFilters();
+                UpdateModalAccountStatus();
+            }
+        }
+
+        private async void OnDisconnectOneDriveClick(object? sender, RoutedEventArgs e)
+        {
+            OneDriveAccountModal.IsVisible = false;
+            if (_viewModel?.CloudSyncService != null)
+            {
+                await _viewModel.CloudSyncService.SignOutAsync();
+                UpdateModalAccountStatus();
+            }
+        }
+
+        private static string? ExtractQueryParam(string url, string paramName)
+        {
+            try
+            {
+                var qIndex = url.IndexOf('?');
+                if (qIndex < 0) return null;
+                var query = url.Substring(qIndex + 1);
+                var pairs = query.Split('&');
+                foreach (var p in pairs)
+                {
+                    var parts = p.Split('=');
+                    if (parts.Length == 2 && string.Equals(parts[0], paramName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return Uri.UnescapeDataString(parts[1]);
+                    }
+                }
+            }
+            catch { }
+            return null;
         }
 
         public new event PropertyChangedEventHandler? PropertyChanged;
