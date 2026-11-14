@@ -64,10 +64,23 @@ public partial class App : Application
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            desktop.MainWindow = new MainWindow
+            var mainWindow = new MainWindow
             {
                 DataContext = mainViewModel
             };
+            if (desktop.Args?.Contains("--mobile") == true || Environment.GetEnvironmentVariable("SIMULATE_MOBILE") == "1")
+            {
+                mainWindow.Title = "QuickNote Mobile Simulator (Android 412x869)";
+                mainWindow.Width = 412;
+                mainWindow.Height = 869;
+                mainWindow.MinWidth = 360;
+                mainWindow.MinHeight = 600;
+                mainWindow.Content = new MobileMainView
+                {
+                    DataContext = mainViewModel
+                };
+            }
+            desktop.MainWindow = mainWindow;
         }
         else if (ApplicationLifetime is IActivityApplicationLifetime singleViewFactoryApplicationLifetime)
         {
