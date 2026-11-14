@@ -134,6 +134,58 @@ namespace QuickNote.Avalonia.Views
         public string[] Tags => Note?.Tags ?? Array.Empty<string>();
         public bool HasTags => Tags != null && Tags.Length > 0;
 
+        private bool _isSelectionMode = false;
+        public bool IsSelectionMode
+        {
+            get => _isSelectionMode;
+            set
+            {
+                if (_isSelectionMode != value)
+                {
+                    _isSelectionMode = value;
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsSelectionMode)));
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(EffectiveBorderBrush)));
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(EffectiveBorderThickness)));
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SelectionCheckBackground)));
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SelectionCheckBorderBrush)));
+                }
+            }
+        }
+
+        private bool _isSelected = false;
+        public bool IsSelected
+        {
+            get => _isSelected;
+            set
+            {
+                if (_isSelected != value)
+                {
+                    _isSelected = value;
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsSelected)));
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(EffectiveBorderBrush)));
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(EffectiveBorderThickness)));
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SelectionCheckBackground)));
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SelectionCheckBorderBrush)));
+                }
+            }
+        }
+
+        public IBrush EffectiveBorderBrush => IsSelected
+            ? new SolidColorBrush(Color.Parse("#3b82f6"))
+            : CardBorderBrush;
+
+        public Thickness EffectiveBorderThickness => IsSelected
+            ? new Thickness(2)
+            : new Thickness(1);
+
+        public IBrush SelectionCheckBackground => IsSelected
+            ? new SolidColorBrush(Color.Parse("#2563eb"))
+            : Brushes.Transparent;
+
+        public IBrush SelectionCheckBorderBrush => IsSelected
+            ? new SolidColorBrush(Color.Parse("#3b82f6"))
+            : new SolidColorBrush(Color.Parse("#6b7280"));
+
         public event PropertyChangedEventHandler? PropertyChanged;
         public void Refresh() => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(null));
     }
@@ -234,6 +286,46 @@ namespace QuickNote.Avalonia.Views
         public bool HasSelectedTag => !string.IsNullOrEmpty(_selectedTag);
         public string SelectedTagText => $"#{_selectedTag}";
 
+        // ── Note Selection Mode (Issue 1) ─────────────────────────────────
+        private bool _isSelectionMode = false;
+        public bool IsSelectionMode
+        {
+            get => _isSelectionMode;
+            set
+            {
+                if (_isSelectionMode != value)
+                {
+                    _isSelectionMode = value;
+                    OnPropertyChanged(nameof(IsSelectionMode));
+                    OnPropertyChanged(nameof(SelectionCountText));
+                    OnPropertyChanged(nameof(SelectAllButtonText));
+                    foreach (var note in FilteredNotes)
+                    {
+                        note.IsSelectionMode = value;
+                        if (!value) note.IsSelected = false;
+                    }
+                }
+            }
+        }
+
+        public string SelectionCountText
+        {
+            get
+            {
+                var count = FilteredNotes.Count(n => n.IsSelected);
+                return $"{count} selected";
+            }
+        }
+
+        public string SelectAllButtonText
+        {
+            get
+            {
+                var selectedCount = FilteredNotes.Count(n => n.IsSelected);
+                return (selectedCount > 0 && selectedCount == FilteredNotes.Count) ? "Deselect All" : "Select All";
+            }
+        }
+
         public MobileMainView()
         {
             InitializeComponent();
@@ -245,6 +337,9 @@ namespace QuickNote.Avalonia.Views
             if (TrashBinScreen != null) TrashBinScreen.DataContext = this;
             if (ConfirmDeleteFolderModal != null) ConfirmDeleteFolderModal.DataContext = this;
             if (ConfirmEmptyTrashModal != null) ConfirmEmptyTrashModal.DataContext = this;
+            if (MoveNotesModal != null) MoveNotesModal.DataContext = this;
+            if (MoveFoldersModal != null) MoveFoldersModal.DataContext = this;
+            if (ConfirmBatchDeleteFoldersModal != null) ConfirmBatchDeleteFoldersModal.DataContext = this;
             if (AuthWebView != null)
             {
                 AuthWebView.NavigationStarted += OnAuthWebViewNavigationStarted;
@@ -273,6 +368,26 @@ namespace QuickNote.Avalonia.Views
 
         private bool OnBackPressedInternal()
         {
+            if (ConfirmBatchDeleteFoldersModal?.IsVisible == true)
+            {
+                ConfirmBatchDeleteFoldersModal.IsVisible = false;
+                return true;
+            }
+            if (MoveFoldersModal?.IsVisible == true)
+            {
+                MoveFoldersModal.IsVisible = false;
+                return true;
+            }
+            if (MoveNotesModal?.IsVisible == true)
+            {
+                MoveNotesModal.IsVisible = false;
+                return true;
+            }
+            if (ParentFolderDropdownContainer?.IsVisible == true)
+            {
+                ParentFolderDropdownContainer.IsVisible = false;
+                return true;
+            }
             if (ConfirmDeleteFolderModal?.IsVisible == true)
             {
                 ConfirmDeleteFolderModal.IsVisible = false;
@@ -304,9 +419,19 @@ namespace QuickNote.Avalonia.Views
                 GoogleDriveAccountModal.IsVisible = false;
                 return true;
             }
+            if (_isFolderSelectionMode)
+            {
+                ExitFolderSelectionMode();
+                return true;
+            }
             if (LeftDrawerOverlay?.IsVisible == true)
             {
                 LeftDrawerOverlay.IsVisible = false;
+                return true;
+            }
+            if (IsSelectionMode)
+            {
+                ExitSelectionMode();
                 return true;
             }
             if (NoteEditorScreen?.IsVisible == true)
@@ -722,7 +847,6 @@ namespace QuickNote.Avalonia.Views
         {
             var folders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-            // 1. Enumerate on-disk directories under NotesRoot
             try
             {
                 var root = _viewModel?.NotesRoot;
@@ -744,7 +868,6 @@ namespace QuickNote.Avalonia.Views
                 Console.WriteLine($"[MobileMainView] Error discovering disk folders: {ex.Message}");
             }
 
-            // 2. Include folders from existing notes
             if (_viewModel?.Notes != null)
             {
                 foreach (var n in _viewModel.Notes)
@@ -755,6 +878,49 @@ namespace QuickNote.Avalonia.Views
             }
 
             return folders;
+        }
+
+        private List<string> DiscoverAllFolderPaths()
+        {
+            var list = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            try
+            {
+                var root = _viewModel?.NotesRoot;
+                if (!string.IsNullOrEmpty(root) && Directory.Exists(root))
+                {
+                    var dirs = Directory.GetDirectories(root, "*", SearchOption.AllDirectories);
+                    foreach (var dir in dirs)
+                    {
+                        var rel = Path.GetRelativePath(root, dir).Replace('\\', '/');
+                        var parts = rel.Split('/');
+                        if (!parts.Any(p => p.StartsWith(".") || string.Equals(p, "Assets", StringComparison.OrdinalIgnoreCase)))
+                        {
+                            list.Add(rel);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[MobileMainView] Error discovering folder paths: {ex.Message}");
+            }
+
+            if (_viewModel?.Notes != null && !string.IsNullOrEmpty(_viewModel.NotesRoot))
+            {
+                foreach (var note in _viewModel.Notes)
+                {
+                    if (!string.IsNullOrWhiteSpace(note.FolderPath) && Directory.Exists(note.FolderPath))
+                    {
+                        var rel = Path.GetRelativePath(_viewModel.NotesRoot, note.FolderPath).Replace('\\', '/');
+                        if (!string.IsNullOrEmpty(rel) && rel != ".")
+                        {
+                            list.Add(rel);
+                        }
+                    }
+                }
+            }
+
+            return list.OrderBy(f => f).ToList();
         }
 
         // ── Tag Chips & Note Filtering (Main Page) ──────────────────────────────
@@ -829,9 +995,20 @@ namespace QuickNote.Avalonia.Views
             }
         }
 
-        // ── New Folder Dialog Handlers ────────────────────────────────────
+        // ── New Folder Dialog Handlers (Issue 2: Parent folder selector) ────────
+        private string? _selectedParentFolderPath = null;
+
         private void ShowNewFolderDialog()
         {
+            _selectedParentFolderPath = null;
+            if (SelectedParentFolderLabel != null)
+            {
+                SelectedParentFolderLabel.Text = "/ (Root - Top level)";
+            }
+            if (ParentFolderDropdownContainer != null)
+            {
+                ParentFolderDropdownContainer.IsVisible = false;
+            }
             if (NewFolderNameTextBox != null)
             {
                 NewFolderNameTextBox.Text = string.Empty;
@@ -841,6 +1018,109 @@ namespace QuickNote.Avalonia.Views
                 NewFolderModal.IsVisible = true;
                 NewFolderNameTextBox?.Focus();
             }
+        }
+
+        private void OnToggleParentFolderDropdownClick(object? sender, RoutedEventArgs e)
+        {
+            if (ParentFolderDropdownContainer == null) return;
+            ParentFolderDropdownContainer.IsVisible = !ParentFolderDropdownContainer.IsVisible;
+            if (ParentFolderDropdownContainer.IsVisible)
+            {
+                PopulateParentFoldersList(ParentFolderSearchBox?.Text);
+            }
+        }
+
+        private void OnParentFolderSearchKeyUp(object? sender, KeyEventArgs e)
+        {
+            PopulateParentFoldersList(ParentFolderSearchBox?.Text);
+        }
+
+        private void PopulateParentFoldersList(string? filter)
+        {
+            if (ParentFolderItemsPanel == null) return;
+            ParentFolderItemsPanel.Children.Clear();
+
+            var cleanFilter = filter?.Trim() ?? string.Empty;
+
+            // 1. Root option
+            if (string.IsNullOrEmpty(cleanFilter) || "root top level".Contains(cleanFilter, StringComparison.OrdinalIgnoreCase))
+            {
+                var rootBtn = CreateParentFolderOptionButton(null, "/ (Root - Top level)");
+                ParentFolderItemsPanel.Children.Add(rootBtn);
+            }
+
+            // 2. All discovered folders
+            var allFolders = DiscoverAllFolderPaths();
+            foreach (var f in allFolders)
+            {
+                if (string.IsNullOrEmpty(cleanFilter) || f.Contains(cleanFilter, StringComparison.OrdinalIgnoreCase))
+                {
+                    var folderBtn = CreateParentFolderOptionButton(f, f);
+                    ParentFolderItemsPanel.Children.Add(folderBtn);
+                }
+            }
+        }
+
+        private Button CreateParentFolderOptionButton(string? folderPath, string displayTitle)
+        {
+            var isSelected = string.Equals(_selectedParentFolderPath, folderPath, StringComparison.OrdinalIgnoreCase) ||
+                             (string.IsNullOrEmpty(_selectedParentFolderPath) && folderPath == null);
+
+            var btn = new Button
+            {
+                Background = isSelected ? new SolidColorBrush(Color.Parse("#252d3d")) : Brushes.Transparent,
+                BorderThickness = new Thickness(0),
+                CornerRadius = new CornerRadius(6),
+                Padding = new Thickness(8, 6),
+                HorizontalAlignment = global::Avalonia.Layout.HorizontalAlignment.Stretch,
+                HorizontalContentAlignment = global::Avalonia.Layout.HorizontalAlignment.Stretch
+            };
+
+            var grid = new Grid
+            {
+                ColumnDefinitions = new ColumnDefinitions("Auto,*")
+            };
+
+            var icon = new PathIcon
+            {
+                Data = (StreamGeometry)Resources["IconFolder"]!,
+                Width = 14,
+                Height = 14,
+                Foreground = isSelected ? new SolidColorBrush(Color.Parse("#3b82f6")) : new SolidColorBrush(Color.Parse("#9ca3af")),
+                Margin = new Thickness(0, 0, 8, 0),
+                VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center
+            };
+            Grid.SetColumn(icon, 0);
+
+            var text = new TextBlock
+            {
+                Text = displayTitle,
+                FontSize = 12,
+                FontWeight = isSelected ? FontWeight.SemiBold : FontWeight.Normal,
+                Foreground = isSelected ? new SolidColorBrush(Color.Parse("#60a5fa")) : Brushes.White,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center
+            };
+            Grid.SetColumn(text, 1);
+
+            grid.Children.Add(icon);
+            grid.Children.Add(text);
+            btn.Content = grid;
+
+            btn.Click += (s, e) =>
+            {
+                _selectedParentFolderPath = folderPath;
+                if (SelectedParentFolderLabel != null)
+                {
+                    SelectedParentFolderLabel.Text = displayTitle;
+                }
+                if (ParentFolderDropdownContainer != null)
+                {
+                    ParentFolderDropdownContainer.IsVisible = false;
+                }
+            };
+
+            return btn;
         }
 
         private async void OnConfirmNewFolderClick(object? sender, RoutedEventArgs e)
@@ -863,7 +1143,16 @@ namespace QuickNote.Avalonia.Views
                 var root = _viewModel?.NotesRoot;
                 if (!string.IsNullOrEmpty(root))
                 {
-                    var targetDir = Path.Combine(root, folderName);
+                    string targetDir;
+                    if (!string.IsNullOrEmpty(_selectedParentFolderPath))
+                    {
+                        targetDir = Path.Combine(root, _selectedParentFolderPath.Replace('/', Path.DirectorySeparatorChar), folderName);
+                    }
+                    else
+                    {
+                        targetDir = Path.Combine(root, folderName);
+                    }
+
                     if (!Directory.Exists(targetDir))
                     {
                         Directory.CreateDirectory(targetDir);
@@ -877,6 +1166,7 @@ namespace QuickNote.Avalonia.Views
                     RebuildTagChips();
                     RebuildDrawerFolders();
                     ApplyFilters();
+                    TriggerAutoSyncInBackground();
                 }
             }
             catch (Exception ex)
@@ -908,6 +1198,10 @@ namespace QuickNote.Avalonia.Views
 
         private void OnCloseLeftDrawerClick(object? sender, RoutedEventArgs e)
         {
+            if (_isFolderSelectionMode)
+            {
+                ExitFolderSelectionMode();
+            }
             if (LeftDrawerOverlay != null)
             {
                 LeftDrawerOverlay.IsVisible = false;
@@ -916,6 +1210,7 @@ namespace QuickNote.Avalonia.Views
 
         private void OnDrawerAllNotesClick(object? sender, RoutedEventArgs e)
         {
+            if (_isFolderSelectionMode) return;
             _selectedCategory = "All Notes";
             _selectedTag = null;
             if (LeftDrawerOverlay != null) LeftDrawerOverlay.IsVisible = false;
@@ -930,6 +1225,7 @@ namespace QuickNote.Avalonia.Views
 
         private void OnDrawerTrashBinClick(object? sender, RoutedEventArgs e)
         {
+            if (_isFolderSelectionMode) return;
             if (LeftDrawerOverlay != null) LeftDrawerOverlay.IsVisible = false;
             NotesFeedScreen.IsVisible = false;
             NoteEditorScreen.IsVisible = false;
@@ -972,6 +1268,7 @@ namespace QuickNote.Avalonia.Views
                 ApplyFilters();
                 OnPropertyChanged(nameof(TotalNotesCountText));
                 await LoadTrashItemsAsync();
+                TriggerAutoSyncInBackground();
             }
             catch (Exception ex)
             {
@@ -995,13 +1292,287 @@ namespace QuickNote.Avalonia.Views
             }
         }
 
+        // ── Folder Multi-Select Mode in Left Drawer (Issue 1) ─────────────
+        private bool _isFolderSelectionMode = false;
+        private readonly HashSet<string> _selectedFolders = new(StringComparer.OrdinalIgnoreCase);
+
+        private void EnterFolderSelectionModeWithFolder(string folder)
+        {
+            _isFolderSelectionMode = true;
+            _selectedFolders.Clear();
+            _selectedFolders.Add(folder);
+            UpdateFolderSelectionState();
+            RebuildDrawerFolders();
+        }
+
+        private void ExitFolderSelectionMode()
+        {
+            _isFolderSelectionMode = false;
+            _selectedFolders.Clear();
+            UpdateFolderSelectionState();
+            RebuildDrawerFolders();
+        }
+
+        private void UpdateFolderSelectionState()
+        {
+            if (DrawerNormalHeader != null) DrawerNormalHeader.IsVisible = !_isFolderSelectionMode;
+            if (DrawerFolderSelectionHeader != null) DrawerFolderSelectionHeader.IsVisible = _isFolderSelectionMode;
+            if (DrawerNormalFooter != null) DrawerNormalFooter.IsVisible = !_isFolderSelectionMode;
+            if (DrawerFolderSelectionFooter != null) DrawerFolderSelectionFooter.IsVisible = _isFolderSelectionMode;
+
+            if (DrawerFolderSelectionCountText != null)
+            {
+                DrawerFolderSelectionCountText.Text = $"{_selectedFolders.Count} selected";
+            }
+
+            if (DrawerFolderSelectAllBtnText != null)
+            {
+                var all = DiscoverAllFolderPaths();
+                bool allSelected = all.Count > 0 && all.All(f => _selectedFolders.Contains(f));
+                DrawerFolderSelectAllBtnText.Text = allSelected ? "None" : "All";
+            }
+        }
+
+        private void OnCancelFolderSelectionClick(object? sender, RoutedEventArgs e)
+        {
+            ExitFolderSelectionMode();
+        }
+
+        private void OnToggleSelectAllFoldersClick(object? sender, RoutedEventArgs e)
+        {
+            var all = DiscoverAllFolderPaths();
+            bool allSelected = all.Count > 0 && all.All(f => _selectedFolders.Contains(f));
+
+            if (allSelected)
+            {
+                _selectedFolders.Clear();
+            }
+            else
+            {
+                foreach (var f in all) _selectedFolders.Add(f);
+            }
+
+            UpdateFolderSelectionState();
+            RebuildDrawerFolders();
+        }
+
+        private void OnBatchMoveFoldersClick(object? sender, RoutedEventArgs e)
+        {
+            if (_selectedFolders.Count == 0) return;
+            if (MoveFoldersModalTitle != null)
+            {
+                MoveFoldersModalTitle.Text = $"Move {_selectedFolders.Count} Folder(s)";
+            }
+            if (MoveFoldersModal != null)
+            {
+                MoveFoldersModal.IsVisible = true;
+                PopulateMoveFoldersDestinations(null);
+            }
+        }
+
+        private void OnCancelMoveFoldersClick(object? sender, RoutedEventArgs e)
+        {
+            if (MoveFoldersModal != null) MoveFoldersModal.IsVisible = false;
+        }
+
+        private void OnMoveFoldersSearchKeyUp(object? sender, KeyEventArgs e)
+        {
+            PopulateMoveFoldersDestinations(MoveFoldersSearchBox?.Text);
+        }
+
+        private void PopulateMoveFoldersDestinations(string? filter)
+        {
+            if (MoveFoldersDestinationsPanel == null) return;
+            MoveFoldersDestinationsPanel.Children.Clear();
+
+            var cleanFilter = filter?.Trim() ?? string.Empty;
+
+            // 1. Root option
+            if (string.IsNullOrEmpty(cleanFilter) || "root top level".Contains(cleanFilter, StringComparison.OrdinalIgnoreCase))
+            {
+                var rootBtn = CreateMoveFolderDestinationButton(null, "/ (Root - Top level)");
+                MoveFoldersDestinationsPanel.Children.Add(rootBtn);
+            }
+
+            // 2. Discover available destination folders
+            var allFolders = DiscoverAllFolderPaths();
+            foreach (var folder in allFolders)
+            {
+                // Disallow moving a folder into itself or its own descendants
+                bool isInvalidDest = _selectedFolders.Any(sf =>
+                    string.Equals(sf, folder, StringComparison.OrdinalIgnoreCase) ||
+                    folder.StartsWith(sf + "/", StringComparison.OrdinalIgnoreCase));
+
+                if (!isInvalidDest)
+                {
+                    if (string.IsNullOrEmpty(cleanFilter) || folder.Contains(cleanFilter, StringComparison.OrdinalIgnoreCase))
+                    {
+                        var btn = CreateMoveFolderDestinationButton(folder, folder);
+                        MoveFoldersDestinationsPanel.Children.Add(btn);
+                    }
+                }
+            }
+        }
+
+        private Button CreateMoveFolderDestinationButton(string? targetRelPath, string displayTitle)
+        {
+            var btn = new Button
+            {
+                Background = new SolidColorBrush(Color.Parse("#181820")),
+                BorderBrush = new SolidColorBrush(Color.Parse("#2e2e38")),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(12, 10),
+                HorizontalAlignment = global::Avalonia.Layout.HorizontalAlignment.Stretch,
+                HorizontalContentAlignment = global::Avalonia.Layout.HorizontalAlignment.Stretch
+            };
+
+            var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*") };
+            var icon = new PathIcon
+            {
+                Data = (StreamGeometry)Resources["IconFolder"]!,
+                Width = 16,
+                Height = 16,
+                Foreground = new SolidColorBrush(Color.Parse("#3b82f6")),
+                Margin = new Thickness(0, 0, 10, 0),
+                VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center
+            };
+            Grid.SetColumn(icon, 0);
+
+            var text = new TextBlock
+            {
+                Text = displayTitle,
+                FontSize = 13,
+                Foreground = Brushes.White,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center
+            };
+            Grid.SetColumn(text, 1);
+
+            grid.Children.Add(icon);
+            grid.Children.Add(text);
+            btn.Content = grid;
+
+            btn.Click += async (s, e) =>
+            {
+                try
+                {
+                    var root = _viewModel?.NotesRoot;
+                    if (!string.IsNullOrEmpty(root))
+                    {
+                        foreach (var selFolder in _selectedFolders.ToList())
+                        {
+                            var srcDir = Path.Combine(root, selFolder.Replace('/', Path.DirectorySeparatorChar));
+                            var folderName = Path.GetFileName(srcDir);
+                            var destParent = string.IsNullOrEmpty(targetRelPath)
+                                ? root
+                                : Path.Combine(root, targetRelPath.Replace('/', Path.DirectorySeparatorChar));
+                            var destDir = Path.Combine(destParent, folderName);
+
+                            if (Directory.Exists(srcDir) && !string.Equals(srcDir, destDir, StringComparison.OrdinalIgnoreCase))
+                            {
+                                if (!Directory.Exists(destParent))
+                                {
+                                    Directory.CreateDirectory(destParent);
+                                }
+                                if (!Directory.Exists(destDir))
+                                {
+                                    Directory.Move(srcDir, destDir);
+                                }
+                            }
+                        }
+
+                        if (MoveFoldersModal != null) MoveFoldersModal.IsVisible = false;
+                        ExitFolderSelectionMode();
+
+                        if (_viewModel != null)
+                        {
+                            await _viewModel.RefreshFolderTreeAsync();
+                            await _viewModel.Refresh();
+                        }
+
+                        RebuildDrawerFolders();
+                        ApplyFilters();
+                        TriggerAutoSyncInBackground();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[MobileMainView] Error moving folders: {ex.Message}");
+                    if (MoveFoldersModal != null) MoveFoldersModal.IsVisible = false;
+                }
+            };
+
+            return btn;
+        }
+
+        private void OnBatchDeleteFoldersClick(object? sender, RoutedEventArgs e)
+        {
+            if (_selectedFolders.Count == 0) return;
+            if (ConfirmBatchDeleteFoldersMessageText != null)
+            {
+                ConfirmBatchDeleteFoldersMessageText.Text = $"Delete {_selectedFolders.Count} selected folder(s) and move their notes to the Trash Bin?";
+            }
+            if (ConfirmBatchDeleteFoldersModal != null)
+            {
+                ConfirmBatchDeleteFoldersModal.IsVisible = true;
+            }
+        }
+
+        private void OnCancelBatchDeleteFoldersClick(object? sender, RoutedEventArgs e)
+        {
+            if (ConfirmBatchDeleteFoldersModal != null)
+            {
+                ConfirmBatchDeleteFoldersModal.IsVisible = false;
+            }
+        }
+
+        private async void OnConfirmBatchDeleteFoldersClick(object? sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var root = _viewModel?.NotesRoot;
+                if (!string.IsNullOrEmpty(root) && _viewModel != null)
+                {
+                    foreach (var folder in _selectedFolders.ToList())
+                    {
+                        var folderPath = Path.Combine(root, folder.Replace('/', Path.DirectorySeparatorChar));
+                        if (Directory.Exists(folderPath))
+                        {
+                            await _viewModel.TrashBinService.MoveToTrashAsync(folderPath);
+                        }
+                    }
+
+                    _selectedCategory = "All Notes";
+                    await _viewModel.RefreshFolderTreeAsync();
+                    await _viewModel.Refresh();
+                    RebuildTagChips();
+                    RebuildDrawerFolders();
+                    RebuildDrawerTags();
+                    UpdateTrashBadge();
+                    ApplyFilters();
+                    OnPropertyChanged(nameof(TotalNotesCountText));
+                    TriggerAutoSyncInBackground();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[MobileMainView] Error in batch delete folders: {ex.Message}");
+            }
+            finally
+            {
+                if (ConfirmBatchDeleteFoldersModal != null) ConfirmBatchDeleteFoldersModal.IsVisible = false;
+                ExitFolderSelectionMode();
+            }
+        }
+
         private void RebuildDrawerFolders()
         {
             if (DrawerFoldersPanel == null || _viewModel == null) return;
             DrawerFoldersPanel.Children.Clear();
 
-            var allFolders = DiscoverAllFolders().OrderBy(f => f).ToList();
-            if (allFolders.Count == 0)
+            var allFolderPaths = DiscoverAllFolderPaths();
+            if (allFolderPaths.Count == 0)
             {
                 var emptyLabel = new TextBlock
                 {
@@ -1014,21 +1585,30 @@ namespace QuickNote.Avalonia.Views
                 return;
             }
 
-            foreach (var folder in allFolders)
+            foreach (var folderPath in allFolderPaths)
             {
-                var isSelected = string.Equals(_selectedCategory, folder, StringComparison.OrdinalIgnoreCase);
+                var folderName = Path.GetFileName(folderPath);
+                int depth = folderPath.Split('/').Length - 1;
+                bool isSelectedCategory = string.Equals(_selectedCategory, folderName, StringComparison.OrdinalIgnoreCase)
+                                       || string.Equals(_selectedCategory, folderPath, StringComparison.OrdinalIgnoreCase);
+                bool isFolderSelectedInBatch = _selectedFolders.Contains(folderPath);
+
                 int noteCount = _viewModel.Notes.Count(n =>
                 {
                     var f = Path.GetFileName(n.FolderPath?.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-                    return string.Equals(f, folder, StringComparison.OrdinalIgnoreCase);
+                    return string.Equals(f, folderName, StringComparison.OrdinalIgnoreCase);
                 });
 
                 var btn = new Button
                 {
-                    Background = isSelected ? new SolidColorBrush(Color.Parse("#252830")) : Brushes.Transparent,
-                    BorderThickness = new Thickness(0),
+                    Background = isFolderSelectedInBatch
+                        ? new SolidColorBrush(Color.Parse("#1e293b"))
+                        : (isSelectedCategory ? new SolidColorBrush(Color.Parse("#252830")) : Brushes.Transparent),
+                    BorderBrush = isFolderSelectedInBatch ? new SolidColorBrush(Color.Parse("#3b82f6")) : Brushes.Transparent,
+                    BorderThickness = new Thickness(isFolderSelectedInBatch ? 1 : 0),
                     CornerRadius = new CornerRadius(10),
                     Padding = new Thickness(10, 8),
+                    Margin = new Thickness(depth * 14, 0, 0, 2),
                     HorizontalAlignment = global::Avalonia.Layout.HorizontalAlignment.Stretch,
                     HorizontalContentAlignment = global::Avalonia.Layout.HorizontalAlignment.Stretch
                 };
@@ -1038,23 +1618,57 @@ namespace QuickNote.Avalonia.Views
                     ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto")
                 };
 
-                var folderIcon = new PathIcon
+                // Check indicator (in selection mode) or folder icon
+                Control leadingIcon;
+                if (_isFolderSelectionMode)
                 {
-                    Data = (StreamGeometry)Resources["IconFolder"]!,
-                    Width = 18,
-                    Height = 18,
-                    Foreground = isSelected ? new SolidColorBrush(Color.Parse("#3b82f6")) : new SolidColorBrush(Color.Parse("#9ca3af")),
-                    Margin = new Thickness(0, 0, 10, 0),
-                    VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center
-                };
-                Grid.SetColumn(folderIcon, 0);
+                    var checkBadge = new Border
+                    {
+                        Width = 18,
+                        Height = 18,
+                        CornerRadius = new CornerRadius(9),
+                        Background = isFolderSelectedInBatch ? new SolidColorBrush(Color.Parse("#2563eb")) : Brushes.Transparent,
+                        BorderBrush = isFolderSelectedInBatch ? new SolidColorBrush(Color.Parse("#3b82f6")) : new SolidColorBrush(Color.Parse("#6b7280")),
+                        BorderThickness = new Thickness(1.5),
+                        Margin = new Thickness(0, 0, 10, 0),
+                        VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center
+                    };
+                    if (isFolderSelectedInBatch)
+                    {
+                        checkBadge.Child = new PathIcon
+                        {
+                            Data = (StreamGeometry)Resources["IconCheck"]!,
+                            Width = 10,
+                            Height = 10,
+                            Foreground = Brushes.White,
+                            HorizontalAlignment = global::Avalonia.Layout.HorizontalAlignment.Center,
+                            VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center
+                        };
+                    }
+                    leadingIcon = checkBadge;
+                }
+                else
+                {
+                    leadingIcon = new PathIcon
+                    {
+                        Data = (StreamGeometry)Resources["IconFolder"]!,
+                        Width = 18,
+                        Height = 18,
+                        Foreground = isSelectedCategory ? new SolidColorBrush(Color.Parse("#3b82f6")) : new SolidColorBrush(Color.Parse("#9ca3af")),
+                        Margin = new Thickness(0, 0, 10, 0),
+                        VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center
+                    };
+                }
+                Grid.SetColumn(leadingIcon, 0);
 
                 var folderText = new TextBlock
                 {
-                    Text = folder,
+                    Text = folderName,
                     FontSize = 14,
-                    FontWeight = isSelected ? FontWeight.SemiBold : FontWeight.Normal,
-                    Foreground = isSelected ? Brushes.White : new SolidColorBrush(Color.Parse("#d1d5db")),
+                    FontWeight = (isSelectedCategory || isFolderSelectedInBatch) ? FontWeight.SemiBold : FontWeight.Normal,
+                    Foreground = isFolderSelectedInBatch
+                        ? new SolidColorBrush(Color.Parse("#60a5fa"))
+                        : (isSelectedCategory ? Brushes.White : new SolidColorBrush(Color.Parse("#d1d5db"))),
                     TextTrimming = TextTrimming.CharacterEllipsis,
                     VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center
                 };
@@ -1076,28 +1690,29 @@ namespace QuickNote.Avalonia.Views
                 badgeBorder.Child = badgeText;
                 Grid.SetColumn(badgeBorder, 2);
 
-                grid.Children.Add(folderIcon);
+                grid.Children.Add(leadingIcon);
                 grid.Children.Add(folderText);
                 grid.Children.Add(badgeBorder);
 
                 btn.Content = grid;
 
-                // Long press detection for deleting folder cleanly
+                // Long press detection for folder selection
                 DispatcherTimer? holdTimer = null;
                 bool wasLongPress = false;
-                var capturedFolder = folder;
+                var capturedFolder = folderPath;
 
                 btn.PointerPressed += (s, pe) =>
                 {
+                    if (_isFolderSelectionMode) return;
                     wasLongPress = false;
                     holdTimer?.Stop();
-                    holdTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(550) };
+                    holdTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(450) };
                     holdTimer.Tick += (ts, te) =>
                     {
                         holdTimer?.Stop();
                         holdTimer = null;
                         wasLongPress = true;
-                        OnPromptDeleteFolder(capturedFolder);
+                        EnterFolderSelectionModeWithFolder(capturedFolder);
                     };
                     holdTimer.Start();
                 };
@@ -1121,7 +1736,20 @@ namespace QuickNote.Avalonia.Views
                         wasLongPress = false;
                         return;
                     }
-                    _selectedCategory = capturedFolder;
+
+                    if (_isFolderSelectionMode)
+                    {
+                        if (_selectedFolders.Contains(capturedFolder))
+                            _selectedFolders.Remove(capturedFolder);
+                        else
+                            _selectedFolders.Add(capturedFolder);
+
+                        UpdateFolderSelectionState();
+                        RebuildDrawerFolders();
+                        return;
+                    }
+
+                    _selectedCategory = folderName;
                     if (LeftDrawerOverlay != null) LeftDrawerOverlay.IsVisible = false;
                     RebuildDrawerFolders();
                     ApplyFilters();
@@ -1176,6 +1804,7 @@ namespace QuickNote.Avalonia.Views
                     UpdateTrashBadge();
                     ApplyFilters();
                     OnPropertyChanged(nameof(TotalNotesCountText));
+                    TriggerAutoSyncInBackground();
                 }
             }
             catch (Exception ex)
@@ -1538,11 +2167,16 @@ namespace QuickNote.Avalonia.Views
             // Sort: newest first
             foreach (var note in source.OrderByDescending(n => n.LastModified))
             {
-                FilteredNotes.Add(new MobileNoteItem(note));
+                var item = new MobileNoteItem(note)
+                {
+                    IsSelectionMode = _isSelectionMode
+                };
+                FilteredNotes.Add(item);
             }
 
             OnPropertyChanged(nameof(NoteCountStatus));
             OnPropertyChanged(nameof(IsNotesEmpty));
+            UpdateSelectionState();
         }
 
         private void OnClearSearchClick(object? sender, RoutedEventArgs e)
@@ -1550,13 +2184,331 @@ namespace QuickNote.Avalonia.Views
             SearchQuery = string.Empty;
         }
 
+        // ── Note Long-Press & Multi-Select Handlers (Issue 1) ─────────────
+        private DispatcherTimer? _noteHoldTimer;
+        private bool _wasNoteLongPress = false;
+
+        private void OnNoteCardPointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            if (IsSelectionMode) return;
+            _wasNoteLongPress = false;
+            _noteHoldTimer?.Stop();
+            _noteHoldTimer = null;
+
+            if (sender is Control control && control.DataContext is MobileNoteItem item)
+            {
+                _noteHoldTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(450) };
+                _noteHoldTimer.Tick += (s, ev) =>
+                {
+                    _noteHoldTimer?.Stop();
+                    _noteHoldTimer = null;
+                    _wasNoteLongPress = true;
+                    EnterSelectionModeWithNote(item);
+                };
+                _noteHoldTimer.Start();
+            }
+        }
+
+        private void OnNoteCardPointerReleased(object? sender, PointerReleasedEventArgs e)
+        {
+            _noteHoldTimer?.Stop();
+            _noteHoldTimer = null;
+        }
+
+        private void OnNoteCardPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
+        {
+            _noteHoldTimer?.Stop();
+            _noteHoldTimer = null;
+        }
+
+        private void EnterSelectionModeWithNote(MobileNoteItem item)
+        {
+            IsSelectionMode = true;
+            item.IsSelected = true;
+            UpdateSelectionState();
+        }
+
+        private void ExitSelectionMode()
+        {
+            IsSelectionMode = false;
+            foreach (var n in FilteredNotes)
+            {
+                n.IsSelected = false;
+            }
+            UpdateSelectionState();
+        }
+
+        private void UpdateSelectionState()
+        {
+            OnPropertyChanged(nameof(SelectionCountText));
+            OnPropertyChanged(nameof(SelectAllButtonText));
+        }
+
+        private void OnCancelSelectionClick(object? sender, RoutedEventArgs e)
+        {
+            ExitSelectionMode();
+        }
+
+        private void OnToggleSelectAllNotesClick(object? sender, RoutedEventArgs e)
+        {
+            bool allSelected = FilteredNotes.Count > 0 && FilteredNotes.All(n => n.IsSelected);
+            foreach (var n in FilteredNotes)
+            {
+                n.IsSelected = !allSelected;
+            }
+            UpdateSelectionState();
+        }
+
         private void OnNoteCardTapped(object? sender, TappedEventArgs e)
         {
-            if ((sender as Control)?.DataContext is MobileNoteItem item && _viewModel != null)
+            if (_wasNoteLongPress)
             {
-                _viewModel.SelectNote(item.Note);
-                ActiveNoteTitle = item.Note.Title;
-                ShowNoteEditor();
+                _wasNoteLongPress = false;
+                return;
+            }
+
+            if ((sender as Control)?.DataContext is MobileNoteItem item)
+            {
+                if (IsSelectionMode)
+                {
+                    item.IsSelected = !item.IsSelected;
+                    UpdateSelectionState();
+                    return;
+                }
+
+                if (_viewModel != null)
+                {
+                    _viewModel.SelectNote(item.Note);
+                    ActiveNoteTitle = item.Note.Title;
+                    ShowNoteEditor();
+                }
+            }
+        }
+
+        // ── Batch Note Operations (Move, Copy, Delete) ─────────────────────
+        private void OnBatchMoveNotesClick(object? sender, RoutedEventArgs e)
+        {
+            var selectedNotes = FilteredNotes.Where(n => n.IsSelected).ToList();
+            if (selectedNotes.Count == 0) return;
+
+            if (MoveNotesModalTitle != null)
+            {
+                MoveNotesModalTitle.Text = $"Move {selectedNotes.Count} Note(s)";
+            }
+            if (MoveNotesModal != null)
+            {
+                MoveNotesModal.IsVisible = true;
+                PopulateMoveNotesDestinations(null);
+            }
+        }
+
+        private void OnCancelMoveNotesClick(object? sender, RoutedEventArgs e)
+        {
+            if (MoveNotesModal != null) MoveNotesModal.IsVisible = false;
+        }
+
+        private void OnMoveNotesSearchKeyUp(object? sender, KeyEventArgs e)
+        {
+            PopulateMoveNotesDestinations(MoveNotesSearchBox?.Text);
+        }
+
+        private void PopulateMoveNotesDestinations(string? filter)
+        {
+            if (MoveNotesDestinationsPanel == null) return;
+            MoveNotesDestinationsPanel.Children.Clear();
+
+            var cleanFilter = filter?.Trim() ?? string.Empty;
+
+            // 1. Root option
+            if (string.IsNullOrEmpty(cleanFilter) || "root top level".Contains(cleanFilter, StringComparison.OrdinalIgnoreCase))
+            {
+                var rootBtn = CreateMoveNoteDestinationButton(null, "/ (Root - Top level)");
+                MoveNotesDestinationsPanel.Children.Add(rootBtn);
+            }
+
+            // 2. Discovered folders
+            var allFolders = DiscoverAllFolderPaths();
+            foreach (var folder in allFolders)
+            {
+                if (string.IsNullOrEmpty(cleanFilter) || folder.Contains(cleanFilter, StringComparison.OrdinalIgnoreCase))
+                {
+                    var btn = CreateMoveNoteDestinationButton(folder, folder);
+                    MoveNotesDestinationsPanel.Children.Add(btn);
+                }
+            }
+        }
+
+        private Button CreateMoveNoteDestinationButton(string? targetRelPath, string displayTitle)
+        {
+            var btn = new Button
+            {
+                Background = new SolidColorBrush(Color.Parse("#181820")),
+                BorderBrush = new SolidColorBrush(Color.Parse("#2e2e38")),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(12, 10),
+                HorizontalAlignment = global::Avalonia.Layout.HorizontalAlignment.Stretch,
+                HorizontalContentAlignment = global::Avalonia.Layout.HorizontalAlignment.Stretch
+            };
+
+            var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*") };
+            var icon = new PathIcon
+            {
+                Data = (StreamGeometry)Resources["IconFolder"]!,
+                Width = 16,
+                Height = 16,
+                Foreground = new SolidColorBrush(Color.Parse("#3b82f6")),
+                Margin = new Thickness(0, 0, 10, 0),
+                VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center
+            };
+            Grid.SetColumn(icon, 0);
+
+            var text = new TextBlock
+            {
+                Text = displayTitle,
+                FontSize = 13,
+                Foreground = Brushes.White,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center
+            };
+            Grid.SetColumn(text, 1);
+
+            grid.Children.Add(icon);
+            grid.Children.Add(text);
+            btn.Content = grid;
+
+            btn.Click += async (s, e) =>
+            {
+                try
+                {
+                    var root = _viewModel?.NotesRoot;
+                    if (!string.IsNullOrEmpty(root) && _viewModel != null)
+                    {
+                        var destDir = string.IsNullOrEmpty(targetRelPath)
+                            ? root
+                            : Path.Combine(root, targetRelPath.Replace('/', Path.DirectorySeparatorChar));
+
+                        if (!Directory.Exists(destDir))
+                        {
+                            Directory.CreateDirectory(destDir);
+                        }
+
+                        var selectedItems = FilteredNotes.Where(n => n.IsSelected).ToList();
+                        foreach (var item in selectedItems)
+                        {
+                            var srcFile = item.Note.FullPath;
+                            if (File.Exists(srcFile))
+                            {
+                                var fileName = Path.GetFileName(srcFile);
+                                var targetFile = Path.Combine(destDir, fileName);
+
+                                if (!string.Equals(srcFile, targetFile, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    if (File.Exists(targetFile))
+                                    {
+                                        var baseName = Path.GetFileNameWithoutExtension(fileName);
+                                        var ext = Path.GetExtension(fileName);
+                                        int c = 1;
+                                        while (File.Exists(Path.Combine(destDir, $"{baseName} ({c}){ext}"))) c++;
+                                        targetFile = Path.Combine(destDir, $"{baseName} ({c}){ext}");
+                                    }
+                                    File.Move(srcFile, targetFile);
+
+                                    item.Note.FullPath = targetFile;
+                                    item.Note.FolderPath = destDir;
+                                    item.Note.RelativePath = Path.GetRelativePath(root, targetFile);
+                                }
+                            }
+                        }
+
+                        if (MoveNotesModal != null) MoveNotesModal.IsVisible = false;
+                        ExitSelectionMode();
+
+                        await _viewModel.RefreshFolderTreeAsync();
+                        await _viewModel.Refresh();
+                        RebuildDrawerFolders();
+                        ApplyFilters();
+                        TriggerAutoSyncInBackground();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[MobileMainView] Error moving notes: {ex.Message}");
+                    if (MoveNotesModal != null) MoveNotesModal.IsVisible = false;
+                }
+            };
+
+            return btn;
+        }
+
+        private async void OnBatchCopyNotesClick(object? sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var selectedItems = FilteredNotes.Where(n => n.IsSelected).ToList();
+                if (selectedItems.Count == 0 || _viewModel == null) return;
+
+                var root = _viewModel.NotesRoot;
+                foreach (var item in selectedItems)
+                {
+                    var src = item.Note.FullPath;
+                    if (File.Exists(src))
+                    {
+                        var dir = Path.GetDirectoryName(src) ?? root;
+                        var baseName = Path.GetFileNameWithoutExtension(src);
+                        var ext = Path.GetExtension(src);
+
+                        string copyPath = Path.Combine(dir, $"{baseName} (Copy){ext}");
+                        int c = 2;
+                        while (File.Exists(copyPath))
+                        {
+                            copyPath = Path.Combine(dir, $"{baseName} (Copy {c}){ext}");
+                            c++;
+                        }
+                        File.Copy(src, copyPath);
+                    }
+                }
+
+                ExitSelectionMode();
+                await _viewModel.RefreshFolderTreeAsync();
+                await _viewModel.Refresh();
+                RebuildDrawerFolders();
+                ApplyFilters();
+                TriggerAutoSyncInBackground();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[MobileMainView] Error copying notes: {ex.Message}");
+            }
+        }
+
+        private async void OnBatchDeleteNotesClick(object? sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var selectedItems = FilteredNotes.Where(n => n.IsSelected).ToList();
+                if (selectedItems.Count == 0 || _viewModel == null) return;
+
+                foreach (var item in selectedItems)
+                {
+                    if (File.Exists(item.Note.FullPath))
+                    {
+                        await _viewModel.TrashBinService.MoveToTrashAsync(item.Note.FullPath);
+                    }
+                }
+
+                ExitSelectionMode();
+                await _viewModel.RefreshFolderTreeAsync();
+                await _viewModel.Refresh();
+                RebuildDrawerFolders();
+                UpdateTrashBadge();
+                ApplyFilters();
+                OnPropertyChanged(nameof(TotalNotesCountText));
+                TriggerAutoSyncInBackground();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[MobileMainView] Error batch deleting notes: {ex.Message}");
             }
         }
 
@@ -1649,7 +2601,27 @@ namespace QuickNote.Avalonia.Views
         {
             if (e.Key == Key.Back || e.Key == Key.Escape)
             {
-                if (ConfirmDeleteFolderModal?.IsVisible == true)
+                if (ConfirmBatchDeleteFoldersModal?.IsVisible == true)
+                {
+                    e.Handled = true;
+                    ConfirmBatchDeleteFoldersModal.IsVisible = false;
+                }
+                else if (MoveFoldersModal?.IsVisible == true)
+                {
+                    e.Handled = true;
+                    MoveFoldersModal.IsVisible = false;
+                }
+                else if (MoveNotesModal?.IsVisible == true)
+                {
+                    e.Handled = true;
+                    MoveNotesModal.IsVisible = false;
+                }
+                else if (ParentFolderDropdownContainer?.IsVisible == true)
+                {
+                    e.Handled = true;
+                    ParentFolderDropdownContainer.IsVisible = false;
+                }
+                else if (ConfirmDeleteFolderModal?.IsVisible == true)
                 {
                     e.Handled = true;
                     ConfirmDeleteFolderModal.IsVisible = false;
@@ -1665,10 +2637,20 @@ namespace QuickNote.Avalonia.Views
                     e.Handled = true;
                     TrashBinScreen.IsVisible = false;
                 }
+                else if (_isFolderSelectionMode)
+                {
+                    e.Handled = true;
+                    ExitFolderSelectionMode();
+                }
                 else if (LeftDrawerOverlay?.IsVisible == true)
                 {
                     e.Handled = true;
                     LeftDrawerOverlay.IsVisible = false;
+                }
+                else if (IsSelectionMode)
+                {
+                    e.Handled = true;
+                    ExitSelectionMode();
                 }
                 else if (NoteEditorScreen.IsVisible)
                 {

@@ -30,6 +30,11 @@
         <StreamGeometry x:Key="IconMenu">M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z</StreamGeometry>
         <StreamGeometry x:Key="IconNotes">M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z</StreamGeometry>
         <StreamGeometry x:Key="IconTag">M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z</StreamGeometry>
+        <StreamGeometry x:Key="IconCheck">M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z</StreamGeometry>
+        <StreamGeometry x:Key="IconCheckCircle">M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z</StreamGeometry>
+        <StreamGeometry x:Key="IconCircleOutline">M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z</StreamGeometry>
+        <StreamGeometry x:Key="IconCopy">M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z</StreamGeometry>
+        <StreamGeometry x:Key="IconChevronDown">M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z</StreamGeometry>
     </UserControl.Resources>
 
     <UserControl.Styles>
@@ -57,79 +62,126 @@
                 </Transitions>
             </Grid.Transitions>
 
-            <!-- Top Floating Search Bar Capsule (Google Keep Style) -->
-            <Border Grid.Row="0" Background="#121214" Padding="14,44,14,8">
-                <Border Background="#1e1e24"
-                        BorderBrush="#2d2d36"
-                        BorderThickness="1"
-                        CornerRadius="24"
-                        Height="48"
-                        Padding="12,0">
-                    <Grid ColumnDefinitions="Auto,*,Auto,Auto">
-                        <!-- Hamburger Menu Button (opens Left Sidebar) -->
-                        <Button Grid.Column="0"
-                                x:Name="HamburgerButton"
-                                Click="OnToggleLeftDrawerClick"
-                                Background="Transparent"
-                                BorderThickness="0"
-                                Padding="4"
-                                Margin="0,0,4,0"
-                                VerticalAlignment="Center"
-                                CornerRadius="16">
-                            <PathIcon Data="{StaticResource IconMenu}" Width="20" Height="20" Foreground="#d1d5db" />
-                        </Button>
-
-                        <!-- Search TextBox -->
-                        <TextBox Grid.Column="1"
-                                 x:Name="SearchBox"
-                                 Text="{Binding SearchQuery, Mode=TwoWay}"
-                                 PlaceholderText="Search your notes"
-                                 Background="Transparent"
-                                 Foreground="#ffffff"
-                                 BorderThickness="0"
-                                 FontSize="14"
-                                 VerticalAlignment="Center"
-                                 Margin="4,0" />
-
-                        <!-- Clear Search Button -->
-                        <Button Grid.Column="2"
-                                Click="OnClearSearchClick"
-                                Background="Transparent"
-                                Foreground="#9ca3af"
-                                Padding="6"
-                                VerticalAlignment="Center"
-                                IsVisible="{Binding HasSearchQuery}">
-                            <PathIcon Data="{StaticResource IconClose}" Width="14" Height="14" />
-                        </Button>
-
-                        <!-- Right Actions: View Toggle + Cloud Sync Pill -->
-                        <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                            <!-- Toggle Grid / List View -->
-                            <Button Click="OnToggleViewModeClick"
+            <!-- Top Floating Search Bar Capsule or Selection Action Bar (Google Keep Style) -->
+            <Border Grid.Row="0" Background="#121214" Padding="14,14,14,6">
+                <Panel>
+                    <!-- Normal Search Bar Capsule -->
+                    <Border IsVisible="{Binding !IsSelectionMode}"
+                            Background="#1e1e24"
+                            BorderBrush="#2d2d36"
+                            BorderThickness="1"
+                            CornerRadius="24"
+                            Height="48"
+                            Padding="12,0">
+                        <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+                            <!-- Hamburger Menu Button (opens Left Sidebar) -->
+                            <Button Grid.Column="0"
+                                    x:Name="HamburgerButton"
+                                    Click="OnToggleLeftDrawerClick"
                                     Background="Transparent"
-                                    Padding="6"
-                                    CornerRadius="16"
-                                    ToolTip.Tip="Switch view layout">
-                                <PathIcon Data="{Binding ViewModeIcon}" Width="18" Height="18" Foreground="#9ca3af" />
+                                    BorderThickness="0"
+                                    Padding="4"
+                                    Margin="0,0,4,0"
+                                    VerticalAlignment="Center"
+                                    CornerRadius="16">
+                                <PathIcon Data="{StaticResource IconMenu}" Width="20" Height="20" Foreground="#d1d5db" />
                             </Button>
 
-                            <!-- Cloud Sync Avatar / Pill -->
-                            <Border x:Name="CloudSyncBadge"
-                                    Background="#282832"
-                                    CornerRadius="16"
-                                    Padding="7"
+                            <!-- Search TextBox -->
+                            <TextBox Grid.Column="1"
+                                     x:Name="SearchBox"
+                                     Text="{Binding SearchQuery, Mode=TwoWay}"
+                                     PlaceholderText="Search your notes"
+                                     Background="Transparent"
+                                     Foreground="#ffffff"
+                                     BorderThickness="0"
+                                     FontSize="14"
+                                     VerticalAlignment="Center"
+                                     Margin="4,0" />
+
+                            <!-- Clear Search Button -->
+                            <Button Grid.Column="2"
+                                    Click="OnClearSearchClick"
+                                    Background="Transparent"
+                                    Foreground="#9ca3af"
+                                    Padding="6"
                                     VerticalAlignment="Center"
-                                    Cursor="Hand"
-                                    Tapped="OnCloudSyncBadgeTapped"
-                                    ToolTip.Tip="Google Drive account">
-                                <PathIcon Data="{StaticResource IconCloud}"
-                                          Width="15"
-                                          Height="15"
-                                          Foreground="{Binding CloudSyncIconBrush}" />
-                            </Border>
-                        </StackPanel>
-                    </Grid>
-                </Border>
+                                    IsVisible="{Binding HasSearchQuery}">
+                                <PathIcon Data="{StaticResource IconClose}" Width="14" Height="14" />
+                            </Button>
+
+                            <!-- Right Actions: View Toggle + Cloud Sync Pill -->
+                            <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                <!-- Toggle Grid / List View -->
+                                <Button Click="OnToggleViewModeClick"
+                                        Background="Transparent"
+                                        Padding="6"
+                                        CornerRadius="16"
+                                        ToolTip.Tip="Switch view layout">
+                                    <PathIcon Data="{Binding ViewModeIcon}" Width="18" Height="18" Foreground="#9ca3af" />
+                                </Button>
+
+                                <!-- Cloud Sync Avatar / Pill -->
+                                <Border x:Name="CloudSyncBadge"
+                                        Background="#282832"
+                                        CornerRadius="16"
+                                        Padding="7"
+                                        VerticalAlignment="Center"
+                                        Cursor="Hand"
+                                        Tapped="OnCloudSyncBadgeTapped"
+                                        ToolTip.Tip="Google Drive account">
+                                    <PathIcon Data="{StaticResource IconCloud}"
+                                              Width="15"
+                                              Height="15"
+                                              Foreground="{Binding CloudSyncIconBrush}" />
+                                </Border>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- Selection Mode: Contextual Action Top Bar -->
+                    <Border IsVisible="{Binding IsSelectionMode}"
+                            Background="#1e2230"
+                            BorderBrush="#3b82f6"
+                            BorderThickness="1"
+                            CornerRadius="24"
+                            Height="48"
+                            Padding="12,0">
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <!-- Cancel / Exit Selection Button -->
+                            <Button Grid.Column="0"
+                                    Click="OnCancelSelectionClick"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    Padding="6"
+                                    VerticalAlignment="Center"
+                                    CornerRadius="16">
+                                <PathIcon Data="{StaticResource IconClose}" Width="18" Height="18" Foreground="#ffffff" />
+                            </Button>
+
+                            <!-- Selection Counter -->
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding SelectionCountText}"
+                                       FontSize="15"
+                                       FontWeight="SemiBold"
+                                       Foreground="#ffffff"
+                                       VerticalAlignment="Center"
+                                       Margin="10,0" />
+
+                            <!-- Select All / Deselect All Toggle Button -->
+                            <Button Grid.Column="2"
+                                    Click="OnToggleSelectAllNotesClick"
+                                    Background="#252a3a"
+                                    BorderBrush="#3b82f6"
+                                    BorderThickness="1"
+                                    CornerRadius="16"
+                                    Padding="12,6"
+                                    VerticalAlignment="Center">
+                                <TextBlock Text="{Binding SelectAllButtonText}" FontSize="12" FontWeight="SemiBold" Foreground="#60a5fa" />
+                            </Button>
+                        </Grid>
+                    </Border>
+                </Panel>
             </Border>
 
             <!-- Tag Filter Chips (Horizontal Scroll, replaces folder list on main page) -->
@@ -173,13 +225,22 @@
                             <DataTemplate x:DataType="views:MobileNoteItem">
                                 <Border CornerRadius="12"
                                         Background="{Binding CardBackground}"
-                                        BorderBrush="{Binding CardBorderBrush}"
-                                        BorderThickness="1"
+                                        BorderBrush="{Binding EffectiveBorderBrush}"
+                                        BorderThickness="{Binding EffectiveBorderThickness}"
                                         Padding="14,12"
                                         ClipToBounds="True"
+                                        PointerPressed="OnNoteCardPointerPressed"
+                                        PointerReleased="OnNoteCardPointerReleased"
+                                        PointerCaptureLost="OnNoteCardPointerCaptureLost"
                                         Tapped="OnNoteCardTapped">
+                                    <Border.Transitions>
+                                        <Transitions>
+                                            <BrushTransition Property="BorderBrush" Duration="0:0:0.18" />
+                                            <DoubleTransition Property="Opacity" Duration="0:0:0.15" />
+                                        </Transitions>
+                                    </Border.Transitions>
                                     <Grid RowDefinitions="Auto,*,Auto,Auto">
-                                        <!-- Header: Title + Category badge -->
+                                        <!-- Header: Title + Category badge or Selection Checkmark -->
                                         <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,4">
                                             <TextBlock Grid.Column="0"
                                                        Text="{Binding Title}"
@@ -190,13 +251,37 @@
                                                        MaxLines="2"
                                                        TextTrimming="CharacterEllipsis"
                                                        VerticalAlignment="Center" />
+
+                                            <!-- Normal Folder Badge (hidden in selection mode) -->
                                             <Border Grid.Column="1"
+                                                    IsVisible="{Binding !IsSelectionMode}"
                                                     Background="#33000000"
                                                     CornerRadius="6"
                                                     Padding="6,2"
                                                     Margin="6,0,0,0"
                                                     VerticalAlignment="Top">
                                                 <TextBlock Text="{Binding FolderName}" FontSize="10" Foreground="{Binding CardAccentBrush}" />
+                                            </Border>
+
+                                            <!-- Selection Checkbox Badge (visible in selection mode) -->
+                                            <Border Grid.Column="1"
+                                                    IsVisible="{Binding IsSelectionMode}"
+                                                    Background="{Binding SelectionCheckBackground}"
+                                                    BorderBrush="{Binding SelectionCheckBorderBrush}"
+                                                    BorderThickness="1.5"
+                                                    CornerRadius="11"
+                                                    Width="22"
+                                                    Height="22"
+                                                    Margin="6,0,0,0"
+                                                    VerticalAlignment="Top"
+                                                    HorizontalAlignment="Center">
+                                                <PathIcon Data="{StaticResource IconCheck}"
+                                                          Width="12"
+                                                          Height="12"
+                                                          Foreground="#ffffff"
+                                                          IsVisible="{Binding IsSelected}"
+                                                          HorizontalAlignment="Center"
+                                                          VerticalAlignment="Center" />
                                             </Border>
                                         </Grid>
 
@@ -237,7 +322,8 @@
                                                     Click="OnDeleteNoteCardClick"
                                                     Background="Transparent"
                                                     Padding="4"
-                                                    VerticalAlignment="Center">
+                                                    VerticalAlignment="Center"
+                                                    IsVisible="{Binding !IsSelectionMode}">
                                                 <PathIcon Data="{StaticResource IconTrash}" Width="13" Height="13" Foreground="#88ef4444" />
                                             </Button>
                                         </Grid>
@@ -262,63 +348,108 @@
                 </StackPanel>
             </Grid>
 
-            <!-- Bottom Google Keep Action Bar with Quick Actions & FAB -->
+            <!-- Bottom Google Keep Action Bar with Quick Actions & FAB or Selection Actions -->
             <Border Grid.Row="3" Background="#18181c" BorderBrush="#25252b" BorderThickness="0,1,0,0" Padding="14,8">
-                <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto">
-                    <!-- New Checklist Note -->
-                    <Button Grid.Column="0"
-                            Click="OnNewChecklistNoteClick"
-                            Background="Transparent"
-                            Foreground="#9ca3af"
-                            Padding="8"
-                            CornerRadius="20"
-                            ToolTip.Tip="New checklist">
-                        <PathIcon Data="{StaticResource IconCheckbox}" Width="18" Height="18" Foreground="#9ca3af" />
-                    </Button>
+                <Panel>
+                    <!-- Normal Mode: Keep FAB + Quick Notes -->
+                    <Grid IsVisible="{Binding !IsSelectionMode}" ColumnDefinitions="Auto,Auto,Auto,*,Auto">
+                        <!-- New Checklist Note -->
+                        <Button Grid.Column="0"
+                                Click="OnNewChecklistNoteClick"
+                                Background="Transparent"
+                                Foreground="#9ca3af"
+                                Padding="8"
+                                CornerRadius="20"
+                                ToolTip.Tip="New checklist">
+                            <PathIcon Data="{StaticResource IconCheckbox}" Width="18" Height="18" Foreground="#9ca3af" />
+                        </Button>
 
-                    <!-- New Code Note -->
-                    <Button Grid.Column="1"
-                            Click="OnNewCodeNoteClick"
-                            Background="Transparent"
-                            Foreground="#9ca3af"
-                            Padding="8"
-                            CornerRadius="20"
-                            ToolTip.Tip="New code note">
-                        <PathIcon Data="{StaticResource IconCode}" Width="18" Height="18" Foreground="#9ca3af" />
-                    </Button>
+                        <!-- New Code Note -->
+                        <Button Grid.Column="1"
+                                Click="OnNewCodeNoteClick"
+                                Background="Transparent"
+                                Foreground="#9ca3af"
+                                Padding="8"
+                                CornerRadius="20"
+                                ToolTip.Tip="New code note">
+                            <PathIcon Data="{StaticResource IconCode}" Width="18" Height="18" Foreground="#9ca3af" />
+                        </Button>
 
-                    <!-- Sync Button -->
-                    <Button Grid.Column="2"
-                            Click="OnSyncClick"
-                            Background="Transparent"
-                            Foreground="#9ca3af"
-                            Padding="8"
-                            CornerRadius="20"
-                            ToolTip.Tip="Sync notes">
-                        <PathIcon Data="{StaticResource IconSync}" Width="17" Height="17" Foreground="#9ca3af" />
-                    </Button>
+                        <!-- Sync Button -->
+                        <Button Grid.Column="2"
+                                Click="OnSyncClick"
+                                Background="Transparent"
+                                Foreground="#9ca3af"
+                                Padding="8"
+                                CornerRadius="20"
+                                ToolTip.Tip="Sync notes">
+                            <PathIcon Data="{StaticResource IconSync}" Width="17" Height="17" Foreground="#9ca3af" />
+                        </Button>
 
-                    <!-- Note Count Status Text -->
-                    <TextBlock Grid.Column="3"
-                               Text="{Binding NoteCountStatus}"
-                               FontSize="11"
-                               Foreground="#6b7280"
-                               HorizontalAlignment="Center"
-                               VerticalAlignment="Center" />
+                        <!-- Note Count Status Text -->
+                        <TextBlock Grid.Column="3"
+                                   Text="{Binding NoteCountStatus}"
+                                   FontSize="11"
+                                   Foreground="#6b7280"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center" />
 
-                    <!-- Keep FAB (+) -->
-                    <Button Grid.Column="4"
-                            Click="OnFabNewNoteClick"
-                            Width="46"
-                            Height="46"
-                            CornerRadius="14"
-                            Background="#2563eb"
-                            BorderThickness="0"
-                            VerticalAlignment="Center"
-                            ToolTip.Tip="New note">
-                        <PathIcon Data="{StaticResource IconPlus}" Width="20" Height="20" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                    </Button>
-                </Grid>
+                        <!-- Keep FAB (+) -->
+                        <Button Grid.Column="4"
+                                Click="OnFabNewNoteClick"
+                                Width="46"
+                                Height="46"
+                                CornerRadius="14"
+                                Background="#2563eb"
+                                BorderThickness="0"
+                                VerticalAlignment="Center"
+                                ToolTip.Tip="New note">
+                            <PathIcon Data="{StaticResource IconPlus}" Width="20" Height="20" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Button>
+                    </Grid>
+
+                    <!-- Selection Mode: Move, Copy, Delete Actions -->
+                    <Grid IsVisible="{Binding IsSelectionMode}" ColumnDefinitions="*,*,*">
+                        <!-- Move Action -->
+                        <Button Grid.Column="0"
+                                Click="OnBatchMoveNotesClick"
+                                Background="Transparent"
+                                HorizontalAlignment="Center"
+                                Padding="12,6"
+                                CornerRadius="10">
+                            <StackPanel Orientation="Vertical" Spacing="4" HorizontalAlignment="Center">
+                                <PathIcon Data="{StaticResource IconFolder}" Width="20" Height="20" Foreground="#60a5fa" HorizontalAlignment="Center" />
+                                <TextBlock Text="Move" FontSize="11" FontWeight="SemiBold" Foreground="#d1d5db" HorizontalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+
+                        <!-- Copy Action -->
+                        <Button Grid.Column="1"
+                                Click="OnBatchCopyNotesClick"
+                                Background="Transparent"
+                                HorizontalAlignment="Center"
+                                Padding="12,6"
+                                CornerRadius="10">
+                            <StackPanel Orientation="Vertical" Spacing="4" HorizontalAlignment="Center">
+                                <PathIcon Data="{StaticResource IconCopy}" Width="20" Height="20" Foreground="#a78bfa" HorizontalAlignment="Center" />
+                                <TextBlock Text="Copy" FontSize="11" FontWeight="SemiBold" Foreground="#d1d5db" HorizontalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+
+                        <!-- Delete Action -->
+                        <Button Grid.Column="2"
+                                Click="OnBatchDeleteNotesClick"
+                                Background="Transparent"
+                                HorizontalAlignment="Center"
+                                Padding="12,6"
+                                CornerRadius="10">
+                            <StackPanel Orientation="Vertical" Spacing="4" HorizontalAlignment="Center">
+                                <PathIcon Data="{StaticResource IconTrash}" Width="20" Height="20" Foreground="#f87171" HorizontalAlignment="Center" />
+                                <TextBlock Text="Delete" FontSize="11" FontWeight="SemiBold" Foreground="#f87171" HorizontalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+                </Panel>
             </Border>
         </Grid>
 
@@ -331,7 +462,7 @@
             </Grid.Transitions>
 
             <!-- Top Editor App Bar with Safe Inset -->
-            <Border Grid.Row="0" Background="#18181a" BorderBrush="#26262a" BorderThickness="0,0,0,1" Padding="10,44,12,8">
+            <Border Grid.Row="0" Background="#18181a" BorderBrush="#26262a" BorderThickness="0,0,0,1" Padding="10,14,12,6">
                 <Grid ColumnDefinitions="Auto,*,Auto,Auto">
                     <!-- Back Arrow (Returns to Notes Feed) -->
                     <Button Grid.Column="0"
@@ -612,25 +743,82 @@
                     BorderThickness="1"
                     CornerRadius="16"
                     Width="320"
+                    MaxHeight="520"
                     VerticalAlignment="Center"
                     HorizontalAlignment="Center"
                     Padding="20"
                     BoxShadow="0 8 32 #50000000">
-                <StackPanel Spacing="16">
+                <StackPanel Spacing="14">
                     <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                         <PathIcon Data="{StaticResource IconFolderPlus}" Width="22" Height="22" Foreground="#3b82f6" />
                         <TextBlock Text="New Folder" FontSize="18" FontWeight="Bold" Foreground="#ffffff" VerticalAlignment="Center" />
                     </StackPanel>
 
-                    <TextBox x:Name="NewFolderNameTextBox"
-                             PlaceholderText="Folder name"
-                             Background="#141418"
-                             Foreground="#ffffff"
-                             BorderBrush="#3c4043"
-                             BorderThickness="1"
-                             CornerRadius="8"
-                             Padding="12,10"
-                             FontSize="14" />
+                    <!-- Folder Name Input -->
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="Folder Name" FontSize="11" FontWeight="SemiBold" Foreground="#9ca3af" />
+                        <TextBox x:Name="NewFolderNameTextBox"
+                                 PlaceholderText="Folder name"
+                                 Background="#141418"
+                                 Foreground="#ffffff"
+                                 BorderBrush="#3c4043"
+                                 BorderThickness="1"
+                                 CornerRadius="8"
+                                 Padding="12,10"
+                                 FontSize="14" />
+                    </StackPanel>
+
+                    <!-- Parent Folder Selector (Issue 2: parent folder search bar & dropdown) -->
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="Parent Folder (Optional)" FontSize="11" FontWeight="SemiBold" Foreground="#9ca3af" />
+                        <!-- Selector Trigger Button -->
+                        <Button x:Name="BtnParentFolderSelector"
+                                Click="OnToggleParentFolderDropdownClick"
+                                Background="#141418"
+                                BorderBrush="#3c4043"
+                                BorderThickness="1"
+                                CornerRadius="8"
+                                Padding="12,8"
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Stretch">
+                            <Grid ColumnDefinitions="Auto,*,Auto">
+                                <PathIcon Grid.Column="0" Data="{StaticResource IconFolder}" Width="16" Height="16" Foreground="#3b82f6" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="1" x:Name="SelectedParentFolderLabel" Text="/ (Root - Top level)" FontSize="13" Foreground="#ffffff" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                <PathIcon Grid.Column="2" Data="{StaticResource IconChevronDown}" Width="14" Height="14" Foreground="#9ca3af" VerticalAlignment="Center" />
+                            </Grid>
+                        </Button>
+
+                        <!-- Searchable Folder Dropdown List (Collapsible) -->
+                        <Border x:Name="ParentFolderDropdownContainer"
+                                Background="#18181f"
+                                BorderBrush="#374151"
+                                BorderThickness="1"
+                                CornerRadius="8"
+                                MaxHeight="170"
+                                Padding="6"
+                                IsVisible="False">
+                            <Grid RowDefinitions="Auto,*">
+                                <!-- Search parent folders input -->
+                                <TextBox Grid.Row="0"
+                                         x:Name="ParentFolderSearchBox"
+                                         PlaceholderText="Search parent folder..."
+                                         Background="#141418"
+                                         Foreground="#ffffff"
+                                         BorderBrush="#2d2d38"
+                                         BorderThickness="1"
+                                         CornerRadius="6"
+                                         Padding="8,6"
+                                         FontSize="12"
+                                         Margin="0,0,0,6"
+                                         KeyUp="OnParentFolderSearchKeyUp" />
+
+                                <!-- List of matching folders -->
+                                <ScrollViewer Grid.Row="1" MaxHeight="120">
+                                    <StackPanel x:Name="ParentFolderItemsPanel" Spacing="2" />
+                                </ScrollViewer>
+                            </Grid>
+                        </Border>
+                    </StackPanel>
 
                     <Grid ColumnDefinitions="*,*">
                         <Button Grid.Column="0"
@@ -671,28 +859,61 @@
                     BorderBrush="#2c2c34"
                     BorderThickness="0,0,1,0"
                     BoxShadow="4 0 24 #50000000">
-                <Grid RowDefinitions="Auto,*,Auto" Margin="0,32,0,16">
+                <Grid RowDefinitions="Auto,*,Auto" Margin="0,14,0,14">
                     <!-- Drawer Header -->
-                    <Border Grid.Row="0" Padding="20,12,16,16" BorderBrush="#2c2c34" BorderThickness="0,0,0,1">
-                        <Grid ColumnDefinitions="Auto,*,Auto">
-                            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                                <Border Background="#2563eb" CornerRadius="8" Width="36" Height="36">
-                                    <PathIcon Data="{StaticResource IconBolt}" Width="20" Height="20" Foreground="#ffffff" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                </Border>
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="QuickNote" FontSize="18" FontWeight="Bold" Foreground="#ffffff" />
-                                    <TextBlock Text="Markdown Notes" FontSize="11" Foreground="#9ca3af" />
+                    <Border Grid.Row="0" Padding="16,12,16,14" BorderBrush="#2c2c34" BorderThickness="0,0,0,1">
+                        <Panel>
+                            <!-- Normal Drawer Header -->
+                            <Grid x:Name="DrawerNormalHeader" IsVisible="True" ColumnDefinitions="Auto,*,Auto">
+                                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                                    <Border Background="#2563eb" CornerRadius="8" Width="36" Height="36">
+                                        <PathIcon Data="{StaticResource IconBolt}" Width="20" Height="20" Foreground="#ffffff" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Border>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="QuickNote" FontSize="18" FontWeight="Bold" Foreground="#ffffff" />
+                                        <TextBlock Text="Markdown Notes" FontSize="11" Foreground="#9ca3af" />
+                                    </StackPanel>
                                 </StackPanel>
-                            </StackPanel>
-                            <Button Grid.Column="2"
-                                    Click="OnCloseLeftDrawerClick"
-                                    Background="Transparent"
-                                    Foreground="#9ca3af"
-                                    Padding="6"
-                                    VerticalAlignment="Center">
-                                <PathIcon Data="{StaticResource IconClose}" Width="16" Height="16" />
-                            </Button>
-                        </Grid>
+                                <Button Grid.Column="2"
+                                        Click="OnCloseLeftDrawerClick"
+                                        Background="Transparent"
+                                        Foreground="#9ca3af"
+                                        Padding="6"
+                                        VerticalAlignment="Center">
+                                    <PathIcon Data="{StaticResource IconClose}" Width="16" Height="16" />
+                                </Button>
+                            </Grid>
+
+                            <!-- Folder Selection Mode Drawer Header (Issue 1) -->
+                            <Grid x:Name="DrawerFolderSelectionHeader" IsVisible="False" ColumnDefinitions="Auto,*,Auto">
+                                <Button Grid.Column="0"
+                                        Click="OnCancelFolderSelectionClick"
+                                        Background="Transparent"
+                                        Foreground="#ffffff"
+                                        Padding="6"
+                                        VerticalAlignment="Center">
+                                    <PathIcon Data="{StaticResource IconClose}" Width="16" Height="16" />
+                                </Button>
+                                <TextBlock Grid.Column="1"
+                                           x:Name="DrawerFolderSelectionCountText"
+                                           Text="0 selected"
+                                           FontSize="14"
+                                           FontWeight="SemiBold"
+                                           Foreground="#ffffff"
+                                           VerticalAlignment="Center"
+                                           Margin="8,0" />
+                                <Button Grid.Column="2"
+                                        Click="OnToggleSelectAllFoldersClick"
+                                        Background="#252a3a"
+                                        BorderBrush="#3b82f6"
+                                        BorderThickness="1"
+                                        CornerRadius="14"
+                                        Padding="10,4"
+                                        VerticalAlignment="Center">
+                                    <TextBlock x:Name="DrawerFolderSelectAllBtnText" Text="All" FontSize="11" FontWeight="SemiBold" Foreground="#60a5fa" />
+                                </Button>
+                            </Grid>
+                        </Panel>
                     </Border>
 
                     <!-- Scrollable Navigation Items -->
@@ -755,23 +976,62 @@
                         </StackPanel>
                     </ScrollViewer>
 
-                    <!-- Drawer Footer: Cloud Sync Status & Quick Action -->
-                    <Border Grid.Row="2" Padding="16,12" BorderBrush="#2c2c34" BorderThickness="0,1,0,0">
-                        <Button Click="OnOpenCloudSyncClick"
-                                Background="#141418"
-                                HorizontalAlignment="Stretch"
-                                HorizontalContentAlignment="Stretch"
-                                Padding="12,10"
-                                CornerRadius="12">
-                            <Grid ColumnDefinitions="Auto,*,Auto">
-                                <PathIcon Grid.Column="0" Data="{StaticResource IconCloud}" Width="18" Height="18" Foreground="#3b82f6" Margin="0,0,10,0" VerticalAlignment="Center" />
-                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                    <TextBlock Text="Google Drive" FontSize="13" FontWeight="SemiBold" Foreground="#ffffff" />
-                                    <TextBlock Text="{Binding ConnectedAccountEmail}" FontSize="11" Foreground="#9ca3af" TextTrimming="CharacterEllipsis" />
-                                </StackPanel>
-                                <PathIcon Grid.Column="2" Data="{StaticResource IconSync}" Width="14" Height="14" Foreground="#10b981" VerticalAlignment="Center" />
+                    <!-- Drawer Footer: Normal vs Folder Selection Actions -->
+                    <Border Grid.Row="2" Padding="14,10" BorderBrush="#2c2c34" BorderThickness="0,1,0,0">
+                        <Panel>
+                            <!-- Normal Drawer Footer: Cloud Sync Status -->
+                            <Button x:Name="DrawerNormalFooter"
+                                    Click="OnOpenCloudSyncClick"
+                                    Background="#141418"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Stretch"
+                                    Padding="12,10"
+                                    CornerRadius="12">
+                                <Grid ColumnDefinitions="Auto,*,Auto">
+                                    <PathIcon Grid.Column="0" Data="{StaticResource IconCloud}" Width="18" Height="18" Foreground="#3b82f6" Margin="0,0,10,0" VerticalAlignment="Center" />
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <TextBlock Text="Google Drive" FontSize="13" FontWeight="SemiBold" Foreground="#ffffff" />
+                                        <TextBlock Text="{Binding ConnectedAccountEmail}" FontSize="11" Foreground="#9ca3af" TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                    <PathIcon Grid.Column="2" Data="{StaticResource IconSync}" Width="14" Height="14" Foreground="#10b981" VerticalAlignment="Center" />
+                                </Grid>
+                            </Button>
+
+                            <!-- Folder Selection Actions: Move, Delete (Issue 1) -->
+                            <Grid x:Name="DrawerFolderSelectionFooter" IsVisible="False" ColumnDefinitions="*,*">
+                                <Button Grid.Column="0"
+                                        Click="OnBatchMoveFoldersClick"
+                                        Background="#202530"
+                                        BorderBrush="#303b50"
+                                        BorderThickness="1"
+                                        Foreground="#60a5fa"
+                                        CornerRadius="10"
+                                        Padding="10,8"
+                                        Margin="0,0,4,0"
+                                        HorizontalAlignment="Stretch">
+                                    <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
+                                        <PathIcon Data="{StaticResource IconFolder}" Width="16" Height="16" Foreground="#60a5fa" />
+                                        <TextBlock Text="Move" FontSize="12" FontWeight="SemiBold" Foreground="#60a5fa" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+
+                                <Button Grid.Column="1"
+                                        Click="OnBatchDeleteFoldersClick"
+                                        Background="#301c1c"
+                                        BorderBrush="#4d2222"
+                                        BorderThickness="1"
+                                        Foreground="#f87171"
+                                        CornerRadius="10"
+                                        Padding="10,8"
+                                        Margin="4,0,0,0"
+                                        HorizontalAlignment="Stretch">
+                                    <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
+                                        <PathIcon Data="{StaticResource IconTrash}" Width="16" Height="16" Foreground="#f87171" />
+                                        <TextBlock Text="Delete" FontSize="12" FontWeight="SemiBold" Foreground="#f87171" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
                             </Grid>
-                        </Button>
+                        </Panel>
                     </Border>
                 </Grid>
             </Border>
@@ -780,7 +1040,7 @@
         <!-- SCREEN 3: TRASH BIN SCREEN -->
         <Grid x:Name="TrashBinScreen" RowDefinitions="Auto,*" Background="#141414" IsVisible="False">
             <!-- Top App Bar with Inset -->
-            <Border Grid.Row="0" Background="#18181c" BorderBrush="#25252b" BorderThickness="0,0,0,1" Padding="12,44,12,12">
+            <Border Grid.Row="0" Background="#18181c" BorderBrush="#25252b" BorderThickness="0,0,0,1" Padding="12,14,12,8">
                 <Grid ColumnDefinitions="Auto,*,Auto">
                     <Button Grid.Column="0"
                             Click="OnCloseTrashBinClick"
@@ -871,6 +1131,126 @@
                     <Grid ColumnDefinitions="*,*">
                         <Button Grid.Column="0" Click="OnCancelEmptyTrashClick" Content="Cancel" Background="Transparent" Foreground="#9ca3af" HorizontalAlignment="Stretch" Margin="0,0,6,0" Height="38" CornerRadius="8" />
                         <Button Grid.Column="1" Click="OnConfirmEmptyTrashClick" Content="Empty Trash" Background="#ef4444" Foreground="#ffffff" FontWeight="SemiBold" HorizontalAlignment="Stretch" Margin="6,0,0,0" Height="38" CornerRadius="8" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- MODAL 7: MOVE NOTES DESTINATION PICKER (Issue 1) -->
+        <Grid x:Name="MoveNotesModal" Background="#a0000000" IsVisible="False">
+            <Border Background="#202124"
+                    BorderBrush="#3c4043"
+                    BorderThickness="1"
+                    CornerRadius="16"
+                    Width="320"
+                    MaxHeight="450"
+                    VerticalAlignment="Center"
+                    HorizontalAlignment="Center"
+                    Padding="20"
+                    BoxShadow="0 8 32 #50000000">
+                <StackPanel Spacing="14">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <PathIcon Data="{StaticResource IconFolder}" Width="20" Height="20" Foreground="#3b82f6" />
+                            <TextBlock x:Name="MoveNotesModalTitle" Text="Move Notes" FontSize="17" FontWeight="Bold" Foreground="#ffffff" VerticalAlignment="Center" />
+                        </StackPanel>
+                        <Button Grid.Column="1" Click="OnCancelMoveNotesClick" Background="Transparent" Foreground="#9ca3af" Padding="4">
+                            <PathIcon Data="{StaticResource IconClose}" Width="16" Height="16" />
+                        </Button>
+                    </Grid>
+
+                    <!-- Search destination folders -->
+                    <TextBox x:Name="MoveNotesSearchBox"
+                             PlaceholderText="Search folder..."
+                             Background="#141418"
+                             Foreground="#ffffff"
+                             BorderBrush="#3c4043"
+                             BorderThickness="1"
+                             CornerRadius="8"
+                             Padding="10,8"
+                             FontSize="13"
+                             KeyUp="OnMoveNotesSearchKeyUp" />
+
+                    <!-- Destination Folders List -->
+                    <ScrollViewer MaxHeight="240">
+                        <StackPanel x:Name="MoveNotesDestinationsPanel" Spacing="4" />
+                    </ScrollViewer>
+
+                    <Button Click="OnCancelMoveNotesClick"
+                            Content="Cancel"
+                            Background="Transparent"
+                            Foreground="#9ca3af"
+                            HorizontalAlignment="Stretch"
+                            Height="36"
+                            CornerRadius="8" />
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- MODAL 8: MOVE FOLDERS DESTINATION PICKER (Issue 1) -->
+        <Grid x:Name="MoveFoldersModal" Background="#a0000000" IsVisible="False">
+            <Border Background="#202124"
+                    BorderBrush="#3c4043"
+                    BorderThickness="1"
+                    CornerRadius="16"
+                    Width="320"
+                    MaxHeight="450"
+                    VerticalAlignment="Center"
+                    HorizontalAlignment="Center"
+                    Padding="20"
+                    BoxShadow="0 8 32 #50000000">
+                <StackPanel Spacing="14">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <PathIcon Data="{StaticResource IconFolder}" Width="20" Height="20" Foreground="#3b82f6" />
+                            <TextBlock x:Name="MoveFoldersModalTitle" Text="Move Folders" FontSize="17" FontWeight="Bold" Foreground="#ffffff" VerticalAlignment="Center" />
+                        </StackPanel>
+                        <Button Grid.Column="1" Click="OnCancelMoveFoldersClick" Background="Transparent" Foreground="#9ca3af" Padding="4">
+                            <PathIcon Data="{StaticResource IconClose}" Width="16" Height="16" />
+                        </Button>
+                    </Grid>
+
+                    <!-- Search destination folders -->
+                    <TextBox x:Name="MoveFoldersSearchBox"
+                             PlaceholderText="Search parent folder..."
+                             Background="#141418"
+                             Foreground="#ffffff"
+                             BorderBrush="#3c4043"
+                             BorderThickness="1"
+                             CornerRadius="8"
+                             Padding="10,8"
+                             FontSize="13"
+                             KeyUp="OnMoveFoldersSearchKeyUp" />
+
+                    <!-- Destination Folders List -->
+                    <ScrollViewer MaxHeight="240">
+                        <StackPanel x:Name="MoveFoldersDestinationsPanel" Spacing="4" />
+                    </ScrollViewer>
+
+                    <Button Click="OnCancelMoveFoldersClick"
+                            Content="Cancel"
+                            Background="Transparent"
+                            Foreground="#9ca3af"
+                            HorizontalAlignment="Stretch"
+                            Height="36"
+                            CornerRadius="8" />
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- MODAL 9: CONFIRM BATCH DELETE FOLDERS (Issue 1) -->
+        <Grid x:Name="ConfirmBatchDeleteFoldersModal" Background="#a0000000" IsVisible="False">
+            <Border Background="#202124" BorderBrush="#3c4043" BorderThickness="1" CornerRadius="16" Width="320" VerticalAlignment="Center" HorizontalAlignment="Center" Padding="20">
+                <StackPanel Spacing="16">
+                    <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                        <PathIcon Data="{StaticResource IconTrash}" Width="22" Height="22" Foreground="#ef4444" />
+                        <TextBlock Text="Delete Folders?" FontSize="18" FontWeight="Bold" Foreground="#ffffff" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <TextBlock x:Name="ConfirmBatchDeleteFoldersMessageText" Text="Delete selected folders and move their notes to the Trash Bin?"
+                               FontSize="13" Foreground="#d1d5db" TextWrapping="Wrap" />
+                    <Grid ColumnDefinitions="*,*">
+                        <Button Grid.Column="0" Click="OnCancelBatchDeleteFoldersClick" Content="Cancel" Background="Transparent" Foreground="#9ca3af" HorizontalAlignment="Stretch" Margin="0,0,6,0" Height="38" CornerRadius="8" />
+                        <Button Grid.Column="1" Click="OnConfirmBatchDeleteFoldersClick" Content="Delete" Background="#ef4444" Foreground="#ffffff" FontWeight="SemiBold" HorizontalAlignment="Stretch" Margin="6,0,0,0" Height="38" CornerRadius="8" />
                     </Grid>
                 </StackPanel>
             </Border>
