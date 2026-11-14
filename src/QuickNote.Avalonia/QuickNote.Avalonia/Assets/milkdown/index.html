@@ -6,14 +6,27 @@
   <title>QuickNote Editor</title>
   <script>
     (function() {
+      if (window.postAvWebViewMessage) {
+        if (!window.postAvWebViewMessage.postMessage && typeof window.postAvWebViewMessage.PostMessage === 'function') {
+          window.postAvWebViewMessage.postMessage = function(msg) { window.postAvWebViewMessage.PostMessage(msg); };
+        }
+      }
       if (!window.chrome) { window.chrome = {}; }
       if (!window.chrome.webview) {
         window.chrome.webview = {
           postMessage: function(msg) {
             var str = (typeof msg === 'string') ? msg : JSON.stringify(msg);
-            if (window.postAvWebViewMessage && typeof window.postAvWebViewMessage.postMessage === 'function') {
-              window.postAvWebViewMessage.postMessage(str);
-            } else if (typeof window.invokeCSharpAction === 'function') {
+            if (window.postAvWebViewMessage) {
+              if (typeof window.postAvWebViewMessage.postMessage === 'function') {
+                window.postAvWebViewMessage.postMessage(str);
+                return;
+              }
+              if (typeof window.postAvWebViewMessage.PostMessage === 'function') {
+                window.postAvWebViewMessage.PostMessage(str);
+                return;
+              }
+            }
+            if (typeof window.invokeCSharpAction === 'function') {
               window.invokeCSharpAction(str);
             } else if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.webview) {
               window.webkit.messageHandlers.webview.postMessage(str);
@@ -21,6 +34,11 @@
           }
         };
       }
+      window.executeEditorAction = function(action) {
+        if (typeof window.executeAction === 'function') {
+          window.executeAction(action);
+        }
+      };
     })();
   </script>
   <link rel="stylesheet" href="milkdown.bundle.css?v=20260928_1">

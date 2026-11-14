@@ -140012,6 +140012,12 @@ Expected function or array of functions, received type ${typeof value}.`
         try {
           if (window.chrome && window.chrome.webview && window.chrome.webview.postMessage) {
             window.chrome.webview.postMessage(payload);
+          } else if (window.postAvWebViewMessage) {
+            if (typeof window.postAvWebViewMessage.PostMessage === "function") {
+              window.postAvWebViewMessage.PostMessage(payload);
+            } else if (typeof window.postAvWebViewMessage.postMessage === "function") {
+              window.postAvWebViewMessage.postMessage(payload);
+            }
           } else if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.webview) {
             window.webkit.messageHandlers.webview.postMessage(payload);
           }
@@ -140500,6 +140506,16 @@ Expected function or array of functions, received type ${typeof value}.`
       window.removeLinkAtSelection = removeLinkAtSelection;
       window.resolveAllImagesInDOM = resolveAllImagesInDOM;
       window.getEditorView = getEditorView;
+      window.executeAction = function(action) {
+        if (action === "numbered") action = "number";
+        executeAction(action);
+      };
+      window.focusEditor = function() {
+        const view = getEditorView();
+        if (view) {
+          view.focus();
+        }
+      };
       if (document.readyState === "loading") {
         document.addEventListener("DOMContentLoaded", init2);
       } else {

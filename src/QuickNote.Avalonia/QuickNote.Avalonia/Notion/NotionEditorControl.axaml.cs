@@ -122,11 +122,19 @@ namespace QuickNote.Avalonia.Notion
             return path1;
         }
 
-        private void OnNavigationCompleted(object? sender, WebViewNavigationCompletedEventArgs e)
+        private async void OnNavigationCompleted(object? sender, WebViewNavigationCompletedEventArgs e)
         {
             if (e.IsSuccess)
             {
                 System.Diagnostics.Debug.WriteLine("[NotionEditorControl] WebView navigation completed successfully.");
+                try
+                {
+                    await WebViewControl.InvokeScript(
+                        "if(window.postAvWebViewMessage && !window.postAvWebViewMessage.postMessage && typeof window.postAvWebViewMessage.PostMessage === 'function') { " +
+                        "  window.postAvWebViewMessage.postMessage = function(m) { window.postAvWebViewMessage.PostMessage(m); }; " +
+                        "}");
+                }
+                catch { }
             }
         }
 
@@ -675,10 +683,14 @@ namespace QuickNote.Avalonia.Notion
 
         public async Task FocusEditorAsync()
         {
-            if (WebViewControl == null || !_isEditorReady) return;
+            if (WebViewControl == null) return;
             try
             {
-                await WebViewControl.InvokeScript("if (window.focusEditor) { window.focusEditor(); }");
+                WebViewControl.Focus();
+                if (_isEditorReady)
+                {
+                    await WebViewControl.InvokeScript("if (window.focusEditor) { window.focusEditor(); }");
+                }
             }
             catch (Exception ex)
             {
@@ -689,30 +701,17 @@ namespace QuickNote.Avalonia.Notion
         public async Task ExecuteEditorActionAsync(string action)
         {
             if (WebViewControl == null || !_isEditorReady) return;
-            string script = action.ToLowerInvariant() switch
+            var cleanAction = action.ToLowerInvariant().Trim();
+            if (cleanAction == "numbered") cleanAction = "number";
+            var jsonAction = JsonSerializer.Serialize(cleanAction);
+            var script = $"(function(){{ if(typeof window.executeAction === 'function'){{ window.executeAction({jsonAction}); }} else if(typeof window.executeEditorAction === 'function'){{ window.executeEditorAction({jsonAction}); }} }})()";
+            try
             {
-                "bold" => "(function(){ document.execCommand('bold', false, null); })()",
-                "italic" => "(function(){ document.execCommand('italic', false, null); })()",
-                "h1" => "(function(){ document.execCommand('formatBlock', false, '<h1>'); })()",
-                "h2" => "(function(){ document.execCommand('formatBlock', false, '<h2>'); })()",
-                "h3" => "(function(){ document.execCommand('formatBlock', false, '<h3>'); })()",
-                "bullet" => "(function(){ document.execCommand('insertUnorderedList', false, null); })()",
-                "number" => "(function(){ document.execCommand('insertOrderedList', false, null); })()",
-                "quote" => "(function(){ document.execCommand('formatBlock', false, '<blockquote>'); })()",
-                "todo" => "(function(){ if(window.insertChecklist){ window.insertChecklist(); } else { document.execCommand('insertText', false, '- [ ] '); } })()",
-                "code" => "(function(){ document.execCommand('formatBlock', false, '<pre>'); })()",
-                _ => string.Empty
-            };
-            if (!string.IsNullOrEmpty(script))
+                await WebViewControl.InvokeScript(script);
+            }
+            catch (Exception ex)
             {
-                try
-                {
-                    await WebViewControl.InvokeScript(script);
-                }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine($"[NotionEditorControl] Failed to execute action {action}: {ex.Message}");
-                }
+                System.Diagnostics.Debug.WriteLine($"[NotionEditorControl] Failed to execute action {action}: {ex.Message}");
             }
         }
     }

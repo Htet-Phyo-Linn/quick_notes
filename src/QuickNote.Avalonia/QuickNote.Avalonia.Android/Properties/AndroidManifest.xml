@@ -9,7 +9,8 @@
 	<application android:label="QuickNote"
 	             android:icon="@drawable/Icon"
 	             android:supportsRtl="true"
-	             android:allowBackup="true" />
+	             android:allowBackup="true"
+	             android:usesCleartextTraffic="true" />
 	<queries>
 		<intent>
 			<action android:name="android.intent.action.VIEW" />

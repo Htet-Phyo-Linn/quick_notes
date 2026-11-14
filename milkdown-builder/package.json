@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build": "esbuild src/editor.js --bundle --outfile=dist/milkdown.bundle.js --format=iife --loader:.woff=dataurl --loader:.woff2=dataurl --loader:.ttf=dataurl --loader:.aff=text --loader:.dic=text",
+    "build": "npx esbuild src/editor.js --bundle --outfile=dist/milkdown.bundle.js --format=iife --loader:.woff=dataurl --loader:.woff2=dataurl --loader:.ttf=dataurl --loader:.aff=text --loader:.dic=text",
     "test": "node test_editor.js"
   },
   "keywords": [],

@@ -16,14 +16,83 @@ using QuickNote.Core.Models;
 
 namespace QuickNote.Avalonia.Views
 {
+    public record KeepColor(string Name, string Background, string Border, string Accent, string Text);
+
+    public static class KeepPalette
+    {
+        public static readonly KeepColor[] Colors = new[]
+        {
+            new KeepColor("Default", "#202124", "#3c4043", "#9aa0a6", "#e8eaed"),
+            new KeepColor("Coral",   "#5c2b29", "#773330", "#f28b82", "#fce8e6"),
+            new KeepColor("Peach",   "#614a19", "#805f1f", "#fbbc04", "#fef7e0"),
+            new KeepColor("Sand",    "#635d19", "#80771f", "#fff475", "#fefde8"),
+            new KeepColor("Mint",    "#345920", "#447728", "#ccff90", "#f4fde8"),
+            new KeepColor("Sage",    "#16504b", "#1f6d66", "#a7ffeb", "#e6fcf8"),
+            new KeepColor("Fog",     "#2d555e", "#3c7380", "#cbf0f8", "#e8f8fc"),
+            new KeepColor("Storm",   "#1e3a5f", "#2a4e80", "#aecbfa", "#e8f0fe"),
+            new KeepColor("Dusk",    "#42275e", "#5a3580", "#d7aefb", "#f3e8fd"),
+            new KeepColor("Blossom", "#5b2245", "#7a2e5d", "#fdcfe8", "#fce8f3"),
+            new KeepColor("Clay",    "#442f19", "#5e4022", "#e6c9a8", "#fbf5ee"),
+            new KeepColor("Chalk",   "#3c3f41", "#505357", "#e8eaed", "#f1f3f4"),
+        };
+
+        public static KeepColor GetColor(string? nameOrId)
+        {
+            if (!string.IsNullOrWhiteSpace(nameOrId))
+            {
+                var match = Colors.FirstOrDefault(c => string.Equals(c.Name, nameOrId, StringComparison.OrdinalIgnoreCase)
+                                                    || string.Equals(c.Background, nameOrId, StringComparison.OrdinalIgnoreCase));
+                if (match != null) return match;
+            }
+
+            int idx = Math.Abs((nameOrId ?? "default").GetHashCode()) % Colors.Length;
+            return Colors[idx];
+        }
+    }
+
     public class MobileNoteItem : INotifyPropertyChanged
     {
         public NoteDocument Note { get; }
+        private readonly KeepColor _color;
 
         public MobileNoteItem(NoteDocument note)
         {
             Note = note;
+            _color = ResolveColor(note);
+            CardBackground = new SolidColorBrush(Color.Parse(_color.Background));
+            CardBorderBrush = new SolidColorBrush(Color.Parse(_color.Border));
+            CardAccentBrush = new SolidColorBrush(Color.Parse(_color.Accent));
+            CardTextBrush = new SolidColorBrush(Color.Parse(_color.Text));
         }
+
+        private static KeepColor ResolveColor(NoteDocument note)
+        {
+            if (!string.IsNullOrWhiteSpace(note.Content) && note.Content.StartsWith("---"))
+            {
+                var end = note.Content.IndexOf("---", 3);
+                if (end > 3)
+                {
+                    var header = note.Content.Substring(3, end - 3);
+                    foreach (var line in header.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+                    {
+                        var parts = line.Split(new[] { ':' }, 2);
+                        if (parts.Length == 2 && parts[0].Trim().Equals("color", StringComparison.OrdinalIgnoreCase))
+                        {
+                            return KeepPalette.GetColor(parts[1].Trim());
+                        }
+                    }
+                }
+            }
+
+            var seed = note.Id != Guid.Empty ? note.Id.ToString() : (note.FileName ?? note.Title ?? "note");
+            return KeepPalette.GetColor(seed);
+        }
+
+        public IBrush CardBackground { get; }
+        public IBrush CardBorderBrush { get; }
+        public IBrush CardAccentBrush { get; }
+        public IBrush CardTextBrush { get; }
+        public string ColorName => _color.Name;
 
         public string Title => !string.IsNullOrWhiteSpace(Note?.Title)
             ? Note.Title
@@ -34,9 +103,17 @@ namespace QuickNote.Avalonia.Views
             get
             {
                 if (string.IsNullOrWhiteSpace(Note?.Content)) return "Empty note";
-                var lines = Note.Content.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-                var firstLine = lines.Length > 0 ? lines[0].TrimStart('#', ' ', '-', '*', '>') : "Empty note";
-                return firstLine.Length > 90 ? firstLine.Substring(0, 90) + "..." : firstLine;
+                var text = Note.Content;
+                if (text.StartsWith("---"))
+                {
+                    var end = text.IndexOf("---", 3);
+                    if (end > 3) text = text.Substring(end + 3).TrimStart();
+                }
+                var lines = text.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                var previewLines = lines.Take(5).Select(l => l.TrimStart('#', ' ', '-', '*', '>'));
+                var combined = string.Join("\n", previewLines).Trim();
+                if (string.IsNullOrWhiteSpace(combined)) return "Empty note";
+                return combined.Length > 160 ? combined.Substring(0, 160) + "..." : combined;
             }
         }
 
@@ -51,7 +128,7 @@ namespace QuickNote.Avalonia.Views
         }
 
         public string FormattedDate => Note != null && Note.LastModified != DateTime.MinValue
-            ? Note.LastModified.ToString("MMM d, h:mm tt")
+            ? Note.LastModified.ToString("MMM d")
             : "Just now";
 
         public event PropertyChangedEventHandler? PropertyChanged;
@@ -64,8 +141,28 @@ namespace QuickNote.Avalonia.Views
         private string _selectedCategory = "All Notes";
         private string _searchQuery = string.Empty;
         private string _activeNoteTitle = string.Empty;
+        private bool _isGridView = true;
 
         public ObservableCollection<MobileNoteItem> FilteredNotes { get; } = new();
+
+        public bool IsGridView
+        {
+            get => _isGridView;
+            set
+            {
+                if (_isGridView != value)
+                {
+                    _isGridView = value;
+                    OnPropertyChanged(nameof(IsGridView));
+                    OnPropertyChanged(nameof(GridColumns));
+                    OnPropertyChanged(nameof(ViewModeIcon));
+                }
+            }
+        }
+
+        public int GridColumns => _isGridView ? 2 : 1;
+
+        public StreamGeometry ViewModeIcon => (Resources.TryGetResource(_isGridView ? "IconListView" : "IconGridView", null, out var res) && res is StreamGeometry geom) ? geom : new StreamGeometry();
 
         public string SearchQuery
         {
@@ -105,9 +202,11 @@ namespace QuickNote.Avalonia.Views
         public string ConnectedAccountEmail => _viewModel?.CloudSyncService?.UserEmail ?? "Not connected";
         public string LastSyncTimeText => _viewModel?.CloudSyncService?.LastSyncTime?.ToString("MMM d, h:mm tt") ?? "Never";
         public bool IsSignedInToGoogle => _viewModel?.CloudSyncService?.IsAuthenticated == true;
+        public IBrush CloudSyncIconBrush => IsSignedInToGoogle
+            ? new SolidColorBrush(Color.Parse("#10b981"))
+            : new SolidColorBrush(Color.Parse("#9ca3af"));
 
         public string NoteCountStatus => $"{FilteredNotes.Count} note{(FilteredNotes.Count == 1 ? "" : "s")}";
-
         public bool IsNotesEmpty => FilteredNotes.Count == 0;
 
         public MobileMainView()
@@ -118,10 +217,97 @@ namespace QuickNote.Avalonia.Views
             GoogleDriveAccountModal.DataContext = this;
             if (AuthWebView != null)
             {
+                AuthWebView.NavigationStarted += OnAuthWebViewNavigationStarted;
                 AuthWebView.NavigationCompleted += OnAuthWebViewNavigationCompleted;
             }
             DataContextChanged += OnDataContextChanged;
             KeyDown += OnViewKeyDown;
+            InitColorPaletteDrawer();
+        }
+
+        private void InitColorPaletteDrawer()
+        {
+            if (ColorPalettePanel == null) return;
+            ColorPalettePanel.Children.Clear();
+            foreach (var keepColor in KeepPalette.Colors)
+            {
+                var circle = new Button
+                {
+                    Width = 32,
+                    Height = 32,
+                    CornerRadius = new CornerRadius(16),
+                    Background = new SolidColorBrush(Color.Parse(keepColor.Background)),
+                    BorderBrush = new SolidColorBrush(Color.Parse(keepColor.Border)),
+                    BorderThickness = new Thickness(2),
+                    Margin = new Thickness(2),
+                    Tag = keepColor.Name
+                };
+                ToolTip.SetTip(circle, keepColor.Name);
+                circle.Click += (s, e) =>
+                {
+                    if (s is Button b && b.Tag is string colorName)
+                    {
+                        OnSelectNoteColor(colorName);
+                    }
+                };
+                ColorPalettePanel.Children.Add(circle);
+            }
+        }
+
+        private void OnToggleColorPickerClick(object? sender, RoutedEventArgs e)
+        {
+            if (ColorPickerBar != null)
+            {
+                ColorPickerBar.IsVisible = !ColorPickerBar.IsVisible;
+            }
+        }
+
+        private async void OnSelectNoteColor(string colorName)
+        {
+            if (_viewModel?.CurrentNote == null) return;
+            var content = _viewModel.EditorContent ?? string.Empty;
+
+            string newContent;
+            if (content.StartsWith("---"))
+            {
+                var end = content.IndexOf("---", 3);
+                if (end > 3)
+                {
+                    var header = content.Substring(3, end - 3);
+                    var body = content.Substring(end + 3);
+                    var lines = header.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None).ToList();
+                    var colorLineIdx = lines.FindIndex(l => l.Trim().StartsWith("color:", StringComparison.OrdinalIgnoreCase));
+                    if (colorLineIdx >= 0)
+                    {
+                        lines[colorLineIdx] = $"color: {colorName}";
+                    }
+                    else
+                    {
+                        lines.Add($"color: {colorName}");
+                    }
+                    newContent = $"---{string.Join(Environment.NewLine, lines)}---{body}";
+                }
+                else
+                {
+                    newContent = $"---{Environment.NewLine}color: {colorName}{Environment.NewLine}---{Environment.NewLine}{content}";
+                }
+            }
+            else
+            {
+                newContent = $"---{Environment.NewLine}color: {colorName}{Environment.NewLine}---{Environment.NewLine}{content}";
+            }
+
+            _viewModel.EditorContent = newContent;
+            await _viewModel.SaveNoteAsync();
+            if (ColorPickerBar != null)
+            {
+                ColorPickerBar.IsVisible = false;
+            }
+        }
+
+        private void OnToggleViewModeClick(object? sender, RoutedEventArgs e)
+        {
+            IsGridView = !IsGridView;
         }
 
         private void OnDataContextChanged(object? sender, EventArgs e)
@@ -203,6 +389,10 @@ namespace QuickNote.Avalonia.Views
             else if (e.PropertyName == nameof(MainViewModel.CloudSyncStatusText))
             {
                 OnPropertyChanged(nameof(CloudSyncStatusText));
+                OnPropertyChanged(nameof(ConnectedAccountEmail));
+                OnPropertyChanged(nameof(LastSyncTimeText));
+                OnPropertyChanged(nameof(IsSignedInToGoogle));
+                OnPropertyChanged(nameof(CloudSyncIconBrush));
             }
         }
 
@@ -221,6 +411,10 @@ namespace QuickNote.Avalonia.Views
             if (MobileNotionEditor != null)
             {
                 MobileNotionEditor.IsVisible = false;
+            }
+            if (ColorPickerBar != null)
+            {
+                ColorPickerBar.IsVisible = false;
             }
             NotesFeedScreen.IsVisible = true;
             ApplyFilters();
@@ -374,6 +568,21 @@ namespace QuickNote.Avalonia.Views
 
         private async void OnFabNewNoteClick(object? sender, RoutedEventArgs e)
         {
+            await CreateNoteWithInitialContentAsync(null);
+        }
+
+        private async void OnNewChecklistNoteClick(object? sender, RoutedEventArgs e)
+        {
+            await CreateNoteWithInitialContentAsync("- [ ] \n- [ ] \n- [ ] ");
+        }
+
+        private async void OnNewCodeNoteClick(object? sender, RoutedEventArgs e)
+        {
+            await CreateNoteWithInitialContentAsync("```csharp\n// Code snippet\n\n```");
+        }
+
+        private async Task CreateNoteWithInitialContentAsync(string? initialContent)
+        {
             if (_viewModel == null) return;
 
             string? targetFolder = null;
@@ -387,6 +596,12 @@ namespace QuickNote.Avalonia.Views
             }
 
             await _viewModel.NewNoteAsync(targetFolder);
+            if (!string.IsNullOrEmpty(initialContent) && _viewModel.CurrentNote != null)
+            {
+                _viewModel.EditorContent = initialContent;
+                await _viewModel.SaveNoteAsync();
+            }
+
             ActiveNoteTitle = _viewModel.CurrentNote?.Title ?? "Untitled Note";
             ShowNoteEditor();
         }
@@ -413,9 +628,14 @@ namespace QuickNote.Avalonia.Views
         {
             if (_viewModel != null)
             {
+                if (_viewModel.CloudSyncService != null)
+                {
+                    await _viewModel.CloudSyncService.TriggerSyncAsync();
+                }
                 await _viewModel.Refresh();
                 RebuildCategoryChips();
                 ApplyFilters();
+                UpdateModalAccountStatus();
             }
         }
 
@@ -448,6 +668,7 @@ namespace QuickNote.Avalonia.Views
             if (MobileNotionEditor != null)
             {
                 await MobileNotionEditor.ExecuteEditorActionAsync(action);
+                await MobileNotionEditor.FocusEditorAsync();
             }
         }
 
@@ -469,6 +690,8 @@ namespace QuickNote.Avalonia.Views
             OnPropertyChanged(nameof(ConnectedAccountEmail));
             OnPropertyChanged(nameof(LastSyncTimeText));
             OnPropertyChanged(nameof(CloudSyncStatusText));
+            OnPropertyChanged(nameof(IsSignedInToGoogle));
+            OnPropertyChanged(nameof(CloudSyncIconBrush));
         }
 
         private void OnCloseAccountModalClick(object? sender, RoutedEventArgs e)
@@ -494,50 +717,106 @@ namespace QuickNote.Avalonia.Views
             GoogleDriveAuthModal.IsVisible = false;
         }
 
-        private async void OnAuthWebViewNavigationCompleted(object? sender, WebViewNavigationCompletedEventArgs e)
+        private void OnAuthWebViewNavigationStarted(object? sender, WebViewNavigationStartingEventArgs e)
         {
             try
             {
-                var href = await AuthWebView.InvokeScript("window.location.href");
-                if (!string.IsNullOrEmpty(href) && href.Contains("code="))
+                if (e.Request != null)
                 {
-                    var code = ExtractQueryParam(href, "code");
-                    if (!string.IsNullOrEmpty(code) && !string.IsNullOrEmpty(_pendingCodeVerifier) && _viewModel?.CloudSyncService != null)
+                    var url = e.Request.ToString();
+                    if (url.Contains("code=") || url.StartsWith("http://localhost", StringComparison.OrdinalIgnoreCase))
                     {
-                        GoogleDriveAuthModal.IsVisible = false;
-                        await _viewModel.CloudSyncService.CompleteSignInAsync(code, _pendingCodeVerifier);
-                        await _viewModel.Refresh();
-                        UpdateModalAccountStatus();
-                        ApplyFilters();
+                        var code = ExtractQueryParam(url, "code");
+                        if (!string.IsNullOrEmpty(code))
+                        {
+                            e.Cancel = true;
+                            GoogleDriveAuthModal.IsVisible = false;
+                            _ = HandleAuthCodeAsync(code);
+                        }
                     }
                 }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[MobileMainView] Auth navigation error: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"[MobileMainView] Auth navigation starting error: {ex.Message}");
+            }
+        }
+
+        private async void OnAuthWebViewNavigationCompleted(object? sender, WebViewNavigationCompletedEventArgs e)
+        {
+            try
+            {
+                if (e.Request != null)
+                {
+                    var url = e.Request.ToString();
+                    if (url.Contains("code="))
+                    {
+                        var code = ExtractQueryParam(url, "code");
+                        if (!string.IsNullOrEmpty(code))
+                        {
+                            GoogleDriveAuthModal.IsVisible = false;
+                            _ = HandleAuthCodeAsync(code);
+                            return;
+                        }
+                    }
+                }
+
+                var href = await AuthWebView.InvokeScript("window.location.href");
+                if (!string.IsNullOrEmpty(href) && href.Contains("code="))
+                {
+                    var code = ExtractQueryParam(href, "code");
+                    if (!string.IsNullOrEmpty(code))
+                    {
+                        GoogleDriveAuthModal.IsVisible = false;
+                        _ = HandleAuthCodeAsync(code);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[MobileMainView] Auth navigation completed error: {ex.Message}");
+            }
+        }
+
+        private async Task HandleAuthCodeAsync(string code)
+        {
+            try
+            {
+                var verifier = _pendingCodeVerifier;
+                _pendingCodeVerifier = null;
+
+                if (!string.IsNullOrEmpty(verifier) && _viewModel?.CloudSyncService != null)
+                {
+                    await _viewModel.CloudSyncService.CompleteSignInAsync(code, verifier);
+                    await _viewModel.Refresh();
+                    UpdateModalAccountStatus();
+                    ApplyFilters();
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[MobileMainView] HandleAuthCodeAsync error: {ex.Message}");
             }
         }
 
         private async void OnSyncNowClick(object? sender, RoutedEventArgs e)
         {
-            GoogleDriveAccountModal.IsVisible = false;
             if (_viewModel?.CloudSyncService != null)
             {
                 await _viewModel.CloudSyncService.TriggerSyncAsync();
                 await _viewModel.Refresh();
-                RebuildCategoryChips();
-                ApplyFilters();
                 UpdateModalAccountStatus();
+                ApplyFilters();
             }
         }
 
         private async void OnDisconnectGoogleClick(object? sender, RoutedEventArgs e)
         {
-            GoogleDriveAccountModal.IsVisible = false;
             if (_viewModel?.CloudSyncService != null)
             {
                 await _viewModel.CloudSyncService.SignOutAsync();
                 UpdateModalAccountStatus();
+                ApplyFilters();
             }
         }
 
@@ -548,10 +827,12 @@ namespace QuickNote.Avalonia.Views
                 var qIndex = url.IndexOf('?');
                 if (qIndex < 0) return null;
                 var query = url.Substring(qIndex + 1);
+                var hashIndex = query.IndexOf('#');
+                if (hashIndex >= 0) query = query.Substring(0, hashIndex);
                 var pairs = query.Split('&');
                 foreach (var p in pairs)
                 {
-                    var parts = p.Split('=');
+                    var parts = p.Split(new[] { '=' }, 2);
                     if (parts.Length == 2 && string.Equals(parts[0], paramName, StringComparison.OrdinalIgnoreCase))
                     {
                         return Uri.UnescapeDataString(parts[1]);
@@ -563,7 +844,7 @@ namespace QuickNote.Avalonia.Views
         }
 
         public new event PropertyChangedEventHandler? PropertyChanged;
-        protected virtual void OnPropertyChanged(string propertyName)
+        private void OnPropertyChanged(string propertyName)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
