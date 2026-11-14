@@ -132,8 +132,27 @@
             </Border>
 
             <!-- Notes Card Staggered Grid Feed -->
-            <Grid Grid.Row="2">
-                <ScrollViewer x:Name="NotesScrollViewer" Padding="14,4,14,14">
+            <Grid Grid.Row="2" RowDefinitions="Auto,*">
+                <!-- Active Tag Filter Pill -->
+                <Border Grid.Row="0"
+                        x:Name="ActiveTagBanner"
+                        IsVisible="{Binding HasSelectedTag}"
+                        Background="#1e1e28"
+                        BorderBrush="#3b82f6"
+                        BorderThickness="1"
+                        CornerRadius="14"
+                        Padding="10,4"
+                        Margin="14,0,14,8"
+                        HorizontalAlignment="Left">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="{Binding SelectedTagText}" FontWeight="SemiBold" FontSize="12" Foreground="#60a5fa" VerticalAlignment="Center" />
+                        <Button Click="OnClearSelectedTagClick" Background="Transparent" Foreground="#9ca3af" Padding="2" VerticalAlignment="Center">
+                            <PathIcon Data="{StaticResource IconClose}" Width="11" Height="11" />
+                        </Button>
+                    </StackPanel>
+                </Border>
+
+                <ScrollViewer Grid.Row="1" x:Name="NotesScrollViewer" Padding="14,4,14,14">
                     <ItemsControl ItemsSource="{Binding FilteredNotes}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
@@ -149,7 +168,7 @@
                                         Padding="14,12"
                                         ClipToBounds="True"
                                         Tapped="OnNoteCardTapped">
-                                    <Grid RowDefinitions="Auto,*,Auto">
+                                    <Grid RowDefinitions="Auto,*,Auto,Auto">
                                         <!-- Header: Title + Category badge -->
                                         <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,4">
                                             <TextBlock Grid.Column="0"
@@ -179,10 +198,26 @@
                                                    TextWrapping="Wrap"
                                                    MaxLines="5"
                                                    TextTrimming="CharacterEllipsis"
-                                                   Margin="0,2,0,8" />
+                                                   Margin="0,2,0,6" />
+
+                                        <!-- Tags Row -->
+                                        <ItemsControl Grid.Row="2" ItemsSource="{Binding Tags}" IsVisible="{Binding HasTags}" Margin="0,0,0,6">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <WrapPanel Orientation="Horizontal" />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border Background="#252530" CornerRadius="6" Padding="6,2" Margin="0,0,4,4">
+                                                        <TextBlock Text="{Binding StringFormat='#{0}'}" FontSize="10" Foreground="#a0a0b8" />
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
 
                                         <!-- Footer: Timestamp + Delete action -->
-                                        <Grid Grid.Row="2" ColumnDefinitions="*,Auto">
+                                        <Grid Grid.Row="3" ColumnDefinitions="*,Auto">
                                             <TextBlock Grid.Column="0"
                                                        Text="{Binding FormattedDate}"
                                                        FontSize="10"
@@ -591,6 +626,22 @@
                                 </Grid>
                             </Button>
 
+                            <!-- Trash Bin Item -->
+                            <Button Click="OnDrawerTrashBinClick"
+                                    Background="Transparent"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Stretch"
+                                    Padding="10,8"
+                                    CornerRadius="10">
+                                <Grid ColumnDefinitions="Auto,*,Auto">
+                                    <PathIcon Grid.Column="0" Data="{StaticResource IconTrash}" Width="18" Height="18" Foreground="#ef4444" Margin="0,0,10,0" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1" Text="Trash Bin" FontSize="14" FontWeight="SemiBold" Foreground="#ffffff" VerticalAlignment="Center" />
+                                    <Border Grid.Column="2" Background="#282832" CornerRadius="10" Padding="8,2">
+                                        <TextBlock x:Name="DrawerTrashBadgeText" Text="0" FontSize="11" Foreground="#ef4444" />
+                                    </Border>
+                                </Grid>
+                            </Button>
+
                             <!-- Folders Section Header with + Folder Button -->
                             <Grid ColumnDefinitions="*,Auto" Margin="10,16,6,4">
                                 <TextBlock Grid.Column="0" Text="FOLDERS" FontSize="11" FontWeight="Bold" Foreground="#6b7280" VerticalAlignment="Center" />
@@ -605,6 +656,14 @@
 
                             <!-- Dynamic Folder List -->
                             <StackPanel x:Name="DrawerFoldersPanel" Spacing="4" />
+
+                            <!-- TAGS Section Header -->
+                            <Grid ColumnDefinitions="*,Auto" Margin="10,16,6,4">
+                                <TextBlock Grid.Column="0" Text="TAGS" FontSize="11" FontWeight="Bold" Foreground="#6b7280" VerticalAlignment="Center" />
+                            </Grid>
+
+                            <!-- Dynamic Tag List -->
+                            <StackPanel x:Name="DrawerTagsPanel" Spacing="4" />
                         </StackPanel>
                     </ScrollViewer>
 
@@ -627,6 +686,96 @@
                         </Button>
                     </Border>
                 </Grid>
+            </Border>
+        </Grid>
+
+        <!-- SCREEN 3: TRASH BIN SCREEN -->
+        <Grid x:Name="TrashBinScreen" RowDefinitions="Auto,*" Background="#141414" IsVisible="False">
+            <!-- Top App Bar with Inset -->
+            <Border Grid.Row="0" Background="#18181c" BorderBrush="#25252b" BorderThickness="0,0,0,1" Padding="12,36,12,12">
+                <Grid ColumnDefinitions="Auto,*,Auto">
+                    <Button Grid.Column="0"
+                            Click="OnCloseTrashBinClick"
+                            Background="Transparent"
+                            Foreground="#ffffff"
+                            Padding="8"
+                            CornerRadius="20">
+                        <PathIcon Data="{StaticResource IconBack}" Width="20" Height="20" />
+                    </Button>
+                    <TextBlock Grid.Column="1"
+                               Text="Trash Bin"
+                               FontSize="18"
+                               FontWeight="Bold"
+                               Foreground="#ffffff"
+                               VerticalAlignment="Center"
+                               Margin="12,0,0,0" />
+                    <Button Grid.Column="2"
+                            Click="OnPromptEmptyTrashClick"
+                            Background="#ef4444"
+                            Foreground="#ffffff"
+                            CornerRadius="8"
+                            Padding="12,6"
+                            FontWeight="SemiBold"
+                            FontSize="12"
+                            Content="Empty Trash" />
+                </Grid>
+            </Border>
+
+            <!-- Trash Bin Content -->
+            <Grid Grid.Row="1">
+                <ScrollViewer Padding="16,16">
+                    <StackPanel x:Name="TrashItemsPanel" Spacing="10" />
+                </ScrollViewer>
+
+                <!-- Empty State -->
+                <StackPanel x:Name="TrashEmptyState"
+                            IsVisible="False"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Spacing="12"
+                            Margin="20">
+                    <Border Width="64" Height="64" CornerRadius="32" Background="#1e1e24" HorizontalAlignment="Center">
+                        <PathIcon Data="{StaticResource IconTrash}" Width="28" Height="28" Foreground="#6b7280" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <TextBlock Text="Trash is empty" FontSize="18" FontWeight="SemiBold" Foreground="#f3f4f6" HorizontalAlignment="Center" />
+                    <TextBlock Text="Notes and folders moved to trash will appear here" FontSize="13" Foreground="#9ca3af" HorizontalAlignment="Center" TextAlignment="Center" />
+                </StackPanel>
+            </Grid>
+        </Grid>
+
+        <!-- MODAL 5: CONFIRM DELETE FOLDER -->
+        <Grid x:Name="ConfirmDeleteFolderModal" Background="#a0000000" IsVisible="False">
+            <Border Background="#202124" BorderBrush="#3c4043" BorderThickness="1" CornerRadius="16" Width="320" VerticalAlignment="Center" HorizontalAlignment="Center" Padding="20">
+                <StackPanel Spacing="16">
+                    <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                        <PathIcon Data="{StaticResource IconTrash}" Width="22" Height="22" Foreground="#ef4444" />
+                        <TextBlock Text="Delete Folder?" FontSize="18" FontWeight="Bold" Foreground="#ffffff" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <TextBlock x:Name="ConfirmDeleteFolderMessageText" Text="Delete this folder and move its notes to trash?"
+                               FontSize="13" Foreground="#d1d5db" TextWrapping="Wrap" />
+                    <Grid ColumnDefinitions="*,*">
+                        <Button Grid.Column="0" Click="OnCancelDeleteFolderClick" Content="Cancel" Background="Transparent" Foreground="#9ca3af" HorizontalAlignment="Stretch" Margin="0,0,6,0" Height="38" CornerRadius="8" />
+                        <Button Grid.Column="1" Click="OnConfirmDeleteFolderClick" Content="Delete" Background="#ef4444" Foreground="#ffffff" FontWeight="SemiBold" HorizontalAlignment="Stretch" Margin="6,0,0,0" Height="38" CornerRadius="8" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- MODAL 6: CONFIRM EMPTY TRASH -->
+        <Grid x:Name="ConfirmEmptyTrashModal" Background="#a0000000" IsVisible="False">
+            <Border Background="#202124" BorderBrush="#3c4043" BorderThickness="1" CornerRadius="16" Width="320" VerticalAlignment="Center" HorizontalAlignment="Center" Padding="20">
+                <StackPanel Spacing="16">
+                    <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                        <PathIcon Data="{StaticResource IconTrash}" Width="22" Height="22" Foreground="#ef4444" />
+                        <TextBlock Text="Empty Trash Bin?" FontSize="18" FontWeight="Bold" Foreground="#ffffff" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <TextBlock Text="All notes and folders in the trash bin will be permanently deleted. This cannot be undone."
+                               FontSize="13" Foreground="#d1d5db" TextWrapping="Wrap" />
+                    <Grid ColumnDefinitions="*,*">
+                        <Button Grid.Column="0" Click="OnCancelEmptyTrashClick" Content="Cancel" Background="Transparent" Foreground="#9ca3af" HorizontalAlignment="Stretch" Margin="0,0,6,0" Height="38" CornerRadius="8" />
+                        <Button Grid.Column="1" Click="OnConfirmEmptyTrashClick" Content="Empty Trash" Background="#ef4444" Foreground="#ffffff" FontWeight="SemiBold" HorizontalAlignment="Stretch" Margin="6,0,0,0" Height="38" CornerRadius="8" />
+                    </Grid>
+                </StackPanel>
             </Border>
         </Grid>
     </Grid>

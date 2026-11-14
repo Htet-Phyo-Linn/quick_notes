@@ -71,6 +71,82 @@ namespace QuickNote.Infrastructure.Cloud
             return createdFolder?.Id ?? throw new Exception("Empty folder creation response from Google Drive");
         }
 
+        public async Task<string> EnsureSubfolderAsync(string parentFolderId, string folderName)
+        {
+            var cleanName = folderName.Trim().Replace("'", "\\'");
+            var query = Uri.EscapeDataString($"'{parentFolderId}' in parents and name = '{cleanName}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false");
+            var searchUrl = $"{DriveApiBaseUrl}?q={query}&fields=files(id,name,mimeType)";
+
+            using var req = await CreateAuthorizedRequestAsync(HttpMethod.Get, searchUrl);
+            using var response = await _httpClient.SendAsync(req);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync();
+                var list = JsonSerializer.Deserialize<GoogleDriveFileListResponse>(json);
+                if (list?.Files != null && list.Files.Count > 0)
+                {
+                    return list.Files[0].Id;
+                }
+            }
+
+            // Create subfolder
+            using var createReq = await CreateAuthorizedRequestAsync(HttpMethod.Post, DriveApiBaseUrl);
+            var payload = new
+            {
+                name = folderName,
+                mimeType = "application/vnd.google-apps.folder",
+                parents = new[] { parentFolderId }
+            };
+            createReq.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+
+            using var createRes = await _httpClient.SendAsync(createReq);
+            var createJson = await createRes.Content.ReadAsStringAsync();
+
+            if (!createRes.IsSuccessStatusCode)
+            {
+                throw new Exception($"Failed to create folder '{folderName}' in Google Drive: {createRes.StatusCode} - {createJson}");
+            }
+
+            var created = JsonSerializer.Deserialize<GoogleDriveFileDto>(createJson);
+            return created?.Id ?? throw new Exception("Empty folder creation response from Google Drive");
+        }
+
+        public async Task<string> EnsureFolderPathAsync(string rootFolderId, string relativeDirectory)
+        {
+            if (string.IsNullOrWhiteSpace(relativeDirectory)) return rootFolderId;
+            var segments = relativeDirectory.Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries);
+            var currentParent = rootFolderId;
+            foreach (var segment in segments)
+            {
+                currentParent = await EnsureSubfolderAsync(currentParent, segment);
+            }
+            return currentParent;
+        }
+
+        public async Task<List<(string RelativePath, GoogleDriveFileDto File)>> ListAllNotesRecursiveAsync(string rootFolderId, string prefix = "")
+        {
+            var result = new List<(string RelativePath, GoogleDriveFileDto File)>();
+            var items = await ListFolderNotesAsync(rootFolderId);
+
+            foreach (var item in items)
+            {
+                if (item.IsFolder)
+                {
+                    var subPrefix = string.IsNullOrEmpty(prefix) ? item.Name : $"{prefix}/{item.Name}";
+                    var subItems = await ListAllNotesRecursiveAsync(item.Id, subPrefix);
+                    result.AddRange(subItems);
+                }
+                else if (item.Name.EndsWith(".md", StringComparison.OrdinalIgnoreCase))
+                {
+                    var relPath = string.IsNullOrEmpty(prefix) ? item.Name : $"{prefix}/{item.Name}";
+                    result.Add((relPath, item));
+                }
+            }
+
+            return result;
+        }
+
         public async Task<List<GoogleDriveFileDto>> ListFolderNotesAsync(string folderId)
         {
             var result = new List<GoogleDriveFileDto>();

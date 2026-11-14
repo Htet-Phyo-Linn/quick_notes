@@ -136,13 +136,22 @@ namespace QuickNote.Infrastructure.Cloud
                 }
             }
 
-            // Remove entries for files deleted locally
+            // Track deletions for files deleted locally
             var toRemove = new List<string>();
             foreach (var kvp in _manifest.Entries)
             {
                 if (!currentLocalRelPaths.Contains(kvp.Key))
                 {
-                    toRemove.Add(kvp.Key);
+                    if (!string.IsNullOrEmpty(kvp.Value.RemoteId))
+                    {
+                        // File was previously synced to cloud: mark for remote deletion
+                        kvp.Value.Status = SyncStatus.PendingDelete;
+                    }
+                    else
+                    {
+                        // Never synced to cloud: safely forget
+                        toRemove.Add(kvp.Key);
+                    }
                 }
             }
             foreach (var r in toRemove)
@@ -151,6 +160,24 @@ namespace QuickNote.Infrastructure.Cloud
             }
 
             return pendingUploads;
+        }
+
+        public List<SyncFileEntry> GetPendingDeletions()
+        {
+            var list = new List<SyncFileEntry>();
+            foreach (var entry in _manifest.Entries.Values)
+            {
+                if (entry.Status == SyncStatus.PendingDelete && !string.IsNullOrEmpty(entry.RemoteId))
+                {
+                    list.Add(entry);
+                }
+            }
+            return list;
+        }
+
+        public void RemoveEntry(string relPath)
+        {
+            _manifest.Entries.Remove(relPath);
         }
 
         public void RecordSuccessfulUpload(string relPath, string remoteId, string remoteETag, DateTime remoteModified, string localHash, DateTime localModified)

@@ -8,7 +8,8 @@ namespace QuickNote.Core.Models
         Synced,
         PendingUpload,
         PendingDownload,
-        Conflict
+        Conflict,
+        PendingDelete
     }
 
     public class SyncFileEntry
