@@ -480,6 +480,8 @@ namespace QuickNote.Avalonia.Views
                     Background = isSelected ? new SolidColorBrush(Color.Parse("#2563eb")) : new SolidColorBrush(Color.Parse("#1e1e24")),
                     Foreground = isSelected ? Brushes.White : new SolidColorBrush(Color.Parse("#9ca3af")),
                     BorderThickness = new Thickness(0),
+                    HorizontalContentAlignment = global::Avalonia.Layout.HorizontalAlignment.Center,
+                    VerticalContentAlignment = global::Avalonia.Layout.VerticalAlignment.Center,
                     Tag = cat
                 };
                 btn.Click += (s, e) =>
@@ -500,7 +502,9 @@ namespace QuickNote.Avalonia.Views
                 Padding = new Thickness(12, 6),
                 Background = new SolidColorBrush(Color.Parse("#1e1e24")),
                 Foreground = new SolidColorBrush(Color.Parse("#3b82f6")),
-                BorderThickness = new Thickness(0)
+                BorderThickness = new Thickness(0),
+                HorizontalContentAlignment = global::Avalonia.Layout.HorizontalAlignment.Center,
+                VerticalContentAlignment = global::Avalonia.Layout.VerticalAlignment.Center
             };
             addFolderBtn.Click += async (s, e) =>
             {

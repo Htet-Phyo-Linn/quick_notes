@@ -35,40 +35,73 @@ namespace QuickNote.Avalonia.Notion
             };
             WebViewControl.AdapterCreated += (s, e) =>
             {
-                try
-                {
-                    var adapterMethod = WebViewControl.GetType().GetMethod("TryGetAdapter", 
-                        System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                    var adapter = adapterMethod?.Invoke(WebViewControl, null);
-                    if (adapter != null)
-                    {
-                        var webViewProp = adapter.GetType().GetProperty("WebView", 
-                            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                        var nativeWv = webViewProp?.GetValue(adapter);
-                        if (nativeWv != null)
-                        {
-                            var settingsProp = nativeWv.GetType().GetProperty("Settings", 
-                                System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                            var settings = settingsProp?.GetValue(nativeWv);
-                            if (settings != null)
-                            {
-                                var st = settings.GetType();
-                                st.GetProperty("AllowFileAccess")?.SetValue(settings, true);
-                                st.GetProperty("AllowContentAccess")?.SetValue(settings, true);
-                                st.GetProperty("AllowFileAccessFromFileURLs")?.SetValue(settings, true);
-                                st.GetProperty("AllowUniversalAccessFromFileURLs")?.SetValue(settings, true);
-                                st.GetProperty("DomStorageEnabled")?.SetValue(settings, true);
-                                st.GetProperty("JavaScriptEnabled")?.SetValue(settings, true);
-                                st.GetProperty("DatabaseEnabled")?.SetValue(settings, true);
-                            }
-                        }
-                    }
-                }
-                catch { }
+                ConfigureNativeWebViewSettings();
             };
             WebViewControl.WebMessageReceived += OnWebMessageReceived;
             WebViewControl.NavigationCompleted += OnNavigationCompleted;
             GotFocus += (s, e) => EditorFocused?.Invoke();
+        }
+
+        private void ConfigureNativeWebViewSettings()
+        {
+            if (WebViewControl == null) return;
+            try
+            {
+                var flags = System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
+                var adapterMethod = WebViewControl.GetType().GetMethod("TryGetAdapter", flags);
+                var adapter = adapterMethod?.Invoke(WebViewControl, null);
+                if (adapter == null) return;
+
+                object? nativeWv = null;
+                foreach (var prop in adapter.GetType().GetProperties(flags))
+                {
+                    if (prop.Name.Contains("WebView", StringComparison.OrdinalIgnoreCase))
+                    {
+                        nativeWv = prop.GetValue(adapter);
+                        if (nativeWv != null) break;
+                    }
+                }
+                if (nativeWv == null)
+                {
+                    foreach (var field in adapter.GetType().GetFields(flags))
+                    {
+                        if (field.Name.Contains("webView", StringComparison.OrdinalIgnoreCase))
+                        {
+                            nativeWv = field.GetValue(adapter);
+                            if (nativeWv != null) break;
+                        }
+                    }
+                }
+
+                if (nativeWv != null)
+                {
+                    object? settings = null;
+                    foreach (var prop in nativeWv.GetType().GetProperties(flags))
+                    {
+                        if (prop.Name.Equals("Settings", StringComparison.OrdinalIgnoreCase))
+                        {
+                            settings = prop.GetValue(nativeWv);
+                            if (settings != null) break;
+                        }
+                    }
+
+                    if (settings != null)
+                    {
+                        var st = settings.GetType();
+                        st.GetProperty("AllowFileAccess", flags)?.SetValue(settings, true);
+                        st.GetProperty("AllowContentAccess", flags)?.SetValue(settings, true);
+                        st.GetProperty("AllowFileAccessFromFileURLs", flags)?.SetValue(settings, true);
+                        st.GetProperty("AllowUniversalAccessFromFileURLs", flags)?.SetValue(settings, true);
+                        st.GetProperty("DomStorageEnabled", flags)?.SetValue(settings, true);
+                        st.GetProperty("JavaScriptEnabled", flags)?.SetValue(settings, true);
+                        st.GetProperty("DatabaseEnabled", flags)?.SetValue(settings, true);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[NotionEditorControl] ConfigureNativeWebViewSettings: {ex.Message}");
+            }
         }
 
         protected override void OnLoaded(RoutedEventArgs e)
@@ -79,16 +112,20 @@ namespace QuickNote.Avalonia.Notion
 
         private void InitializeEditor()
         {
+            ConfigureNativeWebViewSettings();
+
+            if (OperatingSystem.IsAndroid())
+            {
+                var assetUri = new Uri("file:///android_asset/milkdown/index.html");
+                WebViewControl.Navigate(assetUri);
+                return;
+            }
+
             var htmlPath = ResolveEditorHtmlPath();
             if (File.Exists(htmlPath))
             {
                 var fileUri = new Uri(htmlPath);
                 WebViewControl.Navigate(fileUri);
-            }
-            else if (OperatingSystem.IsAndroid())
-            {
-                var assetUri = new Uri("file:///android_asset/milkdown/index.html");
-                WebViewControl.Navigate(assetUri);
             }
             else
             {
@@ -98,14 +135,6 @@ namespace QuickNote.Avalonia.Notion
 
         private static string ResolveEditorHtmlPath()
         {
-            // 0. Check Android personal storage directory
-            if (OperatingSystem.IsAndroid())
-            {
-                var personalDir = Environment.GetFolderPath(Environment.SpecialFolder.Personal);
-                var androidPath = Path.Combine(personalDir, "Assets", "milkdown", "index.html");
-                if (File.Exists(androidPath)) return androidPath;
-            }
-
             // 1. Check in output directory (Assets/milkdown/index.html)
             var basePath = AppDomain.CurrentDomain.BaseDirectory;
             var path1 = Path.Combine(basePath, "Assets", "milkdown", "index.html");
