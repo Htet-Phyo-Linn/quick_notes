@@ -385,30 +385,7 @@ namespace QuickNote.Infrastructure.Cloud
                     }
                 }
 
-                // 8. Handle remote deletions: if note was previously Synced but deleted on cloud by another device
-                foreach (var entry in manifest.Entries.Values.ToList())
-                {
-                    var fileKey = entry.RelativePath.Replace('\\', '/');
-                    if (entry.Status == SyncStatus.Synced && !remoteFileMap.ContainsKey(fileKey))
-                    {
-                        var localFullPath = Path.Combine(_notesRoot, entry.RelativePath);
-                        if (File.Exists(localFullPath))
-                        {
-                            Console.WriteLine($"[GoogleCloudSyncEngine] Remote note {entry.RelativePath} was deleted remotely. Moving local copy to trash...");
-                            try
-                            {
-                                await _trashBinService.MoveToTrashAsync(localFullPath);
-                            }
-                            catch (Exception trEx)
-                            {
-                                Console.WriteLine($"[GoogleCloudSyncEngine] Failed moving {entry.RelativePath} to trash: {trEx.Message}");
-                            }
-                        }
-                        _manifestManager.RemoveEntry(entry.RelativePath);
-                    }
-                }
-
-                // 7. Save updated manifest and settings
+                // 8. Save updated manifest and settings
                 await _manifestManager.SaveManifestAsync();
 
                 _settingsService.Settings.LastGoogleDriveSyncTime = DateTime.UtcNow;

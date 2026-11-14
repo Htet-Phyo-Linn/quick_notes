@@ -128,7 +128,7 @@ namespace QuickNote.Avalonia.Views
         }
 
         public string FormattedDate => Note != null && Note.LastModified != DateTime.MinValue
-            ? Note.LastModified.ToString("MMM d")
+            ? Note.LastModified.ToLocalTime().ToString("MMM d")
             : "Just now";
 
         public string[] Tags => Note?.Tags ?? Array.Empty<string>();
@@ -205,7 +205,7 @@ namespace QuickNote.Avalonia.Views
 
         public string CloudSyncStatusText => _viewModel?.CloudSyncStatusText ?? "Google Drive: Connect";
         public string ConnectedAccountEmail => _viewModel?.CloudSyncService?.UserEmail ?? "Not connected";
-        public string LastSyncTimeText => _viewModel?.CloudSyncService?.LastSyncTime?.ToString("MMM d, h:mm tt") ?? "Never";
+        public string LastSyncTimeText => _viewModel?.CloudSyncService?.LastSyncTime?.ToLocalTime().ToString("MMM d, h:mm tt") ?? "Never";
         public bool IsSignedInToGoogle => _viewModel?.CloudSyncService?.IsAuthenticated == true;
         public IBrush CloudSyncIconBrush => IsSignedInToGoogle
             ? new SolidColorBrush(Color.Parse("#10b981"))
@@ -252,7 +252,69 @@ namespace QuickNote.Avalonia.Views
             }
             DataContextChanged += OnDataContextChanged;
             KeyDown += OnViewKeyDown;
+
+            // Connect Android back press and dynamic keyboard height bridge
+            AndroidPlatformBridge.KeyboardHeightChanged += OnKeyboardHeightChanged;
+            AndroidPlatformBridge.HandleBackPress = OnBackPressedInternal;
+
             InitColorPaletteDrawer();
+        }
+
+        private void OnKeyboardHeightChanged(int heightDp)
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (FormattingBar != null)
+                {
+                    FormattingBar.Margin = new Thickness(0, 0, 0, heightDp);
+                }
+            });
+        }
+
+        private bool OnBackPressedInternal()
+        {
+            if (ConfirmDeleteFolderModal?.IsVisible == true)
+            {
+                ConfirmDeleteFolderModal.IsVisible = false;
+                _pendingDeleteFolderName = null;
+                return true;
+            }
+            if (ConfirmEmptyTrashModal?.IsVisible == true)
+            {
+                ConfirmEmptyTrashModal.IsVisible = false;
+                return true;
+            }
+            if (NewFolderModal?.IsVisible == true)
+            {
+                NewFolderModal.IsVisible = false;
+                return true;
+            }
+            if (TrashBinScreen?.IsVisible == true)
+            {
+                OnCloseTrashBinClick(this, new RoutedEventArgs());
+                return true;
+            }
+            if (GoogleDriveAuthModal?.IsVisible == true)
+            {
+                GoogleDriveAuthModal.IsVisible = false;
+                return true;
+            }
+            if (GoogleDriveAccountModal?.IsVisible == true)
+            {
+                GoogleDriveAccountModal.IsVisible = false;
+                return true;
+            }
+            if (LeftDrawerOverlay?.IsVisible == true)
+            {
+                LeftDrawerOverlay.IsVisible = false;
+                return true;
+            }
+            if (NoteEditorScreen?.IsVisible == true)
+            {
+                _ = SaveAndCloseEditorAsync();
+                return true;
+            }
+            return false;
         }
 
         private void InitColorPaletteDrawer()
@@ -372,7 +434,7 @@ namespace QuickNote.Avalonia.Views
                     }
                 }
 
-                RebuildCategoryChips();
+                RebuildTagChips();
                 ApplyFilters();
                 ShowNotesFeed();
             }
@@ -382,7 +444,7 @@ namespace QuickNote.Avalonia.Views
         {
             Dispatcher.UIThread.Post(() =>
             {
-                RebuildCategoryChips();
+                RebuildTagChips();
                 ApplyFilters();
             });
         }
@@ -458,6 +520,7 @@ namespace QuickNote.Avalonia.Views
             {
                 MobileNotionEditor.IsVisible = true;
             }
+            RebuildEditorTags();
         }
 
         private async void OnEditorBackClick(object? sender, RoutedEventArgs e)
@@ -476,6 +539,147 @@ namespace QuickNote.Avalonia.Views
                 await _viewModel.SaveNoteAsync();
             }
             ShowNotesFeed();
+        }
+
+        // ── Tag Editor & Tag Management in NoteEditorScreen ──────────────────────────
+        private void RebuildEditorTags()
+        {
+            if (EditorTagsPanel == null) return;
+            EditorTagsPanel.Children.Clear();
+
+            var currentTags = _viewModel?.CurrentNote?.Tags ?? Array.Empty<string>();
+            foreach (var tag in currentTags)
+            {
+                if (string.IsNullOrWhiteSpace(tag)) continue;
+                var clean = tag.TrimStart('#').Trim();
+                if (string.IsNullOrEmpty(clean)) continue;
+
+                var tagPill = new Border
+                {
+                    Background = new SolidColorBrush(Color.Parse("#21262d")),
+                    BorderBrush = new SolidColorBrush(Color.Parse("#30363d")),
+                    BorderThickness = new Thickness(1),
+                    CornerRadius = new CornerRadius(12),
+                    Height = 24,
+                    Padding = new Thickness(8, 0, 4, 0),
+                    VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center
+                };
+                var pillStack = new StackPanel
+                {
+                    Orientation = global::Avalonia.Layout.Orientation.Horizontal,
+                    Spacing = 4,
+                    VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center
+                };
+                pillStack.Children.Add(new TextBlock
+                {
+                    Text = "#",
+                    Foreground = new SolidColorBrush(Color.Parse("#58a6ff")),
+                    FontSize = 11,
+                    FontWeight = FontWeight.SemiBold,
+                    VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center
+                });
+                pillStack.Children.Add(new TextBlock
+                {
+                    Text = clean,
+                    Foreground = new SolidColorBrush(Color.Parse("#c9d1d9")),
+                    FontSize = 11,
+                    VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center
+                });
+                var removeBtn = new Button
+                {
+                    Content = "✕",
+                    Background = Brushes.Transparent,
+                    BorderThickness = new Thickness(0),
+                    Foreground = new SolidColorBrush(Color.Parse("#8b949e")),
+                    FontSize = 9,
+                    Height = 18,
+                    Padding = new Thickness(2, 0),
+                    VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center,
+                    Tag = clean
+                };
+                removeBtn.Click += async (s, e) =>
+                {
+                    if (s is Button b && b.Tag is string tToRemove)
+                    {
+                        await RemoveTagFromCurrentNoteAsync(tToRemove);
+                    }
+                };
+                pillStack.Children.Add(removeBtn);
+                tagPill.Child = pillStack;
+                EditorTagsPanel.Children.Add(tagPill);
+            }
+        }
+
+        private void OnShowAddTagClick(object? sender, RoutedEventArgs e)
+        {
+            if (BtnShowAddTag != null) BtnShowAddTag.IsVisible = false;
+            if (EditorAddTagContainer != null)
+            {
+                EditorAddTagContainer.IsVisible = true;
+                if (EditorNewTagTextBox != null)
+                {
+                    EditorNewTagTextBox.Text = string.Empty;
+                    EditorNewTagTextBox.Focus();
+                }
+            }
+        }
+
+        private void OnCancelAddTagClick(object? sender, RoutedEventArgs e)
+        {
+            if (EditorAddTagContainer != null) EditorAddTagContainer.IsVisible = false;
+            if (BtnShowAddTag != null) BtnShowAddTag.IsVisible = true;
+        }
+
+        private async void OnConfirmAddTagClick(object? sender, RoutedEventArgs e)
+        {
+            await ConfirmAddTagFromInputAsync();
+        }
+
+        private async void OnEditorNewTagKeyDown(object? sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+            {
+                e.Handled = true;
+                await ConfirmAddTagFromInputAsync();
+            }
+            else if (e.Key == Key.Escape)
+            {
+                e.Handled = true;
+                OnCancelAddTagClick(sender, e);
+            }
+        }
+
+        private async Task ConfirmAddTagFromInputAsync()
+        {
+            var tagText = EditorNewTagTextBox?.Text?.Trim().TrimStart('#');
+            if (!string.IsNullOrWhiteSpace(tagText) && _viewModel?.CurrentNote != null)
+            {
+                var existing = _viewModel.CurrentNote.Tags?.ToList() ?? new List<string>();
+                if (!existing.Any(t => string.Equals(t.TrimStart('#'), tagText, StringComparison.OrdinalIgnoreCase)))
+                {
+                    existing.Add(tagText);
+                    _viewModel.CurrentNote.Tags = existing.ToArray();
+                    await _viewModel.SaveNoteAsync();
+                    RebuildEditorTags();
+                    RebuildTagChips();
+                    RebuildDrawerTags();
+                    ApplyFilters();
+                }
+            }
+            OnCancelAddTagClick(this, new RoutedEventArgs());
+        }
+
+        private async Task RemoveTagFromCurrentNoteAsync(string tagName)
+        {
+            if (_viewModel?.CurrentNote == null) return;
+            var existing = _viewModel.CurrentNote.Tags?.ToList() ?? new List<string>();
+            existing.RemoveAll(t => string.Equals(t.TrimStart('#'), tagName, StringComparison.OrdinalIgnoreCase));
+            _viewModel.CurrentNote.Tags = existing.ToArray();
+            await _viewModel.SaveNoteAsync();
+            RebuildEditorTags();
+            RebuildTagChips();
+            RebuildDrawerTags();
+            ApplyFilters();
         }
 
         // ── Folder Discovery & Navigation ──────────────────────────────
@@ -518,27 +722,58 @@ namespace QuickNote.Avalonia.Views
             return folders;
         }
 
-        // ── Category Chips & Note Filtering ──────────────────────────────
-        private void RebuildCategoryChips()
+        // ── Tag Chips & Note Filtering (Main Page) ──────────────────────────────
+        private void RebuildTagChips()
         {
-            if (CategoryChipsPanel == null || _viewModel == null) return;
+            if (TagChipsPanel == null || _viewModel == null) return;
 
-            CategoryChipsPanel.Children.Clear();
+            TagChipsPanel.Children.Clear();
 
-            var categories = new List<string> { "All Notes" };
-            var folderNames = DiscoverAllFolders().OrderBy(f => f);
-
-            foreach (var f in folderNames)
+            // 1. "All Notes" chip
+            bool isAllNotes = string.IsNullOrEmpty(_selectedTag);
+            var allBtn = new Button
             {
-                if (f != null) categories.Add(f);
+                Content = "All Notes",
+                FontSize = 13,
+                FontWeight = isAllNotes ? FontWeight.SemiBold : FontWeight.Normal,
+                CornerRadius = new CornerRadius(16),
+                Padding = new Thickness(14, 6),
+                Background = isAllNotes ? new SolidColorBrush(Color.Parse("#2563eb")) : new SolidColorBrush(Color.Parse("#1e1e24")),
+                Foreground = isAllNotes ? Brushes.White : new SolidColorBrush(Color.Parse("#9ca3af")),
+                BorderThickness = new Thickness(0),
+                HorizontalContentAlignment = global::Avalonia.Layout.HorizontalAlignment.Center,
+                VerticalContentAlignment = global::Avalonia.Layout.VerticalAlignment.Center
+            };
+            allBtn.Click += (s, e) =>
+            {
+                SelectedTag = null;
+                RebuildTagChips();
+            };
+            TagChipsPanel.Children.Add(allBtn);
+
+            // 2. Discover all unique tags across notes
+            var tagsSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (_viewModel.Notes != null)
+            {
+                foreach (var note in _viewModel.Notes)
+                {
+                    if (note.Tags != null)
+                    {
+                        foreach (var t in note.Tags)
+                        {
+                            var clean = t.TrimStart('#').Trim();
+                            if (!string.IsNullOrEmpty(clean)) tagsSet.Add(clean);
+                        }
+                    }
+                }
             }
 
-            foreach (var cat in categories)
+            foreach (var tag in tagsSet.OrderBy(t => t))
             {
-                var isSelected = string.Equals(_selectedCategory, cat, StringComparison.OrdinalIgnoreCase);
-                var btn = new Button
+                bool isSelected = string.Equals(_selectedTag, tag, StringComparison.OrdinalIgnoreCase);
+                var tagChip = new Button
                 {
-                    Content = cat,
+                    Content = $"#{tag}",
                     FontSize = 13,
                     FontWeight = isSelected ? FontWeight.SemiBold : FontWeight.Normal,
                     CornerRadius = new CornerRadius(16),
@@ -548,36 +783,15 @@ namespace QuickNote.Avalonia.Views
                     BorderThickness = new Thickness(0),
                     HorizontalContentAlignment = global::Avalonia.Layout.HorizontalAlignment.Center,
                     VerticalContentAlignment = global::Avalonia.Layout.VerticalAlignment.Center,
-                    Tag = cat
+                    Tag = tag
                 };
-                btn.Click += (s, e) =>
+                tagChip.Click += (s, e) =>
                 {
-                    _selectedCategory = cat;
-                    RebuildCategoryChips();
-                    RebuildDrawerFolders();
-                    ApplyFilters();
+                    SelectedTag = isSelected ? null : tag;
+                    RebuildTagChips();
                 };
-                CategoryChipsPanel.Children.Add(btn);
+                TagChipsPanel.Children.Add(tagChip);
             }
-
-            // Add + Folder chip at the end
-            var addFolderBtn = new Button
-            {
-                Content = "+ Folder",
-                FontSize = 13,
-                CornerRadius = new CornerRadius(16),
-                Padding = new Thickness(12, 6),
-                Background = new SolidColorBrush(Color.Parse("#1e1e24")),
-                Foreground = new SolidColorBrush(Color.Parse("#3b82f6")),
-                BorderThickness = new Thickness(0),
-                HorizontalContentAlignment = global::Avalonia.Layout.HorizontalAlignment.Center,
-                VerticalContentAlignment = global::Avalonia.Layout.VerticalAlignment.Center
-            };
-            addFolderBtn.Click += (s, e) =>
-            {
-                ShowNewFolderDialog();
-            };
-            CategoryChipsPanel.Children.Add(addFolderBtn);
         }
 
         // ── New Folder Dialog Handlers ────────────────────────────────────
@@ -625,7 +839,7 @@ namespace QuickNote.Avalonia.Views
                     }
                     _selectedCategory = folderName;
                     if (NewFolderModal != null) NewFolderModal.IsVisible = false;
-                    RebuildCategoryChips();
+                    RebuildTagChips();
                     RebuildDrawerFolders();
                     ApplyFilters();
                 }
@@ -670,7 +884,7 @@ namespace QuickNote.Avalonia.Views
             _selectedCategory = "All Notes";
             _selectedTag = null;
             if (LeftDrawerOverlay != null) LeftDrawerOverlay.IsVisible = false;
-            RebuildCategoryChips();
+            RebuildTagChips();
             RebuildDrawerFolders();
             RebuildDrawerTags();
             OnPropertyChanged(nameof(SelectedTag));
@@ -682,6 +896,12 @@ namespace QuickNote.Avalonia.Views
         private void OnDrawerTrashBinClick(object? sender, RoutedEventArgs e)
         {
             if (LeftDrawerOverlay != null) LeftDrawerOverlay.IsVisible = false;
+            NotesFeedScreen.IsVisible = false;
+            NoteEditorScreen.IsVisible = false;
+            if (MobileNotionEditor != null)
+            {
+                MobileNotionEditor.IsVisible = false;
+            }
             if (TrashBinScreen != null)
             {
                 TrashBinScreen.IsVisible = true;
@@ -694,6 +914,33 @@ namespace QuickNote.Avalonia.Views
             if (TrashBinScreen != null)
             {
                 TrashBinScreen.IsVisible = false;
+            }
+            ShowNotesFeed();
+        }
+
+        private async void OnRestoreAllTrashClick(object? sender, RoutedEventArgs e)
+        {
+            if (_viewModel?.TrashBinService == null) return;
+            try
+            {
+                var items = (await _viewModel.TrashBinService.GetTrashItemsAsync()).ToList();
+                foreach (var item in items)
+                {
+                    await _viewModel.TrashBinService.RestoreItemAsync(item);
+                }
+                await _viewModel.RefreshFolderTreeAsync();
+                await _viewModel.Refresh();
+                RebuildTagChips();
+                RebuildDrawerFolders();
+                RebuildDrawerTags();
+                UpdateTrashBadge();
+                ApplyFilters();
+                OnPropertyChanged(nameof(TotalNotesCountText));
+                await LoadTrashItemsAsync();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[MobileMainView] OnRestoreAllTrashClick error: {ex.Message}");
             }
         }
 
@@ -753,7 +1000,7 @@ namespace QuickNote.Avalonia.Views
 
                 var grid = new Grid
                 {
-                    ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto,Auto")
+                    ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto")
                 };
 
                 var folderIcon = new PathIcon
@@ -794,38 +1041,53 @@ namespace QuickNote.Avalonia.Views
                 badgeBorder.Child = badgeText;
                 Grid.SetColumn(badgeBorder, 2);
 
-                var deleteFolderBtn = new Button
-                {
-                    Background = Brushes.Transparent,
-                    Padding = new Thickness(6, 2),
-                    Margin = new Thickness(4, 0, 0, 0),
-                    VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center
-                };
-                deleteFolderBtn.Content = new PathIcon
-                {
-                    Data = (StreamGeometry)Resources["IconTrash"]!,
-                    Width = 14,
-                    Height = 14,
-                    Foreground = new SolidColorBrush(Color.Parse("#ef4444"))
-                };
-                var capturedFolder = folder;
-                deleteFolderBtn.Click += (s, e) =>
-                {
-                    OnPromptDeleteFolder(capturedFolder);
-                };
-                Grid.SetColumn(deleteFolderBtn, 3);
-
                 grid.Children.Add(folderIcon);
                 grid.Children.Add(folderText);
                 grid.Children.Add(badgeBorder);
-                grid.Children.Add(deleteFolderBtn);
 
                 btn.Content = grid;
+
+                // Long press detection for deleting folder cleanly
+                DispatcherTimer? holdTimer = null;
+                bool wasLongPress = false;
+                var capturedFolder = folder;
+
+                btn.PointerPressed += (s, pe) =>
+                {
+                    wasLongPress = false;
+                    holdTimer?.Stop();
+                    holdTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(550) };
+                    holdTimer.Tick += (ts, te) =>
+                    {
+                        holdTimer?.Stop();
+                        holdTimer = null;
+                        wasLongPress = true;
+                        OnPromptDeleteFolder(capturedFolder);
+                    };
+                    holdTimer.Start();
+                };
+
+                btn.PointerReleased += (s, pe) =>
+                {
+                    holdTimer?.Stop();
+                    holdTimer = null;
+                };
+
+                btn.PointerCaptureLost += (s, pe) =>
+                {
+                    holdTimer?.Stop();
+                    holdTimer = null;
+                };
+
                 btn.Click += (s, e) =>
                 {
-                    _selectedCategory = folder;
+                    if (wasLongPress)
+                    {
+                        wasLongPress = false;
+                        return;
+                    }
+                    _selectedCategory = capturedFolder;
                     if (LeftDrawerOverlay != null) LeftDrawerOverlay.IsVisible = false;
-                    RebuildCategoryChips();
                     RebuildDrawerFolders();
                     ApplyFilters();
                 };
@@ -873,7 +1135,7 @@ namespace QuickNote.Avalonia.Views
 
                     await _viewModel.RefreshFolderTreeAsync();
                     await _viewModel.Refresh();
-                    RebuildCategoryChips();
+                    RebuildTagChips();
                     RebuildDrawerFolders();
                     RebuildDrawerTags();
                     UpdateTrashBadge();
@@ -1091,7 +1353,7 @@ namespace QuickNote.Avalonia.Views
 
                     var pathText = new TextBlock
                     {
-                        Text = $"{item.DeletedAt:MMM d, h:mm tt} • {Path.GetFileName(Path.GetDirectoryName(item.OriginalPath))}",
+                        Text = $"{item.DeletedAt.ToLocalTime():MMM d, h:mm tt} • {Path.GetFileName(Path.GetDirectoryName(item.OriginalPath))}",
                         FontSize = 11,
                         Foreground = new SolidColorBrush(Color.Parse("#9ca3af")),
                         Margin = new Thickness(0, 4, 0, 0)
@@ -1124,7 +1386,7 @@ namespace QuickNote.Avalonia.Views
                         await _viewModel.TrashBinService.RestoreItemAsync(capturedItem);
                         await _viewModel.RefreshFolderTreeAsync();
                         await _viewModel.Refresh();
-                        RebuildCategoryChips();
+                        RebuildTagChips();
                         RebuildDrawerFolders();
                         RebuildDrawerTags();
                         ApplyFilters();
@@ -1185,7 +1447,7 @@ namespace QuickNote.Avalonia.Views
                 await LoadTrashItemsAsync();
                 await _viewModel.RefreshFolderTreeAsync();
                 await _viewModel.Refresh();
-                RebuildCategoryChips();
+                RebuildTagChips();
                 RebuildDrawerFolders();
                 RebuildDrawerTags();
                 ApplyFilters();
@@ -1339,7 +1601,7 @@ namespace QuickNote.Avalonia.Views
                     await _viewModel.CloudSyncService.TriggerSyncAsync();
                 }
                 await _viewModel.Refresh();
-                RebuildCategoryChips();
+                RebuildTagChips();
                 ApplyFilters();
                 UpdateModalAccountStatus();
             }
@@ -1528,7 +1790,7 @@ namespace QuickNote.Avalonia.Views
                     Console.WriteLine($"[MobileMainView] CompleteSignInAsync result: {success}");
                     await _viewModel.Refresh();
                     UpdateModalAccountStatus();
-                    RebuildCategoryChips();
+                    RebuildTagChips();
                     RebuildDrawerFolders();
                     ApplyFilters();
                 }
@@ -1548,7 +1810,7 @@ namespace QuickNote.Avalonia.Views
                 Console.WriteLine($"[MobileMainView] TriggerSyncAsync result: {result.Message}");
                 await _viewModel.Refresh();
                 UpdateModalAccountStatus();
-                RebuildCategoryChips();
+                RebuildTagChips();
                 RebuildDrawerFolders();
                 ApplyFilters();
             }

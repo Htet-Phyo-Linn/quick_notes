@@ -3,6 +3,7 @@ using Android.Content.PM;
 using Android.OS;
 using Android.Views;
 using Android.Webkit;
+using AndroidX.Activity;
 using Avalonia.Android;
 
 namespace QuickNote.Avalonia.Android;
@@ -16,10 +17,50 @@ namespace QuickNote.Avalonia.Android;
     WindowSoftInputMode = SoftInput.AdjustResize | SoftInput.StateHidden)]
 public class MainActivity : AvaloniaMainActivity, ViewTreeObserver.IOnGlobalLayoutListener
 {
+    private int _lastKeyboardHeightDp = -1;
+
     protected override void OnCreate(Bundle? savedInstanceState)
     {
         base.OnCreate(savedInstanceState);
         Window?.DecorView?.ViewTreeObserver?.AddOnGlobalLayoutListener(this);
+
+        try
+        {
+            OnBackPressedDispatcher.AddCallback(this, new BackPressCallback(this));
+        }
+        catch { }
+    }
+
+    private class BackPressCallback : OnBackPressedCallback
+    {
+        private readonly MainActivity _activity;
+        public BackPressCallback(MainActivity activity) : base(true)
+        {
+            _activity = activity;
+        }
+
+        public override void HandleOnBackPressed()
+        {
+            if (AndroidPlatformBridge.OnBackPressed())
+            {
+                return;
+            }
+
+            // If not handled by app, disable callback and invoke system back
+            Enabled = false;
+            _activity.OnBackPressedDispatcher.OnBackPressed();
+            Enabled = true;
+        }
+    }
+
+    [System.Obsolete]
+    public override void OnBackPressed()
+    {
+        if (AndroidPlatformBridge.OnBackPressed())
+        {
+            return;
+        }
+        base.OnBackPressed();
     }
 
     public void OnGlobalLayout()
@@ -27,6 +68,22 @@ public class MainActivity : AvaloniaMainActivity, ViewTreeObserver.IOnGlobalLayo
         if (Window?.DecorView != null)
         {
             ConfigureWebViews(Window.DecorView);
+
+            try
+            {
+                var rect = new global::Android.Graphics.Rect();
+                Window.DecorView.GetWindowVisibleDisplayFrame(rect);
+                int screenHeight = Window.DecorView.RootView?.Height ?? 0;
+                int keypadHeight = screenHeight - rect.Bottom;
+                float density = Resources?.DisplayMetrics?.Density ?? 1.0f;
+                int keyboardHeightDp = keypadHeight > (screenHeight * 0.15) ? (int)(keypadHeight / density) : 0;
+                if (keyboardHeightDp != _lastKeyboardHeightDp)
+                {
+                    _lastKeyboardHeightDp = keyboardHeightDp;
+                    AndroidPlatformBridge.NotifyKeyboardHeightChanged(keyboardHeightDp);
+                }
+            }
+            catch { }
         }
     }
 

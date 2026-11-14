@@ -29,12 +29,22 @@
         <StreamGeometry x:Key="IconPalette">M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 19.4c-.39.39-.39 1.02 0 1.41.39.39 1.02.39 1.41 0l2.09-2.09C9.28 19.46 10.59 20 12 20c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z</StreamGeometry>
         <StreamGeometry x:Key="IconMenu">M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z</StreamGeometry>
         <StreamGeometry x:Key="IconNotes">M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z</StreamGeometry>
+        <StreamGeometry x:Key="IconTag">M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z</StreamGeometry>
     </UserControl.Resources>
 
     <UserControl.Styles>
         <Style Selector="Button">
             <Setter Property="HorizontalContentAlignment" Value="Center" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <!-- Remove intrusive focus border outlines on mobile TextBoxes -->
+        <Style Selector="TextBox:focus /template/ Border#PART_BorderElement">
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="TextBox:pointerover /template/ Border#PART_BorderElement">
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
         </Style>
     </UserControl.Styles>
 
@@ -48,7 +58,7 @@
             </Grid.Transitions>
 
             <!-- Top Floating Search Bar Capsule (Google Keep Style) -->
-            <Border Grid.Row="0" Background="#121214" Padding="14,32,14,6">
+            <Border Grid.Row="0" Background="#121214" Padding="14,44,14,8">
                 <Border Background="#1e1e24"
                         BorderBrush="#2d2d36"
                         BorderThickness="1"
@@ -122,11 +132,11 @@
                 </Border>
             </Border>
 
-            <!-- Category / Folder Filter Chips (Horizontal Scroll) -->
+            <!-- Tag Filter Chips (Horizontal Scroll, replaces folder list on main page) -->
             <Border Grid.Row="1" Background="#121214" Padding="14,2,14,8">
                 <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
-                    <StackPanel x:Name="CategoryChipsPanel" Orientation="Horizontal" Spacing="8">
-                        <!-- Chips populated dynamically in code-behind -->
+                    <StackPanel x:Name="TagChipsPanel" Orientation="Horizontal" Spacing="8">
+                        <!-- Populated dynamically in code-behind with All Notes, #tags, + Tag -->
                     </StackPanel>
                 </ScrollViewer>
             </Border>
@@ -313,7 +323,7 @@
         </Grid>
 
         <!-- SCREEN 2: NATIVE ANDROID NOTE EDITOR -->
-        <Grid x:Name="NoteEditorScreen" RowDefinitions="Auto,Auto,*,Auto" Background="#141414" IsVisible="False">
+        <Grid x:Name="NoteEditorScreen" RowDefinitions="Auto,Auto,Auto,*,Auto" Background="#141414" IsVisible="False">
             <Grid.Transitions>
                 <Transitions>
                     <DoubleTransition Property="Opacity" Duration="0:0:0.15" />
@@ -321,7 +331,7 @@
             </Grid.Transitions>
 
             <!-- Top Editor App Bar with Safe Inset -->
-            <Border Grid.Row="0" Background="#18181a" BorderBrush="#26262a" BorderThickness="0,0,0,1" Padding="8,32,12,8">
+            <Border Grid.Row="0" Background="#18181a" BorderBrush="#26262a" BorderThickness="0,0,0,1" Padding="10,44,12,8">
                 <Grid ColumnDefinitions="Auto,*,Auto,Auto">
                     <!-- Back Arrow (Returns to Notes Feed) -->
                     <Button Grid.Column="0"
@@ -372,8 +382,85 @@
                 </Grid>
             </Border>
 
+            <!-- Tags Bar in Note Editor (like Windows software) -->
+            <Border Grid.Row="1" x:Name="EditorTagsBar" Background="#18181c" BorderBrush="#26262a" BorderThickness="0,0,0,1" Padding="12,6,12,6">
+                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <!-- Tag Icon -->
+                        <PathIcon Data="{StaticResource IconTag}" Width="13" Height="13" Foreground="#6b7280" VerticalAlignment="Center" Margin="0,0,2,0" />
+
+                        <!-- Dynamic Note Tags Panel -->
+                        <StackPanel x:Name="EditorTagsPanel" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" />
+
+                        <!-- Add Tag Button -->
+                        <Button x:Name="BtnShowAddTag"
+                                Click="OnShowAddTagClick"
+                                Background="#202128"
+                                BorderBrush="#30363d"
+                                BorderThickness="1"
+                                CornerRadius="12"
+                                Height="24"
+                                Padding="8,0"
+                                VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                <PathIcon Data="{StaticResource IconPlus}" Width="9" Height="9" Foreground="#3b82f6" VerticalAlignment="Center" />
+                                <TextBlock Text="Tag" FontSize="11" Foreground="#9ca3af" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+
+                        <!-- Inline Input for Adding a Tag -->
+                        <Border x:Name="EditorAddTagContainer"
+                                Background="#161b22"
+                                BorderBrush="#388bfd"
+                                BorderThickness="1"
+                                CornerRadius="12"
+                                Height="24"
+                                Padding="6,0,4,0"
+                                IsVisible="False"
+                                VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                <TextBlock Text="#" Foreground="#58a6ff" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                <TextBox x:Name="EditorNewTagTextBox"
+                                         PlaceholderText="tag..."
+                                         FontSize="11"
+                                         MinHeight="0"
+                                         Height="20"
+                                         Padding="2,0"
+                                         Background="Transparent"
+                                         Foreground="#ffffff"
+                                         BorderThickness="0"
+                                         MinWidth="60"
+                                         MaxWidth="140"
+                                         KeyDown="OnEditorNewTagKeyDown"
+                                         VerticalAlignment="Center"
+                                         VerticalContentAlignment="Center" />
+                                <Button Click="OnConfirmAddTagClick"
+                                        Content="✓"
+                                        Background="Transparent"
+                                        BorderThickness="0"
+                                        Foreground="#10b981"
+                                        FontSize="12"
+                                        FontWeight="Bold"
+                                        Height="20"
+                                        Padding="3,0"
+                                        VerticalAlignment="Center" />
+                                <Button Click="OnCancelAddTagClick"
+                                        Content="✕"
+                                        Background="Transparent"
+                                        BorderThickness="0"
+                                        Foreground="#9ca3af"
+                                        FontSize="10"
+                                        Height="20"
+                                        Padding="3,0"
+                                        VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+
             <!-- Google Keep 12-Color Palette Selector Drawer -->
-            <Border Grid.Row="1" x:Name="ColorPickerBar" Background="#1c1c22" BorderBrush="#26262a" BorderThickness="0,0,0,1" Padding="8,8" IsVisible="False">
+            <Border Grid.Row="2" x:Name="ColorPickerBar" Background="#1c1c22" BorderBrush="#26262a" BorderThickness="0,0,0,1" Padding="8,8" IsVisible="False">
                 <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
                     <StackPanel x:Name="ColorPalettePanel" Orientation="Horizontal" Spacing="8">
                         <!-- Populated in code-behind with 12 Google Keep Dark colors -->
@@ -383,12 +470,13 @@
 
             <!-- Full-Screen Milkdown WYSIWYG Markdown Canvas -->
             <notion:NotionEditorControl x:Name="MobileNotionEditor"
-                                        Grid.Row="2"
+                                        Grid.Row="3"
                                         HorizontalAlignment="Stretch"
                                         VerticalAlignment="Stretch" />
 
             <!-- Material Mobile Formatting Toolbar (Floats above soft keyboard) -->
-            <Border Grid.Row="3"
+            <Border Grid.Row="4"
+                    x:Name="FormattingBar"
                     Background="#18181a"
                     BorderBrush="#26262a"
                     BorderThickness="0,1,0,0"
@@ -692,7 +780,7 @@
         <!-- SCREEN 3: TRASH BIN SCREEN -->
         <Grid x:Name="TrashBinScreen" RowDefinitions="Auto,*" Background="#141414" IsVisible="False">
             <!-- Top App Bar with Inset -->
-            <Border Grid.Row="0" Background="#18181c" BorderBrush="#25252b" BorderThickness="0,0,0,1" Padding="12,36,12,12">
+            <Border Grid.Row="0" Background="#18181c" BorderBrush="#25252b" BorderThickness="0,0,0,1" Padding="12,44,12,12">
                 <Grid ColumnDefinitions="Auto,*,Auto">
                     <Button Grid.Column="0"
                             Click="OnCloseTrashBinClick"
@@ -709,15 +797,24 @@
                                Foreground="#ffffff"
                                VerticalAlignment="Center"
                                Margin="12,0,0,0" />
-                    <Button Grid.Column="2"
-                            Click="OnPromptEmptyTrashClick"
-                            Background="#ef4444"
-                            Foreground="#ffffff"
-                            CornerRadius="8"
-                            Padding="12,6"
-                            FontWeight="SemiBold"
-                            FontSize="12"
-                            Content="Empty Trash" />
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <Button Click="OnRestoreAllTrashClick"
+                                Background="#2563eb"
+                                Foreground="#ffffff"
+                                CornerRadius="8"
+                                Padding="12,6"
+                                FontWeight="SemiBold"
+                                FontSize="12"
+                                Content="Restore All" />
+                        <Button Click="OnPromptEmptyTrashClick"
+                                Background="#ef4444"
+                                Foreground="#ffffff"
+                                CornerRadius="8"
+                                Padding="12,6"
+                                FontWeight="SemiBold"
+                                FontSize="12"
+                                Content="Empty Trash" />
+                    </StackPanel>
                 </Grid>
             </Border>
 
