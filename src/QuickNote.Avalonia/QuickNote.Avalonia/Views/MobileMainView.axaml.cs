@@ -207,6 +207,7 @@ namespace QuickNote.Avalonia.Views
             : new SolidColorBrush(Color.Parse("#9ca3af"));
 
         public string NoteCountStatus => $"{FilteredNotes.Count} note{(FilteredNotes.Count == 1 ? "" : "s")}";
+        public string TotalNotesCountText => _viewModel?.Notes?.Count.ToString() ?? "0";
         public bool IsNotesEmpty => FilteredNotes.Count == 0;
 
         public MobileMainView()
@@ -215,6 +216,8 @@ namespace QuickNote.Avalonia.Views
             NotesFeedScreen.DataContext = this;
             NoteEditorScreen.DataContext = this;
             GoogleDriveAccountModal.DataContext = this;
+            if (LeftDrawerOverlay != null) LeftDrawerOverlay.DataContext = this;
+            if (NewFolderModal != null) NewFolderModal.DataContext = this;
             if (AuthWebView != null)
             {
                 AuthWebView.NavigationStarted += OnAuthWebViewNavigationStarted;
@@ -448,6 +451,46 @@ namespace QuickNote.Avalonia.Views
             ShowNotesFeed();
         }
 
+        // ── Folder Discovery & Navigation ──────────────────────────────
+        private HashSet<string> DiscoverAllFolders()
+        {
+            var folders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            // 1. Enumerate on-disk directories under NotesRoot
+            try
+            {
+                var root = _viewModel?.NotesRoot;
+                if (!string.IsNullOrEmpty(root) && Directory.Exists(root))
+                {
+                    var dirs = Directory.GetDirectories(root);
+                    foreach (var dir in dirs)
+                    {
+                        var name = Path.GetFileName(dir);
+                        if (!string.IsNullOrEmpty(name) && !name.StartsWith(".") && !string.Equals(name, "Assets", StringComparison.OrdinalIgnoreCase))
+                        {
+                            folders.Add(name);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[MobileMainView] Error discovering disk folders: {ex.Message}");
+            }
+
+            // 2. Include folders from existing notes
+            if (_viewModel?.Notes != null)
+            {
+                foreach (var n in _viewModel.Notes)
+                {
+                    var f = Path.GetFileName(n.FolderPath?.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+                    if (!string.IsNullOrWhiteSpace(f)) folders.Add(f);
+                }
+            }
+
+            return folders;
+        }
+
         // ── Category Chips & Note Filtering ──────────────────────────────
         private void RebuildCategoryChips()
         {
@@ -456,11 +499,7 @@ namespace QuickNote.Avalonia.Views
             CategoryChipsPanel.Children.Clear();
 
             var categories = new List<string> { "All Notes" };
-            var folderNames = _viewModel.Notes
-                .Select(n => Path.GetFileName(n.FolderPath?.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)))
-                .Where(f => !string.IsNullOrWhiteSpace(f))
-                .Distinct()
-                .OrderBy(f => f);
+            var folderNames = DiscoverAllFolders().OrderBy(f => f);
 
             foreach (var f in folderNames)
             {
@@ -488,6 +527,7 @@ namespace QuickNote.Avalonia.Views
                 {
                     _selectedCategory = cat;
                     RebuildCategoryChips();
+                    RebuildDrawerFolders();
                     ApplyFilters();
                 };
                 CategoryChipsPanel.Children.Add(btn);
@@ -506,15 +546,218 @@ namespace QuickNote.Avalonia.Views
                 HorizontalContentAlignment = global::Avalonia.Layout.HorizontalAlignment.Center,
                 VerticalContentAlignment = global::Avalonia.Layout.VerticalAlignment.Center
             };
-            addFolderBtn.Click += async (s, e) =>
+            addFolderBtn.Click += (s, e) =>
             {
-                if (_viewModel != null)
-                {
-                    await _viewModel.NewFolderAsync();
-                    RebuildCategoryChips();
-                }
+                ShowNewFolderDialog();
             };
             CategoryChipsPanel.Children.Add(addFolderBtn);
+        }
+
+        // ── New Folder Dialog Handlers ────────────────────────────────────
+        private void ShowNewFolderDialog()
+        {
+            if (NewFolderNameTextBox != null)
+            {
+                NewFolderNameTextBox.Text = string.Empty;
+            }
+            if (NewFolderModal != null)
+            {
+                NewFolderModal.IsVisible = true;
+                NewFolderNameTextBox?.Focus();
+            }
+        }
+
+        private async void OnConfirmNewFolderClick(object? sender, RoutedEventArgs e)
+        {
+            var folderName = NewFolderNameTextBox?.Text?.Trim();
+            if (string.IsNullOrWhiteSpace(folderName))
+            {
+                if (NewFolderModal != null) NewFolderModal.IsVisible = false;
+                return;
+            }
+
+            // Sanitize folder name
+            foreach (var c in Path.GetInvalidFileNameChars())
+            {
+                folderName = folderName.Replace(c, '_');
+            }
+
+            try
+            {
+                var root = _viewModel?.NotesRoot;
+                if (!string.IsNullOrEmpty(root))
+                {
+                    var targetDir = Path.Combine(root, folderName);
+                    if (!Directory.Exists(targetDir))
+                    {
+                        Directory.CreateDirectory(targetDir);
+                    }
+                    if (_viewModel != null)
+                    {
+                        await _viewModel.RefreshFolderTreeAsync();
+                    }
+                    _selectedCategory = folderName;
+                    if (NewFolderModal != null) NewFolderModal.IsVisible = false;
+                    RebuildCategoryChips();
+                    RebuildDrawerFolders();
+                    ApplyFilters();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[MobileMainView] Failed creating folder '{folderName}': {ex.Message}");
+                if (NewFolderModal != null) NewFolderModal.IsVisible = false;
+            }
+        }
+
+        private void OnCancelNewFolderClick(object? sender, RoutedEventArgs e)
+        {
+            if (NewFolderModal != null) NewFolderModal.IsVisible = false;
+        }
+
+        // ── Left Sidebar / Navigation Drawer ──────────────────────────────
+        private void OnToggleLeftDrawerClick(object? sender, RoutedEventArgs e)
+        {
+            if (LeftDrawerOverlay == null) return;
+            LeftDrawerOverlay.IsVisible = !LeftDrawerOverlay.IsVisible;
+            if (LeftDrawerOverlay.IsVisible)
+            {
+                RebuildDrawerFolders();
+                OnPropertyChanged(nameof(TotalNotesCountText));
+                OnPropertyChanged(nameof(ConnectedAccountEmail));
+            }
+        }
+
+        private void OnCloseLeftDrawerClick(object? sender, RoutedEventArgs e)
+        {
+            if (LeftDrawerOverlay != null)
+            {
+                LeftDrawerOverlay.IsVisible = false;
+            }
+        }
+
+        private void OnDrawerAllNotesClick(object? sender, RoutedEventArgs e)
+        {
+            _selectedCategory = "All Notes";
+            if (LeftDrawerOverlay != null) LeftDrawerOverlay.IsVisible = false;
+            RebuildCategoryChips();
+            RebuildDrawerFolders();
+            ApplyFilters();
+        }
+
+        private void OnDrawerNewFolderClick(object? sender, RoutedEventArgs e)
+        {
+            if (LeftDrawerOverlay != null) LeftDrawerOverlay.IsVisible = false;
+            ShowNewFolderDialog();
+        }
+
+        private void OnOpenCloudSyncClick(object? sender, RoutedEventArgs e)
+        {
+            if (LeftDrawerOverlay != null) LeftDrawerOverlay.IsVisible = false;
+            UpdateModalAccountStatus();
+            if (GoogleDriveAccountModal != null)
+            {
+                GoogleDriveAccountModal.IsVisible = true;
+            }
+        }
+
+        private void RebuildDrawerFolders()
+        {
+            if (DrawerFoldersPanel == null || _viewModel == null) return;
+            DrawerFoldersPanel.Children.Clear();
+
+            var allFolders = DiscoverAllFolders().OrderBy(f => f).ToList();
+            if (allFolders.Count == 0)
+            {
+                var emptyLabel = new TextBlock
+                {
+                    Text = "No folders created yet",
+                    FontSize = 12,
+                    Foreground = new SolidColorBrush(Color.Parse("#6b7280")),
+                    Margin = new Thickness(10, 8)
+                };
+                DrawerFoldersPanel.Children.Add(emptyLabel);
+                return;
+            }
+
+            foreach (var folder in allFolders)
+            {
+                var isSelected = string.Equals(_selectedCategory, folder, StringComparison.OrdinalIgnoreCase);
+                int noteCount = _viewModel.Notes.Count(n =>
+                {
+                    var f = Path.GetFileName(n.FolderPath?.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+                    return string.Equals(f, folder, StringComparison.OrdinalIgnoreCase);
+                });
+
+                var btn = new Button
+                {
+                    Background = isSelected ? new SolidColorBrush(Color.Parse("#252830")) : Brushes.Transparent,
+                    BorderThickness = new Thickness(0),
+                    CornerRadius = new CornerRadius(10),
+                    Padding = new Thickness(10, 8),
+                    HorizontalAlignment = global::Avalonia.Layout.HorizontalAlignment.Stretch,
+                    HorizontalContentAlignment = global::Avalonia.Layout.HorizontalAlignment.Stretch
+                };
+
+                var grid = new Grid
+                {
+                    ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto")
+                };
+
+                var folderIcon = new PathIcon
+                {
+                    Data = (StreamGeometry)Resources["IconFolder"]!,
+                    Width = 18,
+                    Height = 18,
+                    Foreground = isSelected ? new SolidColorBrush(Color.Parse("#3b82f6")) : new SolidColorBrush(Color.Parse("#9ca3af")),
+                    Margin = new Thickness(0, 0, 10, 0),
+                    VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center
+                };
+                Grid.SetColumn(folderIcon, 0);
+
+                var folderText = new TextBlock
+                {
+                    Text = folder,
+                    FontSize = 14,
+                    FontWeight = isSelected ? FontWeight.SemiBold : FontWeight.Normal,
+                    Foreground = isSelected ? Brushes.White : new SolidColorBrush(Color.Parse("#d1d5db")),
+                    TextTrimming = TextTrimming.CharacterEllipsis,
+                    VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center
+                };
+                Grid.SetColumn(folderText, 1);
+
+                var badgeBorder = new Border
+                {
+                    Background = new SolidColorBrush(Color.Parse("#282832")),
+                    CornerRadius = new CornerRadius(10),
+                    Padding = new Thickness(8, 2),
+                    VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center
+                };
+                var badgeText = new TextBlock
+                {
+                    Text = noteCount.ToString(),
+                    FontSize = 11,
+                    Foreground = new SolidColorBrush(Color.Parse("#9ca3af"))
+                };
+                badgeBorder.Child = badgeText;
+                Grid.SetColumn(badgeBorder, 2);
+
+                grid.Children.Add(folderIcon);
+                grid.Children.Add(folderText);
+                grid.Children.Add(badgeBorder);
+
+                btn.Content = grid;
+                btn.Click += (s, e) =>
+                {
+                    _selectedCategory = folder;
+                    if (LeftDrawerOverlay != null) LeftDrawerOverlay.IsVisible = false;
+                    RebuildCategoryChips();
+                    RebuildDrawerFolders();
+                    ApplyFilters();
+                };
+
+                DrawerFoldersPanel.Children.Add(btn);
+            }
         }
 
         private void ApplyFilters()
@@ -728,11 +971,13 @@ namespace QuickNote.Avalonia.Views
                 if (e.Request != null)
                 {
                     var url = e.Request.ToString();
+                    Console.WriteLine($"[MobileMainView] Auth NavigationStarting: {url}");
                     if (url.Contains("code=") || url.StartsWith("http://localhost", StringComparison.OrdinalIgnoreCase))
                     {
                         var code = ExtractQueryParam(url, "code");
                         if (!string.IsNullOrEmpty(code))
                         {
+                            Console.WriteLine($"[MobileMainView] Intercepted OAuth code in NavigationStarting: {code.Substring(0, Math.Min(code.Length, 10))}...");
                             e.Cancel = true;
                             GoogleDriveAuthModal.IsVisible = false;
                             _ = HandleAuthCodeAsync(code);
@@ -742,7 +987,7 @@ namespace QuickNote.Avalonia.Views
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[MobileMainView] Auth navigation starting error: {ex.Message}");
+                Console.WriteLine($"[MobileMainView] Auth navigation starting error: {ex.Message}");
             }
         }
 
@@ -753,11 +998,13 @@ namespace QuickNote.Avalonia.Views
                 if (e.Request != null)
                 {
                     var url = e.Request.ToString();
+                    Console.WriteLine($"[MobileMainView] Auth NavigationCompleted: {url} (Success: {e.IsSuccess})");
                     if (url.Contains("code="))
                     {
                         var code = ExtractQueryParam(url, "code");
                         if (!string.IsNullOrEmpty(code))
                         {
+                            Console.WriteLine($"[MobileMainView] Intercepted OAuth code in NavigationCompleted: {code.Substring(0, Math.Min(code.Length, 10))}...");
                             GoogleDriveAuthModal.IsVisible = false;
                             _ = HandleAuthCodeAsync(code);
                             return;
@@ -766,19 +1013,24 @@ namespace QuickNote.Avalonia.Views
                 }
 
                 var href = await AuthWebView.InvokeScript("window.location.href");
-                if (!string.IsNullOrEmpty(href) && href.Contains("code="))
+                if (!string.IsNullOrEmpty(href))
                 {
-                    var code = ExtractQueryParam(href, "code");
-                    if (!string.IsNullOrEmpty(code))
+                    Console.WriteLine($"[MobileMainView] Auth WebView window.location.href: {href}");
+                    if (href.Contains("code="))
                     {
-                        GoogleDriveAuthModal.IsVisible = false;
-                        _ = HandleAuthCodeAsync(code);
+                        var code = ExtractQueryParam(href, "code");
+                        if (!string.IsNullOrEmpty(code))
+                        {
+                            Console.WriteLine($"[MobileMainView] Intercepted OAuth code from JS href: {code.Substring(0, Math.Min(code.Length, 10))}...");
+                            GoogleDriveAuthModal.IsVisible = false;
+                            _ = HandleAuthCodeAsync(code);
+                        }
                     }
                 }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[MobileMainView] Auth navigation completed error: {ex.Message}");
+                Console.WriteLine($"[MobileMainView] Auth navigation completed error: {ex.Message}");
             }
         }
 
@@ -786,20 +1038,24 @@ namespace QuickNote.Avalonia.Views
         {
             try
             {
+                Console.WriteLine($"[MobileMainView] HandleAuthCodeAsync starting...");
                 var verifier = _pendingCodeVerifier;
                 _pendingCodeVerifier = null;
 
                 if (!string.IsNullOrEmpty(verifier) && _viewModel?.CloudSyncService != null)
                 {
-                    await _viewModel.CloudSyncService.CompleteSignInAsync(code, verifier);
+                    var success = await _viewModel.CloudSyncService.CompleteSignInAsync(code, verifier);
+                    Console.WriteLine($"[MobileMainView] CompleteSignInAsync result: {success}");
                     await _viewModel.Refresh();
                     UpdateModalAccountStatus();
+                    RebuildCategoryChips();
+                    RebuildDrawerFolders();
                     ApplyFilters();
                 }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[MobileMainView] HandleAuthCodeAsync error: {ex.Message}");
+                Console.WriteLine($"[MobileMainView] HandleAuthCodeAsync error: {ex.Message}\n{ex.StackTrace}");
             }
         }
 
@@ -807,9 +1063,13 @@ namespace QuickNote.Avalonia.Views
         {
             if (_viewModel?.CloudSyncService != null)
             {
-                await _viewModel.CloudSyncService.TriggerSyncAsync();
+                Console.WriteLine($"[MobileMainView] OnSyncNowClick triggered");
+                var result = await _viewModel.CloudSyncService.TriggerSyncAsync();
+                Console.WriteLine($"[MobileMainView] TriggerSyncAsync result: {result.Message}");
                 await _viewModel.Refresh();
                 UpdateModalAccountStatus();
+                RebuildCategoryChips();
+                RebuildDrawerFolders();
                 ApplyFilters();
             }
         }

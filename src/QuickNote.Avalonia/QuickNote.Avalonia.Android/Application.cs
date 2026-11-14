@@ -7,7 +7,11 @@ using Avalonia.Android;
 
 namespace QuickNote.Avalonia.Android
 {
-    [Application]
+    [Application(
+        Label = "QuickNote",
+        Icon = "@drawable/Icon",
+        UsesCleartextTraffic = true,
+        NetworkSecurityConfig = "@xml/network_security_config")]
     public class Application : AvaloniaAndroidApplication<App>
     {
         public Application(IntPtr handle, JniHandleOwnership transfer)

@@ -138,7 +138,7 @@ namespace QuickNote.Infrastructure.Cloud
                 parents = new[] { folderId },
                 mimeType = "text/markdown"
             };
-            var metaContent = new StringContent(JsonSerializer.Serialize(metadata), Encoding.UTF8, "application/json; charset=UTF-8");
+            var metaContent = new StringContent(JsonSerializer.Serialize(metadata), Encoding.UTF8, "application/json");
             multipartContent.Add(metaContent);
 
             // Part 2: File Body
