@@ -1,7 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Threading;
 using System.Threading.Tasks;
 using QuickNote.Core.Interfaces;
 using QuickNote.Core.Models;
@@ -14,7 +12,7 @@ namespace QuickNote.Infrastructure.Cloud
         private readonly ISettingsService _settingsService;
         private readonly INoteRepository _noteRepository;
         private readonly IFileWatcher _fileWatcher;
-        private readonly CloudSyncEngine _syncEngine;
+        private readonly GoogleCloudSyncEngine _syncEngine;
         private CloudSyncStatus _currentStatus = new();
 
         public event EventHandler<CloudSyncStatus>? SyncStatusChanged;
@@ -33,7 +31,7 @@ namespace QuickNote.Infrastructure.Cloud
             _noteRepository = noteRepository ?? throw new ArgumentNullException(nameof(noteRepository));
             _fileWatcher = fileWatcher ?? throw new ArgumentNullException(nameof(fileWatcher));
 
-            _syncEngine = new CloudSyncEngine(_noteRepository.NotesRoot, _settingsService);
+            _syncEngine = new GoogleCloudSyncEngine(_noteRepository.NotesRoot, _settingsService);
             _syncEngine.SyncStatusChanged += OnEngineSyncStatusChanged;
 
             RefreshStatus();
@@ -67,7 +65,7 @@ namespace QuickNote.Infrastructure.Cloud
         {
             if (!_syncEngine.IsAuthenticated)
             {
-                return SyncResult.Fail("Not signed in to OneDrive");
+                return SyncResult.Fail("Not signed in to Google Drive");
             }
             return await _syncEngine.PerformSyncAsync();
         }
@@ -79,7 +77,7 @@ namespace QuickNote.Infrastructure.Cloud
             {
                 accounts.Add(new OneDriveAccountInfo
                 {
-                    AccountName = _syncEngine.UserEmail ?? "Connected Microsoft Account",
+                    AccountName = _syncEngine.UserEmail ?? "Connected Google Account",
                     UserFolder = _noteRepository.NotesRoot,
                     IsBusiness = false
                 });
@@ -89,7 +87,7 @@ namespace QuickNote.Infrastructure.Cloud
 
         public async Task<bool> EnableOneDriveSyncAsync(OneDriveAccountInfo account, bool migrateExistingNotes, string currentNotesRoot)
         {
-            _settingsService.Settings.IsOneDriveSyncEnabled = true;
+            _settingsService.Settings.IsGoogleDriveSyncEnabled = true;
             await _settingsService.SaveSettingsAsync();
             RefreshStatus();
             return true;
@@ -116,7 +114,7 @@ namespace QuickNote.Infrastructure.Cloud
                 newStatus = new CloudSyncStatus
                 {
                     State = CloudSyncState.Disabled,
-                    Message = "OneDrive: Connect",
+                    Message = "Google Drive: Connect",
                     ActiveNotesPath = _noteRepository.NotesRoot,
                     AccountName = null
                 };
@@ -126,7 +124,7 @@ namespace QuickNote.Infrastructure.Cloud
                 newStatus = new CloudSyncStatus
                 {
                     State = CloudSyncState.Synced,
-                    Message = $"OneDrive: {_syncEngine.UserEmail ?? "Connected"}",
+                    Message = $"Google Drive: {_syncEngine.UserEmail ?? "Connected"}",
                     ActiveNotesPath = _noteRepository.NotesRoot,
                     AccountName = _syncEngine.UserEmail,
                     LastSyncTime = _syncEngine.LastSyncTime

@@ -9,30 +9,30 @@ using QuickNote.Core.Models;
 
 namespace QuickNote.Infrastructure.Cloud
 {
-    public class CloudSyncEngine
+    public class GoogleCloudSyncEngine
     {
         private readonly string _notesRoot;
         private readonly ISettingsService _settingsService;
         private readonly SyncManifestManager _manifestManager;
-        private readonly OneDriveAuthService _authService;
-        private OneDriveApiClient? _apiClient;
+        private readonly GoogleDriveAuthService _authService;
+        private GoogleDriveApiClient? _apiClient;
         private string? _cachedAccessToken;
         private DateTime _tokenExpiry = DateTime.MinValue;
         private readonly SemaphoreSlim _syncLock = new(1, 1);
 
         public event EventHandler<CloudSyncStatus>? SyncStatusChanged;
 
-        public bool IsAuthenticated => !string.IsNullOrWhiteSpace(_settingsService.Settings.OneDriveRefreshToken);
-        public string? UserEmail => _settingsService.Settings.OneDriveUserEmail;
-        public string? UserName => _settingsService.Settings.OneDriveUserName;
-        public DateTime? LastSyncTime => _settingsService.Settings.LastCloudSyncTime;
+        public bool IsAuthenticated => !string.IsNullOrWhiteSpace(_settingsService.Settings.GoogleDriveRefreshToken);
+        public string? UserEmail => _settingsService.Settings.GoogleDriveUserEmail;
+        public string? UserName => _settingsService.Settings.GoogleDriveUserName;
+        public DateTime? LastSyncTime => _settingsService.Settings.LastGoogleDriveSyncTime;
 
-        public CloudSyncEngine(string notesRoot, ISettingsService settingsService)
+        public GoogleCloudSyncEngine(string notesRoot, ISettingsService settingsService)
         {
             _notesRoot = notesRoot;
             _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
             _manifestManager = new SyncManifestManager(notesRoot);
-            _authService = new OneDriveAuthService();
+            _authService = new GoogleDriveAuthService();
 
             if (IsAuthenticated)
             {
@@ -42,14 +42,14 @@ namespace QuickNote.Infrastructure.Cloud
 
         private void InitializeApiClient()
         {
-            _apiClient = new OneDriveApiClient(GetOrRefreshAccessTokenAsync);
+            _apiClient = new GoogleDriveApiClient(GetOrRefreshAccessTokenAsync);
         }
 
         public string GetAuthorizationUrl(out string codeVerifier)
         {
-            var clientId = !string.IsNullOrWhiteSpace(_settingsService.Settings.OneDriveClientId)
-                ? _settingsService.Settings.OneDriveClientId
-                : OneDriveAuthService.DefaultClientId;
+            var clientId = !string.IsNullOrWhiteSpace(_settingsService.Settings.GoogleDriveClientId)
+                ? _settingsService.Settings.GoogleDriveClientId
+                : GoogleDriveAuthService.DefaultClientId;
 
             return _authService.BuildAuthorizationUrl(clientId, out codeVerifier);
         }
@@ -58,24 +58,30 @@ namespace QuickNote.Infrastructure.Cloud
         {
             try
             {
-                var clientId = !string.IsNullOrWhiteSpace(_settingsService.Settings.OneDriveClientId)
-                    ? _settingsService.Settings.OneDriveClientId
-                    : OneDriveAuthService.DefaultClientId;
+                var clientId = !string.IsNullOrWhiteSpace(_settingsService.Settings.GoogleDriveClientId)
+                    ? _settingsService.Settings.GoogleDriveClientId
+                    : GoogleDriveAuthService.DefaultClientId;
+                var clientSecret = !string.IsNullOrWhiteSpace(_settingsService.Settings.GoogleDriveClientSecret)
+                    ? _settingsService.Settings.GoogleDriveClientSecret
+                    : GoogleDriveAuthService.DefaultClientSecret;
 
-                var tokenResponse = await _authService.ExchangeCodeForTokenAsync(clientId, code, codeVerifier);
+                var tokenResponse = await _authService.ExchangeCodeForTokenAsync(clientId, clientSecret, code, codeVerifier);
                 _cachedAccessToken = tokenResponse.AccessToken;
                 _tokenExpiry = DateTime.UtcNow.AddSeconds(tokenResponse.ExpiresIn - 60);
 
-                _settingsService.Settings.OneDriveRefreshToken = tokenResponse.RefreshToken;
-                _settingsService.Settings.IsOneDriveSyncEnabled = true;
+                if (!string.IsNullOrWhiteSpace(tokenResponse.RefreshToken))
+                {
+                    _settingsService.Settings.GoogleDriveRefreshToken = tokenResponse.RefreshToken;
+                }
+                _settingsService.Settings.IsGoogleDriveSyncEnabled = true;
 
                 // Fetch user profile
                 var profile = await _authService.GetUserProfileAsync(tokenResponse.AccessToken);
                 if (profile != null)
                 {
-                    _settingsService.Settings.OneDriveUserEmail = profile.EffectiveEmail;
-                    _settingsService.Settings.OneDriveUserName = profile.DisplayName;
-                    _settingsService.Settings.SelectedOneDriveAccountName = profile.DisplayName;
+                    _settingsService.Settings.GoogleDriveUserEmail = profile.Email;
+                    _settingsService.Settings.GoogleDriveUserName = profile.Name;
+                    _settingsService.Settings.SelectedGoogleAccountName = profile.Name;
                 }
 
                 await _settingsService.SaveSettingsAsync();
@@ -89,18 +95,18 @@ namespace QuickNote.Infrastructure.Cloud
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[CloudSyncEngine] Sign-in error: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"[GoogleCloudSyncEngine] Sign-in error: {ex.Message}");
                 throw;
             }
         }
 
         public async Task SignOutAsync()
         {
-            _settingsService.Settings.OneDriveRefreshToken = null;
-            _settingsService.Settings.OneDriveUserEmail = null;
-            _settingsService.Settings.OneDriveUserName = null;
-            _settingsService.Settings.OneDriveFolderId = null;
-            _settingsService.Settings.IsOneDriveSyncEnabled = false;
+            _settingsService.Settings.GoogleDriveRefreshToken = null;
+            _settingsService.Settings.GoogleDriveUserEmail = null;
+            _settingsService.Settings.GoogleDriveUserName = null;
+            _settingsService.Settings.GoogleDriveFolderId = null;
+            _settingsService.Settings.IsGoogleDriveSyncEnabled = false;
             await _settingsService.SaveSettingsAsync();
 
             _cachedAccessToken = null;
@@ -110,7 +116,7 @@ namespace QuickNote.Infrastructure.Cloud
             SyncStatusChanged?.Invoke(this, new CloudSyncStatus
             {
                 State = CloudSyncState.Disabled,
-                Message = "OneDrive disconnected"
+                Message = "Google Drive: Disconnected"
             });
         }
 
@@ -121,23 +127,26 @@ namespace QuickNote.Infrastructure.Cloud
                 return _cachedAccessToken;
             }
 
-            var refreshToken = _settingsService.Settings.OneDriveRefreshToken;
+            var refreshToken = _settingsService.Settings.GoogleDriveRefreshToken;
             if (string.IsNullOrWhiteSpace(refreshToken))
             {
-                throw new Exception("Not authenticated with Microsoft account");
+                throw new Exception("Not authenticated with Google account");
             }
 
-            var clientId = !string.IsNullOrWhiteSpace(_settingsService.Settings.OneDriveClientId)
-                ? _settingsService.Settings.OneDriveClientId
-                : OneDriveAuthService.DefaultClientId;
+            var clientId = !string.IsNullOrWhiteSpace(_settingsService.Settings.GoogleDriveClientId)
+                ? _settingsService.Settings.GoogleDriveClientId
+                : GoogleDriveAuthService.DefaultClientId;
+            var clientSecret = !string.IsNullOrWhiteSpace(_settingsService.Settings.GoogleDriveClientSecret)
+                ? _settingsService.Settings.GoogleDriveClientSecret
+                : GoogleDriveAuthService.DefaultClientSecret;
 
-            var refreshed = await _authService.RefreshTokenAsync(clientId, refreshToken);
+            var refreshed = await _authService.RefreshTokenAsync(clientId, clientSecret, refreshToken);
             _cachedAccessToken = refreshed.AccessToken;
             _tokenExpiry = DateTime.UtcNow.AddSeconds(refreshed.ExpiresIn - 60);
 
             if (!string.IsNullOrWhiteSpace(refreshed.RefreshToken))
             {
-                _settingsService.Settings.OneDriveRefreshToken = refreshed.RefreshToken;
+                _settingsService.Settings.GoogleDriveRefreshToken = refreshed.RefreshToken;
                 await _settingsService.SaveSettingsAsync();
             }
 
@@ -148,7 +157,7 @@ namespace QuickNote.Infrastructure.Cloud
         {
             if (!IsAuthenticated)
             {
-                return SyncResult.Fail("Not signed in to OneDrive");
+                return SyncResult.Fail("Not signed in to Google Drive");
             }
 
             if (!await _syncLock.WaitAsync(100))
@@ -165,7 +174,7 @@ namespace QuickNote.Infrastructure.Cloud
                 SyncStatusChanged?.Invoke(this, new CloudSyncStatus
                 {
                     State = CloudSyncState.Syncing,
-                    Message = "Syncing with OneDrive...",
+                    Message = "Syncing with Google Drive...",
                     AccountName = UserEmail ?? "Connected"
                 });
 
@@ -174,19 +183,19 @@ namespace QuickNote.Infrastructure.Cloud
                     InitializeApiClient();
                 }
 
-                // 1. Ensure QuickNote folder exists in OneDrive
-                var folder = await _apiClient!.EnsureQuickNoteFolderAsync();
-                _settingsService.Settings.OneDriveFolderId = folder.Id;
+                // 1. Ensure QuickNote folder exists in Google Drive
+                var folderId = await _apiClient!.EnsureQuickNoteFolderAsync();
+                _settingsService.Settings.GoogleDriveFolderId = folderId;
 
                 // 2. Load sync manifest
                 var manifest = await _manifestManager.LoadManifestAsync();
-                manifest.QuickNoteFolderId = folder.Id;
+                manifest.QuickNoteFolderId = folderId;
 
                 // 3. Scan local files for new / modified notes
                 _manifestManager.ScanLocalChanges(_notesRoot);
 
-                // 4. List remote items in OneDrive QuickNote folder
-                var remoteItems = await _apiClient.ListFolderItemsAsync(folder.Id);
+                // 4. List remote items in Google Drive QuickNote folder
+                var remoteItems = await _apiClient.ListFolderNotesAsync(folderId);
                 var remoteFileMap = remoteItems
                     .Where(i => !i.IsFolder && i.Name.EndsWith(".md", StringComparison.OrdinalIgnoreCase))
                     .ToDictionary(i => i.Name, i => i, StringComparer.OrdinalIgnoreCase);
@@ -203,19 +212,19 @@ namespace QuickNote.Infrastructure.Cloud
                         // One-time fetch: file is on cloud, not local -> Download it
                         try
                         {
-                            var content = await _apiClient.DownloadFileContentAsync(remote.Id);
+                            var content = await _apiClient.DownloadNoteTextAsync(remote.Id);
                             var dir = Path.GetDirectoryName(localFullPath);
                             if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
                             await File.WriteAllTextAsync(localFullPath, content);
-                            File.SetLastWriteTimeUtc(localFullPath, remote.LastModifiedDateTime.UtcDateTime);
+                            File.SetLastWriteTimeUtc(localFullPath, remote.ModifiedTime.UtcDateTime);
 
                             var hash = SyncManifestManager.ComputeFileHash(localFullPath);
-                            _manifestManager.RecordSuccessfulDownload(relPath, remote.Id, remote.ETag, remote.LastModifiedDateTime.UtcDateTime, hash, remote.LastModifiedDateTime.UtcDateTime);
+                            _manifestManager.RecordSuccessfulDownload(relPath, remote.Id, remote.Md5Checksum ?? string.Empty, remote.ModifiedTime.UtcDateTime, hash, remote.ModifiedTime.UtcDateTime);
                             downloaded++;
                         }
                         catch (Exception dlEx)
                         {
-                            System.Diagnostics.Debug.WriteLine($"[CloudSyncEngine] Failed downloading {relPath}: {dlEx.Message}");
+                            System.Diagnostics.Debug.WriteLine($"[GoogleCloudSyncEngine] Failed downloading {relPath}: {dlEx.Message}");
                         }
                     }
                     else
@@ -223,29 +232,31 @@ namespace QuickNote.Infrastructure.Cloud
                         // File exists both locally and remotely
                         manifest.Entries.TryGetValue(relPath, out var entry);
                         bool localModified = entry?.Status == SyncStatus.PendingUpload;
-                        bool remoteModified = entry == null || !string.Equals(entry.RemoteETag, remote.ETag, StringComparison.OrdinalIgnoreCase);
+                        var localHash = SyncManifestManager.ComputeFileHash(localFullPath);
+                        bool remoteModified = entry == null ||
+                            (!string.IsNullOrEmpty(remote.Md5Checksum) && !string.Equals(entry.RemoteETag, remote.Md5Checksum, StringComparison.OrdinalIgnoreCase)) ||
+                            remote.ModifiedTime.UtcDateTime > entry.RemoteLastModified.AddSeconds(2);
 
-                        if (localModified && remoteModified)
+                        if (localModified && remoteModified && !string.Equals(localHash, entry?.LocalHash, StringComparison.OrdinalIgnoreCase))
                         {
                             // Both modified! Safe conflict resolution: save remote copy as conflict file, keep local
                             try
                             {
-                                var remoteContent = await _apiClient.DownloadFileContentAsync(remote.Id);
-                                SyncManifestManager.CreateConflictCopy(localFullPath, remoteContent, remote.LastModifiedDateTime.UtcDateTime);
+                                var remoteContent = await _apiClient.DownloadNoteTextAsync(remote.Id);
+                                SyncManifestManager.CreateConflictCopy(localFullPath, remoteContent, remote.ModifiedTime.UtcDateTime);
                                 conflicts++;
 
                                 // Now upload our local version to replace the primary file
                                 var localContent = await File.ReadAllTextAsync(localFullPath);
-                                var updatedRemote = await _apiClient.UploadFileContentAsync(folder.Id, remote.Name, localContent);
-                                var localHash = SyncManifestManager.ComputeFileHash(localFullPath);
+                                var updatedRemote = await _apiClient.UpdateExistingNoteAsync(remote.Id, localContent);
                                 var localModTime = File.GetLastWriteTimeUtc(localFullPath);
 
-                                _manifestManager.RecordSuccessfulUpload(relPath, updatedRemote.Id, updatedRemote.ETag, updatedRemote.LastModifiedDateTime.UtcDateTime, localHash, localModTime);
+                                _manifestManager.RecordSuccessfulUpload(relPath, updatedRemote.Id, updatedRemote.Md5Checksum ?? string.Empty, updatedRemote.ModifiedTime.UtcDateTime, localHash, localModTime);
                                 uploaded++;
                             }
                             catch (Exception cEx)
                             {
-                                System.Diagnostics.Debug.WriteLine($"[CloudSyncEngine] Conflict handling error for {relPath}: {cEx.Message}");
+                                System.Diagnostics.Debug.WriteLine($"[GoogleCloudSyncEngine] Conflict handling error for {relPath}: {cEx.Message}");
                             }
                         }
                         else if (localModified)
@@ -254,34 +265,33 @@ namespace QuickNote.Infrastructure.Cloud
                             try
                             {
                                 var localContent = await File.ReadAllTextAsync(localFullPath);
-                                var updatedRemote = await _apiClient.UploadFileContentAsync(folder.Id, remote.Name, localContent);
-                                var localHash = SyncManifestManager.ComputeFileHash(localFullPath);
+                                var updatedRemote = await _apiClient.UpdateExistingNoteAsync(remote.Id, localContent);
                                 var localModTime = File.GetLastWriteTimeUtc(localFullPath);
 
-                                _manifestManager.RecordSuccessfulUpload(relPath, updatedRemote.Id, updatedRemote.ETag, updatedRemote.LastModifiedDateTime.UtcDateTime, localHash, localModTime);
+                                _manifestManager.RecordSuccessfulUpload(relPath, updatedRemote.Id, updatedRemote.Md5Checksum ?? string.Empty, updatedRemote.ModifiedTime.UtcDateTime, localHash, localModTime);
                                 uploaded++;
                             }
                             catch (Exception upEx)
                             {
-                                System.Diagnostics.Debug.WriteLine($"[CloudSyncEngine] Upload error for {relPath}: {upEx.Message}");
+                                System.Diagnostics.Debug.WriteLine($"[GoogleCloudSyncEngine] Upload error for {relPath}: {upEx.Message}");
                             }
                         }
                         else if (remoteModified)
                         {
-                            // Remote edited on PC or elsewhere -> Download to phone
+                            // Remote edited on another device -> Download to phone
                             try
                             {
-                                var content = await _apiClient.DownloadFileContentAsync(remote.Id);
+                                var content = await _apiClient.DownloadNoteTextAsync(remote.Id);
                                 await File.WriteAllTextAsync(localFullPath, content);
-                                File.SetLastWriteTimeUtc(localFullPath, remote.LastModifiedDateTime.UtcDateTime);
+                                File.SetLastWriteTimeUtc(localFullPath, remote.ModifiedTime.UtcDateTime);
 
-                                var hash = SyncManifestManager.ComputeFileHash(localFullPath);
-                                _manifestManager.RecordSuccessfulDownload(relPath, remote.Id, remote.ETag, remote.LastModifiedDateTime.UtcDateTime, hash, remote.LastModifiedDateTime.UtcDateTime);
+                                var newHash = SyncManifestManager.ComputeFileHash(localFullPath);
+                                _manifestManager.RecordSuccessfulDownload(relPath, remote.Id, remote.Md5Checksum ?? string.Empty, remote.ModifiedTime.UtcDateTime, newHash, remote.ModifiedTime.UtcDateTime);
                                 downloaded++;
                             }
                             catch (Exception dlEx)
                             {
-                                System.Diagnostics.Debug.WriteLine($"[CloudSyncEngine] Download error for {relPath}: {dlEx.Message}");
+                                System.Diagnostics.Debug.WriteLine($"[GoogleCloudSyncEngine] Download error for {relPath}: {dlEx.Message}");
                             }
                         }
                     }
@@ -299,16 +309,16 @@ namespace QuickNote.Infrastructure.Cloud
                             {
                                 var fileName = Path.GetFileName(entry.RelativePath);
                                 var localContent = await File.ReadAllTextAsync(localFullPath);
-                                var createdRemote = await _apiClient.UploadFileContentAsync(folder.Id, fileName, localContent);
+                                var createdRemote = await _apiClient.UploadNewNoteAsync(folderId, fileName, localContent);
                                 var localHash = SyncManifestManager.ComputeFileHash(localFullPath);
                                 var localModTime = File.GetLastWriteTimeUtc(localFullPath);
 
-                                _manifestManager.RecordSuccessfulUpload(entry.RelativePath, createdRemote.Id, createdRemote.ETag, createdRemote.LastModifiedDateTime.UtcDateTime, localHash, localModTime);
+                                _manifestManager.RecordSuccessfulUpload(entry.RelativePath, createdRemote.Id, createdRemote.Md5Checksum ?? string.Empty, createdRemote.ModifiedTime.UtcDateTime, localHash, localModTime);
                                 uploaded++;
                             }
                             catch (Exception upEx)
                             {
-                                System.Diagnostics.Debug.WriteLine($"[CloudSyncEngine] Upload error for new note {entry.RelativePath}: {upEx.Message}");
+                                System.Diagnostics.Debug.WriteLine($"[GoogleCloudSyncEngine] Upload error for new note {entry.RelativePath}: {upEx.Message}");
                             }
                         }
                     }
@@ -317,10 +327,10 @@ namespace QuickNote.Infrastructure.Cloud
                 // 7. Save updated manifest and settings
                 await _manifestManager.SaveManifestAsync();
 
-                _settingsService.Settings.LastCloudSyncTime = DateTime.UtcNow;
+                _settingsService.Settings.LastGoogleDriveSyncTime = DateTime.UtcNow;
                 await _settingsService.SaveSettingsAsync();
 
-                var statusMessage = $"OneDrive Synced (↑{uploaded} ↓{downloaded}{(conflicts > 0 ? $" ⚠️{conflicts}" : "")})";
+                var statusMessage = $"Google Drive Synced (↑{uploaded} ↓{downloaded}{(conflicts > 0 ? $" ⚠️{conflicts}" : "")})";
                 SyncStatusChanged?.Invoke(this, new CloudSyncStatus
                 {
                     State = CloudSyncState.Synced,
@@ -333,7 +343,7 @@ namespace QuickNote.Infrastructure.Cloud
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[CloudSyncEngine] Sync error: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"[GoogleCloudSyncEngine] Sync error: {ex.Message}");
                 SyncStatusChanged?.Invoke(this, new CloudSyncStatus
                 {
                     State = CloudSyncState.Error,

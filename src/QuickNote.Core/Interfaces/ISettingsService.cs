@@ -17,6 +17,15 @@ namespace QuickNote.Core.Interfaces
         public string? OneDriveFolderId { get; set; }
         public string? OneDriveClientId { get; set; }
         public System.DateTime? LastCloudSyncTime { get; set; }
+        public bool IsGoogleDriveSyncEnabled { get; set; }
+        public string? GoogleDriveRefreshToken { get; set; }
+        public string? GoogleDriveUserEmail { get; set; }
+        public string? GoogleDriveUserName { get; set; }
+        public string? GoogleDriveFolderId { get; set; }
+        public string? GoogleDriveClientId { get; set; }
+        public string? GoogleDriveClientSecret { get; set; }
+        public string? SelectedGoogleAccountName { get; set; }
+        public System.DateTime? LastGoogleDriveSyncTime { get; set; }
         public bool IsSpellCheckEnabled { get; set; } = true;
         public System.Collections.Generic.List<string> IgnoredWords { get; set; } = new();
 

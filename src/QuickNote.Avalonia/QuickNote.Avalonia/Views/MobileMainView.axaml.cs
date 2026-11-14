@@ -101,10 +101,10 @@ namespace QuickNote.Avalonia.Views
             }
         }
 
-        public string CloudSyncStatusText => _viewModel?.CloudSyncStatusText ?? "OneDrive: Connect";
+        public string CloudSyncStatusText => _viewModel?.CloudSyncStatusText ?? "Google Drive: Connect";
         public string ConnectedAccountEmail => _viewModel?.CloudSyncService?.UserEmail ?? "Not connected";
         public string LastSyncTimeText => _viewModel?.CloudSyncService?.LastSyncTime?.ToString("MMM d, h:mm tt") ?? "Never";
-        public bool IsSignedInToOneDrive => _viewModel?.CloudSyncService?.IsAuthenticated == true;
+        public bool IsSignedInToGoogle => _viewModel?.CloudSyncService?.IsAuthenticated == true;
 
         public string NoteCountStatus => $"{FilteredNotes.Count} note{(FilteredNotes.Count == 1 ? "" : "s")}";
 
@@ -115,7 +115,7 @@ namespace QuickNote.Avalonia.Views
             InitializeComponent();
             NotesFeedScreen.DataContext = this;
             NoteEditorScreen.DataContext = this;
-            OneDriveAccountModal.DataContext = this;
+            GoogleDriveAccountModal.DataContext = this;
             if (AuthWebView != null)
             {
                 AuthWebView.NavigationCompleted += OnAuthWebViewNavigationCompleted;
@@ -136,7 +136,7 @@ namespace QuickNote.Avalonia.Views
 
             NotesFeedScreen.DataContext = this;
             NoteEditorScreen.DataContext = this;
-            OneDriveAccountModal.DataContext = this;
+            GoogleDriveAccountModal.DataContext = this;
 
             if (_viewModel != null)
             {
@@ -451,21 +451,21 @@ namespace QuickNote.Avalonia.Views
             }
         }
 
-        // ── OneDrive Cloud Sync Modals ────────────────────────────────────
+        // ── Google Drive Cloud Sync Modals ────────────────────────────────
         private string? _pendingCodeVerifier;
 
         public void OnCloudSyncBadgeTapped(object? sender, TappedEventArgs e)
         {
             UpdateModalAccountStatus();
-            OneDriveAccountModal.IsVisible = true;
+            GoogleDriveAccountModal.IsVisible = true;
         }
 
         private void UpdateModalAccountStatus()
         {
-            bool signedIn = IsSignedInToOneDrive;
-            BtnConnectOneDrive.IsVisible = !signedIn;
+            bool signedIn = IsSignedInToGoogle;
+            BtnConnectGoogle.IsVisible = !signedIn;
             BtnSyncNow.IsVisible = signedIn;
-            BtnDisconnectOneDrive.IsVisible = signedIn;
+            BtnDisconnectGoogle.IsVisible = signedIn;
             OnPropertyChanged(nameof(ConnectedAccountEmail));
             OnPropertyChanged(nameof(LastSyncTimeText));
             OnPropertyChanged(nameof(CloudSyncStatusText));
@@ -473,25 +473,25 @@ namespace QuickNote.Avalonia.Views
 
         private void OnCloseAccountModalClick(object? sender, RoutedEventArgs e)
         {
-            OneDriveAccountModal.IsVisible = false;
+            GoogleDriveAccountModal.IsVisible = false;
         }
 
-        private void OnConnectOneDriveClick(object? sender, RoutedEventArgs e)
+        private void OnConnectGoogleClick(object? sender, RoutedEventArgs e)
         {
             if (_viewModel?.CloudSyncService == null) return;
 
-            OneDriveAccountModal.IsVisible = false;
+            GoogleDriveAccountModal.IsVisible = false;
             var url = _viewModel.CloudSyncService.GetAuthorizationUrl(out _pendingCodeVerifier);
             if (!string.IsNullOrEmpty(url))
             {
-                OneDriveAuthModal.IsVisible = true;
+                GoogleDriveAuthModal.IsVisible = true;
                 AuthWebView.Navigate(new Uri(url));
             }
         }
 
         private void OnCloseAuthModalClick(object? sender, RoutedEventArgs e)
         {
-            OneDriveAuthModal.IsVisible = false;
+            GoogleDriveAuthModal.IsVisible = false;
         }
 
         private async void OnAuthWebViewNavigationCompleted(object? sender, WebViewNavigationCompletedEventArgs e)
@@ -504,7 +504,7 @@ namespace QuickNote.Avalonia.Views
                     var code = ExtractQueryParam(href, "code");
                     if (!string.IsNullOrEmpty(code) && !string.IsNullOrEmpty(_pendingCodeVerifier) && _viewModel?.CloudSyncService != null)
                     {
-                        OneDriveAuthModal.IsVisible = false;
+                        GoogleDriveAuthModal.IsVisible = false;
                         await _viewModel.CloudSyncService.CompleteSignInAsync(code, _pendingCodeVerifier);
                         await _viewModel.Refresh();
                         UpdateModalAccountStatus();
@@ -520,7 +520,7 @@ namespace QuickNote.Avalonia.Views
 
         private async void OnSyncNowClick(object? sender, RoutedEventArgs e)
         {
-            OneDriveAccountModal.IsVisible = false;
+            GoogleDriveAccountModal.IsVisible = false;
             if (_viewModel?.CloudSyncService != null)
             {
                 await _viewModel.CloudSyncService.TriggerSyncAsync();
@@ -531,9 +531,9 @@ namespace QuickNote.Avalonia.Views
             }
         }
 
-        private async void OnDisconnectOneDriveClick(object? sender, RoutedEventArgs e)
+        private async void OnDisconnectGoogleClick(object? sender, RoutedEventArgs e)
         {
-            OneDriveAccountModal.IsVisible = false;
+            GoogleDriveAccountModal.IsVisible = false;
             if (_viewModel?.CloudSyncService != null)
             {
                 await _viewModel.CloudSyncService.SignOutAsync();

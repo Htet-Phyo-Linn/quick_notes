@@ -281,7 +281,7 @@ namespace QuickNote.Avalonia.ViewModels
                 _                      => "Disabled"
             };
 
-            CloudSyncStatusText = $"OneDrive: {stateStr}";
+            CloudSyncStatusText = !string.IsNullOrWhiteSpace(status.Message) ? status.Message : $"Sync: {stateStr}";
             CloudSyncTooltip    = $"Account: {status.AccountName ?? "Connected"}\n"
                                  + $"Status: {status.Message}\n"
                                  + $"Folder: {status.ActiveNotesPath ?? _notesRoot}";

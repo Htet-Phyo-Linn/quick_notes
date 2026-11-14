@@ -281,8 +281,8 @@
             </Border>
         </Grid>
 
-        <!-- MODAL 1: ONEDRIVE ACCOUNT & SYNC DETAILS -->
-        <Grid x:Name="OneDriveAccountModal" Background="#a0000000" IsVisible="False">
+        <!-- MODAL 1: GOOGLE DRIVE ACCOUNT & SYNC DETAILS -->
+        <Grid x:Name="GoogleDriveAccountModal" Background="#a0000000" IsVisible="False">
             <Border HorizontalAlignment="Center" VerticalAlignment="Center"
                     Background="#1c1c22" BorderBrush="#2f2f3a" BorderThickness="1"
                     CornerRadius="18" Padding="20" Width="340">
@@ -291,7 +291,7 @@
                     <Grid ColumnDefinitions="*,Auto">
                         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                             <PathIcon Data="{StaticResource IconCloud}" Width="20" Height="20" Foreground="#3b82f6" />
-                            <TextBlock Text="OneDrive Cloud Sync" FontSize="16" FontWeight="Bold" Foreground="#ffffff" VerticalAlignment="Center" />
+                            <TextBlock Text="Google Drive Cloud Sync" FontSize="16" FontWeight="Bold" Foreground="#ffffff" VerticalAlignment="Center" />
                         </StackPanel>
                         <Button Grid.Column="1" Click="OnCloseAccountModalClick" Background="Transparent" Foreground="#9ca3af" Padding="4">
                             <PathIcon Data="{StaticResource IconClose}" Width="16" Height="16" />
@@ -319,12 +319,12 @@
                     <!-- Actions -->
                     <StackPanel Spacing="10">
                         <!-- If Not Connected -->
-                        <Button x:Name="BtnConnectOneDrive" Click="OnConnectOneDriveClick"
+                        <Button x:Name="BtnConnectGoogle" Click="OnConnectGoogleClick"
                                 Background="#2563eb" Foreground="White" FontWeight="SemiBold"
                                 CornerRadius="10" Height="42" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <PathIcon Data="{StaticResource IconCloud}" Width="16" Height="16" Foreground="White" />
-                                <TextBlock Text="Sign in with Microsoft" VerticalAlignment="Center" />
+                                <TextBlock Text="Sign in with Google" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
 
@@ -334,11 +334,11 @@
                                 CornerRadius="10" Height="42" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <PathIcon Data="{StaticResource IconSync}" Width="15" Height="15" Foreground="White" />
-                                <TextBlock Text="Sync with Cloud Now" VerticalAlignment="Center" />
+                                <TextBlock Text="Sync with Google Drive Now" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
 
-                        <Button x:Name="BtnDisconnectOneDrive" Click="OnDisconnectOneDriveClick"
+                        <Button x:Name="BtnDisconnectGoogle" Click="OnDisconnectGoogleClick"
                                 Background="Transparent" BorderBrush="#3f3f46" BorderThickness="1"
                                 Foreground="#ef4444" CornerRadius="10" Height="38"
                                 HorizontalAlignment="Stretch" HorizontalContentAlignment="Center">
@@ -349,14 +349,14 @@
             </Border>
         </Grid>
 
-        <!-- MODAL 2: IN-APP MICROSOFT LOGIN WEBVIEW -->
-        <Grid x:Name="OneDriveAuthModal" RowDefinitions="Auto,*" Background="#121214" IsVisible="False">
+        <!-- MODAL 2: IN-APP GOOGLE LOGIN WEBVIEW -->
+        <Grid x:Name="GoogleDriveAuthModal" RowDefinitions="Auto,*" Background="#121214" IsVisible="False">
             <!-- Header with Safe Padding -->
             <Border Grid.Row="0" Background="#18181a" BorderBrush="#26262a" BorderThickness="0,0,0,1" Padding="16,36,16,12">
                 <Grid ColumnDefinitions="*,Auto">
                     <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                         <PathIcon Data="{StaticResource IconCloud}" Width="18" Height="18" Foreground="#3b82f6" />
-                        <TextBlock Text="Sign in to Microsoft" FontSize="16" FontWeight="Bold" Foreground="#ffffff" VerticalAlignment="Center" />
+                        <TextBlock Text="Sign in to Google" FontSize="16" FontWeight="Bold" Foreground="#ffffff" VerticalAlignment="Center" />
                     </StackPanel>
                     <Button Grid.Column="1" Click="OnCloseAuthModalClick" Background="Transparent" Foreground="#9ca3af" Padding="6">
                         <PathIcon Data="{StaticResource IconClose}" Width="18" Height="18" />
@@ -364,7 +364,7 @@
                 </Grid>
             </Border>
 
-            <!-- Microsoft Login WebView -->
+            <!-- Google Login WebView -->
             <controls:NativeWebView x:Name="AuthWebView" Grid.Row="1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
         </Grid>
     </Grid>
