@@ -16,7 +16,13 @@ using QuickNote.Core.Models;
 
 namespace QuickNote.Avalonia.Views
 {
-    public record KeepColor(string Name, string Background, string Border, string Accent, string Text);
+    public record KeepColor(string Name, string Background, string Border, string Accent, string Text)
+    {
+        public IBrush BackgroundBrush { get; } = new SolidColorBrush(Color.Parse(Background));
+        public IBrush BorderBrush { get; } = new SolidColorBrush(Color.Parse(Border));
+        public IBrush AccentBrush { get; } = new SolidColorBrush(Color.Parse(Accent));
+        public IBrush TextBrush { get; } = new SolidColorBrush(Color.Parse(Text));
+    }
 
     public static class KeepPalette
     {
@@ -52,6 +58,13 @@ namespace QuickNote.Avalonia.Views
 
     public class MobileNoteItem : INotifyPropertyChanged
     {
+        private static readonly IBrush SelectedBorderBrush = new SolidColorBrush(Color.Parse("#3b82f6"));
+        private static readonly IBrush SelectedCheckBgBrush = new SolidColorBrush(Color.Parse("#2563eb"));
+        private static readonly IBrush SelectedCheckBorderBrushConst = new SolidColorBrush(Color.Parse("#3b82f6"));
+        private static readonly IBrush UnselectedCheckBorderBrushConst = new SolidColorBrush(Color.Parse("#6b7280"));
+        private static readonly Thickness SelectedBorderThicknessValue = new Thickness(2);
+        private static readonly Thickness NormalBorderThicknessValue = new Thickness(1);
+
         public NoteDocument Note { get; }
         private readonly KeepColor _color;
 
@@ -59,10 +72,10 @@ namespace QuickNote.Avalonia.Views
         {
             Note = note;
             _color = ResolveColor(note);
-            CardBackground = new SolidColorBrush(Color.Parse(_color.Background));
-            CardBorderBrush = new SolidColorBrush(Color.Parse(_color.Border));
-            CardAccentBrush = new SolidColorBrush(Color.Parse(_color.Accent));
-            CardTextBrush = new SolidColorBrush(Color.Parse(_color.Text));
+            CardBackground = _color.BackgroundBrush;
+            CardBorderBrush = _color.BorderBrush;
+            CardAccentBrush = _color.AccentBrush;
+            CardTextBrush = _color.TextBrush;
         }
 
         private static KeepColor ResolveColor(NoteDocument note)
@@ -171,20 +184,20 @@ namespace QuickNote.Avalonia.Views
         }
 
         public IBrush EffectiveBorderBrush => IsSelected
-            ? new SolidColorBrush(Color.Parse("#3b82f6"))
+            ? SelectedBorderBrush
             : CardBorderBrush;
 
         public Thickness EffectiveBorderThickness => IsSelected
-            ? new Thickness(2)
-            : new Thickness(1);
+            ? SelectedBorderThicknessValue
+            : NormalBorderThicknessValue;
 
         public IBrush SelectionCheckBackground => IsSelected
-            ? new SolidColorBrush(Color.Parse("#2563eb"))
+            ? SelectedCheckBgBrush
             : Brushes.Transparent;
 
         public IBrush SelectionCheckBorderBrush => IsSelected
-            ? new SolidColorBrush(Color.Parse("#3b82f6"))
-            : new SolidColorBrush(Color.Parse("#6b7280"));
+            ? SelectedCheckBorderBrushConst
+            : UnselectedCheckBorderBrushConst;
 
         public event PropertyChangedEventHandler? PropertyChanged;
         public void Refresh() => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(null));
@@ -1126,11 +1139,8 @@ namespace QuickNote.Avalonia.Views
         private async void OnConfirmNewFolderClick(object? sender, RoutedEventArgs e)
         {
             var folderName = NewFolderNameTextBox?.Text?.Trim();
-            if (string.IsNullOrWhiteSpace(folderName))
-            {
-                if (NewFolderModal != null) NewFolderModal.IsVisible = false;
-                return;
-            }
+            if (NewFolderModal != null) NewFolderModal.IsVisible = false;
+            if (string.IsNullOrWhiteSpace(folderName)) return;
 
             // Sanitize folder name
             foreach (var c in Path.GetInvalidFileNameChars())
@@ -1162,9 +1172,11 @@ namespace QuickNote.Avalonia.Views
                         await _viewModel.RefreshFolderTreeAsync();
                     }
                     _selectedCategory = folderName;
-                    if (NewFolderModal != null) NewFolderModal.IsVisible = false;
                     RebuildTagChips();
-                    RebuildDrawerFolders();
+                    if (LeftDrawerOverlay?.IsVisible == true)
+                    {
+                        RebuildDrawerFolders();
+                    }
                     ApplyFilters();
                     TriggerAutoSyncInBackground();
                 }
@@ -1172,7 +1184,6 @@ namespace QuickNote.Avalonia.Views
             catch (Exception ex)
             {
                 Console.WriteLine($"[MobileMainView] Failed creating folder '{folderName}': {ex.Message}");
-                if (NewFolderModal != null) NewFolderModal.IsVisible = false;
             }
         }
 
@@ -1215,8 +1226,6 @@ namespace QuickNote.Avalonia.Views
             _selectedTag = null;
             if (LeftDrawerOverlay != null) LeftDrawerOverlay.IsVisible = false;
             RebuildTagChips();
-            RebuildDrawerFolders();
-            RebuildDrawerTags();
             OnPropertyChanged(nameof(SelectedTag));
             OnPropertyChanged(nameof(HasSelectedTag));
             OnPropertyChanged(nameof(SelectedTagText));
@@ -1529,12 +1538,16 @@ namespace QuickNote.Avalonia.Views
 
         private async void OnConfirmBatchDeleteFoldersClick(object? sender, RoutedEventArgs e)
         {
+            if (ConfirmBatchDeleteFoldersModal != null) ConfirmBatchDeleteFoldersModal.IsVisible = false;
+            var selectedFoldersList = _selectedFolders.ToList();
+            ExitFolderSelectionMode();
+
             try
             {
                 var root = _viewModel?.NotesRoot;
                 if (!string.IsNullOrEmpty(root) && _viewModel != null)
                 {
-                    foreach (var folder in _selectedFolders.ToList())
+                    foreach (var folder in selectedFoldersList)
                     {
                         var folderPath = Path.Combine(root, folder.Replace('/', Path.DirectorySeparatorChar));
                         if (Directory.Exists(folderPath))
@@ -1547,9 +1560,12 @@ namespace QuickNote.Avalonia.Views
                     await _viewModel.RefreshFolderTreeAsync();
                     await _viewModel.Refresh();
                     RebuildTagChips();
-                    RebuildDrawerFolders();
-                    RebuildDrawerTags();
-                    UpdateTrashBadge();
+                    if (LeftDrawerOverlay?.IsVisible == true)
+                    {
+                        RebuildDrawerFolders();
+                        RebuildDrawerTags();
+                        UpdateTrashBadge();
+                    }
                     ApplyFilters();
                     OnPropertyChanged(nameof(TotalNotesCountText));
                     TriggerAutoSyncInBackground();
@@ -1559,16 +1575,11 @@ namespace QuickNote.Avalonia.Views
             {
                 Console.WriteLine($"[MobileMainView] Error in batch delete folders: {ex.Message}");
             }
-            finally
-            {
-                if (ConfirmBatchDeleteFoldersModal != null) ConfirmBatchDeleteFoldersModal.IsVisible = false;
-                ExitFolderSelectionMode();
-            }
         }
 
         private void RebuildDrawerFolders()
         {
-            if (DrawerFoldersPanel == null || _viewModel == null) return;
+            if (DrawerFoldersPanel == null || _viewModel == null || LeftDrawerOverlay?.IsVisible != true) return;
             DrawerFoldersPanel.Children.Clear();
 
             var allFolderPaths = DiscoverAllFolderPaths();
@@ -1774,24 +1785,24 @@ namespace QuickNote.Avalonia.Views
 
         private async void OnConfirmDeleteFolderClick(object? sender, RoutedEventArgs e)
         {
-            if (string.IsNullOrEmpty(_pendingDeleteFolderName))
-            {
-                if (ConfirmDeleteFolderModal != null) ConfirmDeleteFolderModal.IsVisible = false;
-                return;
-            }
+            var folderToDelete = _pendingDeleteFolderName;
+            _pendingDeleteFolderName = null;
+            if (ConfirmDeleteFolderModal != null) ConfirmDeleteFolderModal.IsVisible = false;
+
+            if (string.IsNullOrEmpty(folderToDelete) || _viewModel == null) return;
 
             try
             {
-                var root = _viewModel?.NotesRoot;
-                if (!string.IsNullOrEmpty(root) && _viewModel != null)
+                var root = _viewModel.NotesRoot;
+                if (!string.IsNullOrEmpty(root))
                 {
-                    var folderPath = Path.Combine(root, _pendingDeleteFolderName);
+                    var folderPath = Path.Combine(root, folderToDelete);
                     if (Directory.Exists(folderPath))
                     {
                         await _viewModel.TrashBinService.MoveToTrashAsync(folderPath);
                     }
 
-                    if (string.Equals(_selectedCategory, _pendingDeleteFolderName, StringComparison.OrdinalIgnoreCase))
+                    if (string.Equals(_selectedCategory, folderToDelete, StringComparison.OrdinalIgnoreCase))
                     {
                         _selectedCategory = "All Notes";
                     }
@@ -1799,9 +1810,12 @@ namespace QuickNote.Avalonia.Views
                     await _viewModel.RefreshFolderTreeAsync();
                     await _viewModel.Refresh();
                     RebuildTagChips();
-                    RebuildDrawerFolders();
-                    RebuildDrawerTags();
-                    UpdateTrashBadge();
+                    if (LeftDrawerOverlay?.IsVisible == true)
+                    {
+                        RebuildDrawerFolders();
+                        RebuildDrawerTags();
+                        UpdateTrashBadge();
+                    }
                     ApplyFilters();
                     OnPropertyChanged(nameof(TotalNotesCountText));
                     TriggerAutoSyncInBackground();
@@ -1810,11 +1824,6 @@ namespace QuickNote.Avalonia.Views
             catch (Exception ex)
             {
                 Console.WriteLine($"[MobileMainView] Error deleting folder: {ex.Message}");
-            }
-            finally
-            {
-                if (ConfirmDeleteFolderModal != null) ConfirmDeleteFolderModal.IsVisible = false;
-                _pendingDeleteFolderName = null;
             }
         }
 
@@ -1827,7 +1836,7 @@ namespace QuickNote.Avalonia.Views
         // ── Tags Navigation & Drawer ──────────────────────────────────────
         private void RebuildDrawerTags()
         {
-            if (DrawerTagsPanel == null || _viewModel?.Notes == null) return;
+            if (DrawerTagsPanel == null || _viewModel?.Notes == null || LeftDrawerOverlay?.IsVisible != true) return;
             DrawerTagsPanel.Children.Clear();
 
             var tagCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
@@ -1943,7 +1952,7 @@ namespace QuickNote.Avalonia.Views
         {
             try
             {
-                if (_viewModel?.TrashBinService != null && DrawerTrashBadgeText != null)
+                if (_viewModel?.TrashBinService != null && DrawerTrashBadgeText != null && LeftDrawerOverlay?.IsVisible == true)
                 {
                     var items = await _viewModel.TrashBinService.GetTrashItemsAsync();
                     DrawerTrashBadgeText.Text = items.Count().ToString();
@@ -2134,9 +2143,7 @@ namespace QuickNote.Avalonia.Views
         {
             if (_viewModel == null) return;
 
-            FilteredNotes.Clear();
             var query = _searchQuery.Trim();
-
             var source = _viewModel.Notes.AsEnumerable();
 
             // Filter by folder category
@@ -2164,19 +2171,67 @@ namespace QuickNote.Avalonia.Views
                     (n.FileName != null && n.FileName.Contains(query, StringComparison.OrdinalIgnoreCase)));
             }
 
-            // Sort: newest first
-            foreach (var note in source.OrderByDescending(n => n.LastModified))
+            var targetNotes = source.OrderByDescending(n => n.LastModified).ToList();
+
+            // In-place synchronization: avoids destroying visual tree & re-layout stutter
+            var targetKeys = new HashSet<string>(targetNotes.Select(GetNoteKey));
+
+            // 1. Remove items no longer matching
+            for (int i = FilteredNotes.Count - 1; i >= 0; i--)
             {
-                var item = new MobileNoteItem(note)
+                var curKey = GetNoteKey(FilteredNotes[i].Note);
+                if (!targetKeys.Contains(curKey))
                 {
-                    IsSelectionMode = _isSelectionMode
-                };
-                FilteredNotes.Add(item);
+                    FilteredNotes.RemoveAt(i);
+                }
+            }
+
+            // 2. Index remaining items
+            var existingItems = new Dictionary<string, MobileNoteItem>(StringComparer.OrdinalIgnoreCase);
+            foreach (var item in FilteredNotes)
+            {
+                var key = GetNoteKey(item.Note);
+                if (!string.IsNullOrEmpty(key) && !existingItems.ContainsKey(key))
+                {
+                    existingItems[key] = item;
+                }
+            }
+
+            // 3. Align order and insert missing items
+            for (int i = 0; i < targetNotes.Count; i++)
+            {
+                var note = targetNotes[i];
+                var key = GetNoteKey(note);
+
+                if (existingItems.TryGetValue(key, out var existingItem))
+                {
+                    int currentIndex = FilteredNotes.IndexOf(existingItem);
+                    if (currentIndex != i)
+                    {
+                        FilteredNotes.Move(currentIndex, i);
+                    }
+                    existingItem.IsSelectionMode = _isSelectionMode;
+                    existingItem.Refresh();
+                }
+                else
+                {
+                    var newItem = new MobileNoteItem(note)
+                    {
+                        IsSelectionMode = _isSelectionMode
+                    };
+                    FilteredNotes.Insert(i, newItem);
+                }
             }
 
             OnPropertyChanged(nameof(NoteCountStatus));
             OnPropertyChanged(nameof(IsNotesEmpty));
             UpdateSelectionState();
+        }
+
+        private static string GetNoteKey(NoteDocument note)
+        {
+            if (note.Id != Guid.Empty) return note.Id.ToString();
+            return !string.IsNullOrEmpty(note.FullPath) ? note.FullPath : (note.FileName ?? note.Title ?? "");
         }
 
         private void OnClearSearchClick(object? sender, RoutedEventArgs e)
@@ -2482,29 +2537,54 @@ namespace QuickNote.Avalonia.Views
             }
         }
 
-        private async void OnBatchDeleteNotesClick(object? sender, RoutedEventArgs e)
+        private void OnBatchDeleteNotesClick(object? sender, RoutedEventArgs e)
         {
             try
             {
                 var selectedItems = FilteredNotes.Where(n => n.IsSelected).ToList();
                 if (selectedItems.Count == 0 || _viewModel == null) return;
 
+                // Optimistic UI update: Remove from UI and ViewModel immediately (0ms)
                 foreach (var item in selectedItems)
                 {
-                    if (File.Exists(item.Note.FullPath))
-                    {
-                        await _viewModel.TrashBinService.MoveToTrashAsync(item.Note.FullPath);
-                    }
+                    FilteredNotes.Remove(item);
+                    _viewModel.Notes.Remove(item.Note);
                 }
 
                 ExitSelectionMode();
-                await _viewModel.RefreshFolderTreeAsync();
-                await _viewModel.Refresh();
-                RebuildDrawerFolders();
-                UpdateTrashBadge();
-                ApplyFilters();
+                OnPropertyChanged(nameof(NoteCountStatus));
+                OnPropertyChanged(nameof(IsNotesEmpty));
                 OnPropertyChanged(nameof(TotalNotesCountText));
-                TriggerAutoSyncInBackground();
+
+                var pathsToDelete = selectedItems.Select(i => i.Note.FullPath).Where(p => !string.IsNullOrEmpty(p)).ToList();
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        foreach (var path in pathsToDelete)
+                        {
+                            if (File.Exists(path))
+                            {
+                                await _viewModel.TrashBinService.MoveToTrashAsync(path);
+                            }
+                        }
+                        await _viewModel.RefreshFolderTreeAsync();
+                        await Dispatcher.UIThread.InvokeAsync(() =>
+                        {
+                            if (LeftDrawerOverlay?.IsVisible == true)
+                            {
+                                RebuildDrawerFolders();
+                                RebuildDrawerTags();
+                                UpdateTrashBadge();
+                            }
+                            TriggerAutoSyncInBackground();
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[MobileMainView] Error batch deleting notes in background: {ex.Message}");
+                    }
+                });
             }
             catch (Exception ex)
             {
@@ -2552,32 +2632,88 @@ namespace QuickNote.Avalonia.Views
             ShowNoteEditor();
         }
 
-        private async void OnDeleteNoteCardClick(object? sender, RoutedEventArgs e)
+        private void OnDeleteNoteCardClick(object? sender, RoutedEventArgs e)
         {
             if ((sender as Control)?.DataContext is MobileNoteItem item && _viewModel != null)
             {
-                await _viewModel.DeleteNoteAsync(item.Note);
-                RebuildDrawerFolders();
-                RebuildDrawerTags();
-                UpdateTrashBadge();
-                ApplyFilters();
+                // Optimistic UI update: Card vanishes immediately (0ms)
+                FilteredNotes.Remove(item);
+                _viewModel.Notes.Remove(item.Note);
+                OnPropertyChanged(nameof(NoteCountStatus));
+                OnPropertyChanged(nameof(IsNotesEmpty));
                 OnPropertyChanged(nameof(TotalNotesCountText));
-                TriggerAutoSyncInBackground();
+
+                var noteToDelete = item.Note;
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        if (File.Exists(noteToDelete.FullPath))
+                        {
+                            await _viewModel.TrashBinService.MoveToTrashAsync(noteToDelete.FullPath);
+                        }
+                        await _viewModel.RefreshFolderTreeAsync();
+                        await Dispatcher.UIThread.InvokeAsync(() =>
+                        {
+                            if (LeftDrawerOverlay?.IsVisible == true)
+                            {
+                                RebuildDrawerFolders();
+                                RebuildDrawerTags();
+                                UpdateTrashBadge();
+                            }
+                            TriggerAutoSyncInBackground();
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[MobileMainView] Background delete note error: {ex.Message}");
+                    }
+                });
             }
         }
 
-        private async void OnDeleteCurrentNoteClick(object? sender, RoutedEventArgs e)
+        private void OnDeleteCurrentNoteClick(object? sender, RoutedEventArgs e)
         {
             if (_viewModel != null)
             {
-                await _viewModel.Delete();
-                RebuildDrawerFolders();
-                RebuildDrawerTags();
-                UpdateTrashBadge();
-                ApplyFilters();
-                OnPropertyChanged(nameof(TotalNotesCountText));
-                TriggerAutoSyncInBackground();
+                var current = _viewModel.CurrentNote;
+                if (current != null)
+                {
+                    var match = FilteredNotes.FirstOrDefault(n => n.Note.Id == current.Id || n.Note.FullPath == current.FullPath);
+                    if (match != null) FilteredNotes.Remove(match);
+                    _viewModel.Notes.Remove(current);
+                }
                 ShowNotesFeed();
+                OnPropertyChanged(nameof(TotalNotesCountText));
+                OnPropertyChanged(nameof(NoteCountStatus));
+                OnPropertyChanged(nameof(IsNotesEmpty));
+
+                var pathToDelete = current?.FullPath;
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        if (!string.IsNullOrEmpty(pathToDelete) && File.Exists(pathToDelete))
+                        {
+                            await _viewModel.TrashBinService.MoveToTrashAsync(pathToDelete);
+                        }
+                        await _viewModel.RefreshFolderTreeAsync();
+                        await Dispatcher.UIThread.InvokeAsync(() =>
+                        {
+                            if (LeftDrawerOverlay?.IsVisible == true)
+                            {
+                                RebuildDrawerFolders();
+                                RebuildDrawerTags();
+                                UpdateTrashBadge();
+                            }
+                            TriggerAutoSyncInBackground();
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[MobileMainView] Background delete current note error: {ex.Message}");
+                    }
+                });
             }
         }
 
