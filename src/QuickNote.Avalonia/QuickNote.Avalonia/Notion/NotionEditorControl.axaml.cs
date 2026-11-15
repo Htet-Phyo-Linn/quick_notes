@@ -354,6 +354,69 @@ namespace QuickNote.Avalonia.Notion
             }
         }
 
+        public async Task InsertImageAsync(Stream imageStream, string originalFileName, string altText = "image")
+        {
+            if (WebViewControl == null) return;
+
+            try
+            {
+                using var ms = new MemoryStream();
+                await imageStream.CopyToAsync(ms);
+                var imageBytes = ms.ToArray();
+                if (imageBytes.Length == 0) return;
+
+                var rootDir = NotesRoot;
+                if (string.IsNullOrWhiteSpace(rootDir))
+                {
+                    rootDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "QuickNote");
+                }
+
+                var assetsDir = Path.Combine(rootDir, ".assets");
+                if (!Directory.Exists(assetsDir))
+                {
+                    Directory.CreateDirectory(assetsDir);
+                }
+
+                var ext = Path.GetExtension(originalFileName);
+                if (string.IsNullOrWhiteSpace(ext)) ext = ".png";
+
+                var shortId = Guid.NewGuid().ToString("N").Substring(0, 6);
+                var safeBase = Path.GetFileNameWithoutExtension(originalFileName)
+                    .Replace(" ", "_")
+                    .Replace("#", "")
+                    .Replace("%", "");
+                if (string.IsNullOrWhiteSpace(safeBase)) safeBase = "image";
+                if (safeBase.Length > 20) safeBase = safeBase.Substring(0, 20);
+
+                var fileName = $"{safeBase}_{DateTime.Now:yyyyMMdd_HHmmss}_{shortId}{ext}";
+                var fullPath = Path.Combine(assetsDir, fileName);
+                await File.WriteAllBytesAsync(fullPath, imageBytes);
+
+                var relPath = ".assets/" + fileName;
+                var mimeType = ext.ToLowerInvariant() switch
+                {
+                    ".jpg" or ".jpeg" => "image/jpeg",
+                    ".gif" => "image/gif",
+                    ".webp" => "image/webp",
+                    ".svg" => "image/svg+xml",
+                    _ => "image/png"
+                };
+                var base64 = $"data:{mimeType};base64," + Convert.ToBase64String(imageBytes);
+
+                var jsonReqId = JsonSerializer.Serialize(Guid.NewGuid().ToString("N"));
+                var jsonRelPath = JsonSerializer.Serialize(relPath);
+                var jsonBase64 = JsonSerializer.Serialize(base64);
+                var jsonAlt = JsonSerializer.Serialize(altText);
+
+                await WebViewControl.InvokeScript(
+                    $"if(window.onImageSaved){{ window.onImageSaved({jsonReqId}, {jsonRelPath}, {jsonBase64}, {jsonAlt}); }}");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[NotionEditorControl] InsertImageAsync failed: {ex.Message}");
+            }
+        }
+
         private async void LoadAndRespondImage(string src)
         {
             if (string.IsNullOrWhiteSpace(src)) return;

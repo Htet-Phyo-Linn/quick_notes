@@ -12,6 +12,7 @@ using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
+using Avalonia.Platform.Storage;
 using QuickNote.Avalonia.ViewModels;
 using QuickNote.Core.Models;
 
@@ -520,17 +521,7 @@ namespace QuickNote.Avalonia.Views
         public MobileMainView()
         {
             InitializeComponent();
-            NotesFeedScreen.DataContext = this;
-            NoteEditorScreen.DataContext = this;
-            GoogleDriveAccountModal.DataContext = this;
-            if (LeftDrawerOverlay != null) LeftDrawerOverlay.DataContext = this;
-            if (NewFolderModal != null) NewFolderModal.DataContext = this;
-            if (TrashBinScreen != null) TrashBinScreen.DataContext = this;
-            if (ConfirmDeleteFolderModal != null) ConfirmDeleteFolderModal.DataContext = this;
-            if (ConfirmEmptyTrashModal != null) ConfirmEmptyTrashModal.DataContext = this;
-            if (MoveNotesModal != null) MoveNotesModal.DataContext = this;
-            if (MoveFoldersModal != null) MoveFoldersModal.DataContext = this;
-            if (ConfirmBatchDeleteFoldersModal != null) ConfirmBatchDeleteFoldersModal.DataContext = this;
+            AssignViewDataContext();
             if (AuthWebView != null)
             {
                 AuthWebView.NavigationStarted += OnAuthWebViewNavigationStarted;
@@ -542,6 +533,23 @@ namespace QuickNote.Avalonia.Views
             // Connect Android back press and dynamic keyboard height bridge
             AndroidPlatformBridge.KeyboardHeightChanged += OnKeyboardHeightChanged;
             AndroidPlatformBridge.HandleBackPress = OnBackPressedInternal;
+        }
+
+        private void AssignViewDataContext()
+        {
+            if (NotesFeedScreen != null) NotesFeedScreen.DataContext = this;
+            if (NoteEditorScreen != null) NoteEditorScreen.DataContext = this;
+            if (GoogleDriveAccountModal != null) GoogleDriveAccountModal.DataContext = this;
+            if (GoogleDriveAuthModal != null) GoogleDriveAuthModal.DataContext = this;
+            if (NoteEditorMenuModal != null) NoteEditorMenuModal.DataContext = this;
+            if (LeftDrawerOverlay != null) LeftDrawerOverlay.DataContext = this;
+            if (NewFolderModal != null) NewFolderModal.DataContext = this;
+            if (TrashBinScreen != null) TrashBinScreen.DataContext = this;
+            if (ConfirmDeleteFolderModal != null) ConfirmDeleteFolderModal.DataContext = this;
+            if (ConfirmEmptyTrashModal != null) ConfirmEmptyTrashModal.DataContext = this;
+            if (MoveNotesModal != null) MoveNotesModal.DataContext = this;
+            if (MoveFoldersModal != null) MoveFoldersModal.DataContext = this;
+            if (ConfirmBatchDeleteFoldersModal != null) ConfirmBatchDeleteFoldersModal.DataContext = this;
         }
 
         private void OnKeyboardHeightChanged(int heightDp)
@@ -560,6 +568,10 @@ namespace QuickNote.Avalonia.Views
             if (NoteEditorMenuModal?.IsVisible == true)
             {
                 NoteEditorMenuModal.IsVisible = false;
+                if (NoteEditorScreen?.IsVisible == true && MobileNotionEditor != null)
+                {
+                    MobileNotionEditor.IsVisible = true;
+                }
                 return true;
             }
             if (ConfirmBatchDeleteFoldersModal?.IsVisible == true)
@@ -651,9 +663,7 @@ namespace QuickNote.Avalonia.Views
 
             _viewModel = DataContext as MainViewModel;
 
-            NotesFeedScreen.DataContext = this;
-            NoteEditorScreen.DataContext = this;
-            GoogleDriveAccountModal.DataContext = this;
+            AssignViewDataContext();
 
             if (_viewModel != null)
             {
@@ -825,8 +835,8 @@ namespace QuickNote.Avalonia.Views
 
                 var tagPill = new Border
                 {
-                    Background = new SolidColorBrush(Color.Parse("#21262d")),
-                    BorderBrush = new SolidColorBrush(Color.Parse("#30363d")),
+                    Background = ChipUnselectedBackgroundBrush,
+                    BorderBrush = GlassBorderBrush,
                     BorderThickness = new Thickness(1),
                     CornerRadius = new CornerRadius(12),
                     Height = 24,
@@ -842,7 +852,7 @@ namespace QuickNote.Avalonia.Views
                 pillStack.Children.Add(new TextBlock
                 {
                     Text = "#",
-                    Foreground = new SolidColorBrush(Color.Parse("#58a6ff")),
+                    Foreground = AccentBrush,
                     FontSize = 11,
                     FontWeight = FontWeight.SemiBold,
                     VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center
@@ -850,7 +860,7 @@ namespace QuickNote.Avalonia.Views
                 pillStack.Children.Add(new TextBlock
                 {
                     Text = clean,
-                    Foreground = new SolidColorBrush(Color.Parse("#c9d1d9")),
+                    Foreground = TextPrimaryBrush,
                     FontSize = 11,
                     VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center
                 });
@@ -859,7 +869,7 @@ namespace QuickNote.Avalonia.Views
                     Content = "✕",
                     Background = Brushes.Transparent,
                     BorderThickness = new Thickness(0),
-                    Foreground = new SolidColorBrush(Color.Parse("#8b949e")),
+                    Foreground = TextSecondaryBrush,
                     FontSize = 9,
                     Height = 18,
                     Padding = new Thickness(2, 0),
@@ -2104,8 +2114,8 @@ namespace QuickNote.Avalonia.Views
                 {
                     var card = new Border
                     {
-                        Background = new SolidColorBrush(Color.Parse("#1e1e24")),
-                        BorderBrush = new SolidColorBrush(Color.Parse("#2e2e38")),
+                        Background = _isDarkMode ? DarkGlassSurface : LightGlassSurface,
+                        BorderBrush = GlassBorderBrush,
                         BorderThickness = new Thickness(1),
                         CornerRadius = new CornerRadius(12),
                         Padding = new Thickness(14, 12),
@@ -2135,7 +2145,7 @@ namespace QuickNote.Avalonia.Views
                         Text = !string.IsNullOrWhiteSpace(item.Title) ? item.Title : Path.GetFileName(item.OriginalPath),
                         FontSize = 15,
                         FontWeight = FontWeight.SemiBold,
-                        Foreground = Brushes.White,
+                        Foreground = TextPrimaryBrush,
                         TextTrimming = TextTrimming.CharacterEllipsis
                     };
                     Grid.SetRow(titleText, 0);
@@ -2145,7 +2155,7 @@ namespace QuickNote.Avalonia.Views
                     {
                         Text = $"{item.DeletedAt.ToLocalTime():MMM d, h:mm tt} • {Path.GetFileName(Path.GetDirectoryName(item.OriginalPath))}",
                         FontSize = 11,
-                        Foreground = new SolidColorBrush(Color.Parse("#9ca3af")),
+                        Foreground = TextSecondaryBrush,
                         Margin = new Thickness(0, 4, 0, 0)
                     };
                     Grid.SetRow(pathText, 1);
@@ -2173,15 +2183,33 @@ namespace QuickNote.Avalonia.Views
                     var capturedItem = item;
                     restoreBtn.Click += async (s, e) =>
                     {
-                        await _viewModel.TrashBinService.RestoreItemAsync(capturedItem);
-                        await _viewModel.RefreshFolderTreeAsync();
-                        await _viewModel.Refresh();
-                        RebuildTagChips();
-                        RebuildDrawerFolders();
-                        RebuildDrawerTags();
-                        ApplyFilters();
-                        OnPropertyChanged(nameof(TotalNotesCountText));
-                        await LoadTrashItemsAsync();
+                        if (_viewModel?.TrashBinService == null) return;
+                        restoreBtn.IsEnabled = false;
+                        card.Opacity = 0.4;
+                        TrashItemsPanel.Children.Remove(card);
+                        if (TrashItemsPanel.Children.Count == 0 && TrashEmptyState != null)
+                        {
+                            TrashEmptyState.IsVisible = true;
+                        }
+
+                        try
+                        {
+                            await _viewModel.TrashBinService.RestoreItemAsync(capturedItem);
+                            await _viewModel.RefreshFolderTreeAsync();
+                            await _viewModel.Refresh();
+                            RebuildTagChips();
+                            RebuildDrawerFolders();
+                            RebuildDrawerTags();
+                            ApplyFilters();
+                            UpdateTrashBadge();
+                            OnPropertyChanged(nameof(TotalNotesCountText));
+                            TriggerAutoSyncInBackground();
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"[MobileMainView] Error restoring trash item: {ex.Message}");
+                            await LoadTrashItemsAsync();
+                        }
                     };
                     actionsPanel.Children.Add(restoreBtn);
 
@@ -2201,8 +2229,25 @@ namespace QuickNote.Avalonia.Views
                     };
                     permDelBtn.Click += async (s, e) =>
                     {
-                        await _viewModel.TrashBinService.PermanentDeleteAsync(capturedItem);
-                        await LoadTrashItemsAsync();
+                        if (_viewModel?.TrashBinService == null) return;
+                        permDelBtn.IsEnabled = false;
+                        card.Opacity = 0.4;
+                        TrashItemsPanel.Children.Remove(card);
+                        if (TrashItemsPanel.Children.Count == 0 && TrashEmptyState != null)
+                        {
+                            TrashEmptyState.IsVisible = true;
+                        }
+
+                        try
+                        {
+                            await _viewModel.TrashBinService.PermanentDeleteAsync(capturedItem);
+                            UpdateTrashBadge();
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"[MobileMainView] Error deleting trash item: {ex.Message}");
+                            await LoadTrashItemsAsync();
+                        }
                     };
                     actionsPanel.Children.Add(permDelBtn);
 
@@ -2477,6 +2522,10 @@ namespace QuickNote.Avalonia.Views
         private void OnCancelMoveNotesClick(object? sender, RoutedEventArgs e)
         {
             if (MoveNotesModal != null) MoveNotesModal.IsVisible = false;
+            if (NoteEditorScreen?.IsVisible == true && MobileNotionEditor != null)
+            {
+                MobileNotionEditor.IsVisible = true;
+            }
         }
 
         private void OnMoveNotesSearchKeyUp(object? sender, KeyEventArgs e)
@@ -2594,6 +2643,10 @@ namespace QuickNote.Avalonia.Views
                         }
 
                         if (MoveNotesModal != null) MoveNotesModal.IsVisible = false;
+                        if (NoteEditorScreen?.IsVisible == true && MobileNotionEditor != null)
+                        {
+                            MobileNotionEditor.IsVisible = true;
+                        }
                         ExitSelectionMode();
 
                         await _viewModel.RefreshFolderTreeAsync();
@@ -2607,6 +2660,10 @@ namespace QuickNote.Avalonia.Views
                 {
                     Console.WriteLine($"[MobileMainView] Error moving notes: {ex.Message}");
                     if (MoveNotesModal != null) MoveNotesModal.IsVisible = false;
+                    if (NoteEditorScreen?.IsVisible == true && MobileNotionEditor != null)
+                    {
+                        MobileNotionEditor.IsVisible = true;
+                    }
                 }
             };
 
@@ -2792,6 +2849,10 @@ namespace QuickNote.Avalonia.Views
         // ── Note Editor 3-Dots More Menu Actions (Issue 6) ──────────────────
         private void OnShowNoteEditorMenuClick(object? sender, RoutedEventArgs e)
         {
+            if (MobileNotionEditor != null)
+            {
+                MobileNotionEditor.IsVisible = false;
+            }
             if (NoteEditorMenuModal != null)
             {
                 NoteEditorMenuModal.IsVisible = true;
@@ -2804,11 +2865,24 @@ namespace QuickNote.Avalonia.Views
             {
                 NoteEditorMenuModal.IsVisible = false;
             }
+            if (NoteEditorScreen?.IsVisible == true && MobileNotionEditor != null)
+            {
+                MobileNotionEditor.IsVisible = true;
+            }
+        }
+
+        private void OnMenuModalContentPointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            e.Handled = true;
         }
 
         private async void OnEditorCopyNoteClick(object? sender, RoutedEventArgs e)
         {
             if (NoteEditorMenuModal != null) NoteEditorMenuModal.IsVisible = false;
+            if (NoteEditorScreen?.IsVisible == true && MobileNotionEditor != null)
+            {
+                MobileNotionEditor.IsVisible = true;
+            }
             if (_viewModel?.CurrentNote == null) return;
 
             try
@@ -3015,6 +3089,35 @@ namespace QuickNote.Avalonia.Views
             {
                 await MobileNotionEditor.ExecuteEditorActionAsync(action);
                 await MobileNotionEditor.FocusEditorAsync();
+            }
+        }
+
+        private async void OnInsertImageClick(object? sender, RoutedEventArgs e)
+        {
+            if (MobileNotionEditor == null) return;
+            try
+            {
+                var topLevel = TopLevel.GetTopLevel(this);
+                if (topLevel?.StorageProvider != null)
+                {
+                    var files = await topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+                    {
+                        Title = "Select Image to Insert",
+                        AllowMultiple = false,
+                        FileTypeFilter = new[] { FilePickerFileTypes.ImageAll }
+                    });
+
+                    if (files != null && files.Count > 0)
+                    {
+                        var file = files[0];
+                        await using var stream = await file.OpenReadAsync();
+                        await MobileNotionEditor.InsertImageAsync(stream, file.Name);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[MobileMainView] Error selecting/inserting image: {ex.Message}");
             }
         }
 
