@@ -167,8 +167,11 @@ namespace QuickNote.Avalonia.Notion
             }
         }
 
+        public bool IsDarkMode { get; set; } = true;
+
         public async Task SetThemeAsync(bool isDark)
         {
+            IsDarkMode = isDark;
             if (WebViewControl == null) return;
             try
             {
@@ -195,6 +198,7 @@ namespace QuickNote.Avalonia.Notion
                     if (msgType == "ready")
                     {
                         _isEditorReady = true;
+                        _ = SetThemeAsync(IsDarkMode);
                         _ = SetSpellCheckAsync(IsSpellCheckEnabled);
                         if (IgnoredWords != null)
                         {

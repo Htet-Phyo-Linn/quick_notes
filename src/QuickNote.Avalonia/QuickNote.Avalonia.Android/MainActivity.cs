@@ -53,6 +53,7 @@ public class MainActivity : AvaloniaMainActivity, ViewTreeObserver.IOnGlobalLayo
         }
     }
 
+#pragma warning disable CS0809, CA1416, CA1422
     [System.Obsolete]
     public override void OnBackPressed()
     {
@@ -62,6 +63,7 @@ public class MainActivity : AvaloniaMainActivity, ViewTreeObserver.IOnGlobalLayo
         }
         base.OnBackPressed();
     }
+#pragma warning restore CS0809, CA1416, CA1422
 
     public void OnGlobalLayout()
     {

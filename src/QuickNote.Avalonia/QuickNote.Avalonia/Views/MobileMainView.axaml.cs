@@ -79,9 +79,9 @@ namespace QuickNote.Avalonia.Views
         private static readonly Thickness NormalBorderThicknessValue = new Thickness(1);
 
         private static readonly IBrush DarkSnippetBrush = new SolidColorBrush(Color.Parse("#8c97a8"));
-        private static readonly IBrush LightSnippetBrush = new SolidColorBrush(Color.Parse("#64748b"));
+        private static readonly IBrush LightSnippetBrush = new SolidColorBrush(Color.Parse("#475569"));
         private static readonly IBrush DarkDateBrush = new SolidColorBrush(Color.Parse("#64748b"));
-        private static readonly IBrush LightDateBrush = new SolidColorBrush(Color.Parse("#94a3b8"));
+        private static readonly IBrush LightDateBrush = new SolidColorBrush(Color.Parse("#64748b"));
         private static readonly IBrush DarkFolderBadgeBg = new SolidColorBrush(Color.FromArgb(40, 51, 144, 236));
         private static readonly IBrush LightFolderBadgeBg = new SolidColorBrush(Color.FromArgb(28, 36, 129, 204));
         private static readonly IBrush DarkFolderBadgeFg = new SolidColorBrush(Color.Parse("#60a5fa"));
@@ -437,8 +437,8 @@ namespace QuickNote.Avalonia.Views
         private static readonly IBrush LightGlassHeader = new SolidColorBrush(Color.FromArgb(245, 255, 255, 255));
         private static readonly IBrush LightGlassBorder = new SolidColorBrush(Color.FromArgb(35, 0, 0, 0));
         private static readonly IBrush LightTextPrimary = new SolidColorBrush(Color.Parse("#0f172a"));
-        private static readonly IBrush LightTextSecondary = new SolidColorBrush(Color.Parse("#64748b"));
-        private static readonly IBrush LightTextMuted = new SolidColorBrush(Color.Parse("#94a3b8"));
+        private static readonly IBrush LightTextSecondary = new SolidColorBrush(Color.Parse("#475569"));
+        private static readonly IBrush LightTextMuted = new SolidColorBrush(Color.Parse("#64748b"));
         private static readonly IBrush LightAccent = new SolidColorBrush(Color.Parse("#2481cc")); // Telegram Electric Blue
         private static readonly IBrush LightDrawerBg = new SolidColorBrush(Color.FromArgb(250, 255, 255, 255));
         private static readonly IBrush LightModalBg = new SolidColorBrush(Color.FromArgb(250, 255, 255, 255));
@@ -542,8 +542,6 @@ namespace QuickNote.Avalonia.Views
             // Connect Android back press and dynamic keyboard height bridge
             AndroidPlatformBridge.KeyboardHeightChanged += OnKeyboardHeightChanged;
             AndroidPlatformBridge.HandleBackPress = OnBackPressedInternal;
-
-            InitColorPaletteDrawer();
         }
 
         private void OnKeyboardHeightChanged(int heightDp)
@@ -559,6 +557,11 @@ namespace QuickNote.Avalonia.Views
 
         private bool OnBackPressedInternal()
         {
+            if (NoteEditorMenuModal?.IsVisible == true)
+            {
+                NoteEditorMenuModal.IsVisible = false;
+                return true;
+            }
             if (ConfirmBatchDeleteFoldersModal?.IsVisible == true)
             {
                 ConfirmBatchDeleteFoldersModal.IsVisible = false;
@@ -633,86 +636,6 @@ namespace QuickNote.Avalonia.Views
             return false;
         }
 
-        private void InitColorPaletteDrawer()
-        {
-            if (ColorPalettePanel == null) return;
-            ColorPalettePanel.Children.Clear();
-            foreach (var keepColor in KeepPalette.Colors)
-            {
-                var circle = new Button
-                {
-                    Width = 32,
-                    Height = 32,
-                    CornerRadius = new CornerRadius(16),
-                    Background = new SolidColorBrush(Color.Parse(keepColor.Background)),
-                    BorderBrush = new SolidColorBrush(Color.Parse(keepColor.Border)),
-                    BorderThickness = new Thickness(2),
-                    Margin = new Thickness(2),
-                    Tag = keepColor.Name
-                };
-                ToolTip.SetTip(circle, keepColor.Name);
-                circle.Click += (s, e) =>
-                {
-                    if (s is Button b && b.Tag is string colorName)
-                    {
-                        OnSelectNoteColor(colorName);
-                    }
-                };
-                ColorPalettePanel.Children.Add(circle);
-            }
-        }
-
-        private void OnToggleColorPickerClick(object? sender, RoutedEventArgs e)
-        {
-            if (ColorPickerBar != null)
-            {
-                ColorPickerBar.IsVisible = !ColorPickerBar.IsVisible;
-            }
-        }
-
-        private async void OnSelectNoteColor(string colorName)
-        {
-            if (_viewModel?.CurrentNote == null) return;
-            var content = _viewModel.EditorContent ?? string.Empty;
-
-            string newContent;
-            if (content.StartsWith("---"))
-            {
-                var end = content.IndexOf("---", 3);
-                if (end > 3)
-                {
-                    var header = content.Substring(3, end - 3);
-                    var body = content.Substring(end + 3);
-                    var lines = header.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None).ToList();
-                    var colorLineIdx = lines.FindIndex(l => l.Trim().StartsWith("color:", StringComparison.OrdinalIgnoreCase));
-                    if (colorLineIdx >= 0)
-                    {
-                        lines[colorLineIdx] = $"color: {colorName}";
-                    }
-                    else
-                    {
-                        lines.Add($"color: {colorName}");
-                    }
-                    newContent = $"---{string.Join(Environment.NewLine, lines)}---{body}";
-                }
-                else
-                {
-                    newContent = $"---{Environment.NewLine}color: {colorName}{Environment.NewLine}---{Environment.NewLine}{content}";
-                }
-            }
-            else
-            {
-                newContent = $"---{Environment.NewLine}color: {colorName}{Environment.NewLine}---{Environment.NewLine}{content}";
-            }
-
-            _viewModel.EditorContent = newContent;
-            await _viewModel.SaveNoteAsync();
-            if (ColorPickerBar != null)
-            {
-                ColorPickerBar.IsVisible = false;
-            }
-        }
-
         private void OnToggleViewModeClick(object? sender, RoutedEventArgs e)
         {
             IsGridView = !IsGridView;
@@ -785,7 +708,6 @@ namespace QuickNote.Avalonia.Views
                     MobileNotionEditor.CurrentNoteFolderPath = _viewModel.CurrentNote.FolderPath;
                     MobileNotionEditor.CurrentNotePath = _viewModel.CurrentNote.FullPath;
                     MobileNotionEditor.LoadMarkdown(_viewModel.EditorContent ?? string.Empty, force: true);
-                    ShowNoteEditor();
                 }
             }
             else if (e.PropertyName == nameof(MainViewModel.NoteTitle))
@@ -820,10 +742,6 @@ namespace QuickNote.Avalonia.Views
             if (MobileNotionEditor != null)
             {
                 MobileNotionEditor.IsVisible = false;
-            }
-            if (ColorPickerBar != null)
-            {
-                ColorPickerBar.IsVisible = false;
             }
             NotesFeedScreen.IsVisible = true;
             ApplyFilters();
@@ -1868,51 +1786,22 @@ namespace QuickNote.Avalonia.Views
                 };
                 Grid.SetColumn(folderText, 1);
 
-                if (_isFolderSelectionMode)
+                var badgeBorder = new Border
                 {
-                    // In selection mode: Direct Delete button on the right of the folder row
-                    var deleteRowBtn = new Button
-                    {
-                        Background = Brushes.Transparent,
-                        Padding = new Thickness(6, 4),
-                        VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center
-                    };
-                    deleteRowBtn.Content = new PathIcon
-                    {
-                        Data = (StreamGeometry)Resources["IconTrash"]!,
-                        Width = 15,
-                        Height = 15,
-                        Foreground = new SolidColorBrush(Color.Parse("#ef4444"))
-                    };
-                    var capturedDelFolder = folderPath;
-                    deleteRowBtn.Click += (s, e) =>
-                    {
-                        _selectedFolders.Clear();
-                        _selectedFolders.Add(capturedDelFolder);
-                        OnBatchDeleteFoldersClick(s, e);
-                    };
-                    Grid.SetColumn(deleteRowBtn, 2);
-                    grid.Children.Add(deleteRowBtn);
-                }
-                else
+                    Background = ChipUnselectedBackgroundBrush,
+                    CornerRadius = new CornerRadius(10),
+                    Padding = new Thickness(8, 2),
+                    VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center
+                };
+                var badgeText = new TextBlock
                 {
-                    var badgeBorder = new Border
-                    {
-                        Background = ChipUnselectedBackgroundBrush,
-                        CornerRadius = new CornerRadius(10),
-                        Padding = new Thickness(8, 2),
-                        VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center
-                    };
-                    var badgeText = new TextBlock
-                    {
-                        Text = noteCount.ToString(),
-                        FontSize = 11,
-                        Foreground = TextSecondaryBrush
-                    };
-                    badgeBorder.Child = badgeText;
-                    Grid.SetColumn(badgeBorder, 2);
-                    grid.Children.Add(badgeBorder);
-                }
+                    Text = noteCount.ToString(),
+                    FontSize = 11,
+                    Foreground = TextSecondaryBrush
+                };
+                badgeBorder.Child = badgeText;
+                Grid.SetColumn(badgeBorder, 2);
+                grid.Children.Add(badgeBorder);
 
                 grid.Children.Add(leadingIcon);
                 grid.Children.Add(folderText);
@@ -2900,6 +2789,86 @@ namespace QuickNote.Avalonia.Views
             }
         }
 
+        // ── Note Editor 3-Dots More Menu Actions (Issue 6) ──────────────────
+        private void OnShowNoteEditorMenuClick(object? sender, RoutedEventArgs e)
+        {
+            if (NoteEditorMenuModal != null)
+            {
+                NoteEditorMenuModal.IsVisible = true;
+            }
+        }
+
+        private void OnCloseNoteEditorMenuClick(object? sender, RoutedEventArgs e)
+        {
+            if (NoteEditorMenuModal != null)
+            {
+                NoteEditorMenuModal.IsVisible = false;
+            }
+        }
+
+        private async void OnEditorCopyNoteClick(object? sender, RoutedEventArgs e)
+        {
+            if (NoteEditorMenuModal != null) NoteEditorMenuModal.IsVisible = false;
+            if (_viewModel?.CurrentNote == null) return;
+
+            try
+            {
+                await _viewModel.SaveNoteAsync();
+                var src = _viewModel.CurrentNote.FullPath;
+                if (File.Exists(src))
+                {
+                    var dir = Path.GetDirectoryName(src) ?? _viewModel.NotesRoot;
+                    var baseName = Path.GetFileNameWithoutExtension(src);
+                    var ext = Path.GetExtension(src);
+
+                    string copyPath = Path.Combine(dir, $"{baseName} (Copy){ext}");
+                    int c = 2;
+                    while (File.Exists(copyPath))
+                    {
+                        copyPath = Path.Combine(dir, $"{baseName} (Copy {c}){ext}");
+                        c++;
+                    }
+                    File.Copy(src, copyPath);
+                    await _viewModel.RefreshFolderTreeAsync();
+                    await _viewModel.Refresh();
+                    RebuildDrawerFolders();
+                    ApplyFilters();
+                    TriggerAutoSyncInBackground();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[MobileMainView] Error copying current note: {ex.Message}");
+            }
+        }
+
+        private async void OnEditorMoveNoteClick(object? sender, RoutedEventArgs e)
+        {
+            if (NoteEditorMenuModal != null) NoteEditorMenuModal.IsVisible = false;
+            if (_viewModel?.CurrentNote == null) return;
+
+            await _viewModel.SaveNoteAsync();
+
+            var currentNote = _viewModel.CurrentNote;
+            foreach (var item in FilteredNotes) item.IsSelected = false;
+            var match = FilteredNotes.FirstOrDefault(n => n.Note.FullPath == currentNote.FullPath);
+            if (match != null) match.IsSelected = true;
+
+            if (MoveNotesModalTitle != null)
+            {
+                MoveNotesModalTitle.Text = $"Move '{currentNote.Title}'";
+            }
+            PopulateMoveNotesDestinations(string.Empty);
+            if (MoveNotesSearchBox != null) MoveNotesSearchBox.Text = string.Empty;
+            if (MoveNotesModal != null) MoveNotesModal.IsVisible = true;
+        }
+
+        private void OnEditorDeleteNoteClick(object? sender, RoutedEventArgs e)
+        {
+            if (NoteEditorMenuModal != null) NoteEditorMenuModal.IsVisible = false;
+            OnDeleteCurrentNoteClick(sender, e);
+        }
+
         private void OnDeleteCurrentNoteClick(object? sender, RoutedEventArgs e)
         {
             if (_viewModel != null)
@@ -2965,7 +2934,12 @@ namespace QuickNote.Avalonia.Views
         {
             if (e.Key == Key.Back || e.Key == Key.Escape)
             {
-                if (ConfirmBatchDeleteFoldersModal?.IsVisible == true)
+                if (NoteEditorMenuModal?.IsVisible == true)
+                {
+                    e.Handled = true;
+                    NoteEditorMenuModal.IsVisible = false;
+                }
+                else if (ConfirmBatchDeleteFoldersModal?.IsVisible == true)
                 {
                     e.Handled = true;
                     ConfirmBatchDeleteFoldersModal.IsVisible = false;
