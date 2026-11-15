@@ -167,6 +167,16 @@ namespace QuickNote.Avalonia.Notion
             }
         }
 
+        public async Task SetThemeAsync(bool isDark)
+        {
+            if (WebViewControl == null) return;
+            try
+            {
+                await WebViewControl.InvokeScript($"if (window.setTheme) {{ window.setTheme('{(isDark ? "dark" : "light")}'); }}");
+            }
+            catch { }
+        }
+
         public string? NotesRoot { get; set; }
         public string? CurrentNoteFolderPath { get; set; }
         public string? CurrentNotePath { get; set; }

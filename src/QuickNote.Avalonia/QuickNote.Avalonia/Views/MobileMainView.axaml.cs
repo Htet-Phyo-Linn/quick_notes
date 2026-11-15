@@ -10,6 +10,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using Avalonia.Styling;
 using Avalonia.Threading;
 using QuickNote.Avalonia.ViewModels;
 using QuickNote.Core.Models;
@@ -26,9 +27,12 @@ namespace QuickNote.Avalonia.Views
 
     public static class KeepPalette
     {
+        public static readonly KeepColor DarkDefault = new KeepColor("Default", "#161c26", "#283548", "#3390ec", "#f8fafc");
+        public static readonly KeepColor LightDefault = new KeepColor("Default", "#ffffff", "#e2e8f0", "#2481cc", "#0f172a");
+
         public static readonly KeepColor[] Colors = new[]
         {
-            new KeepColor("Default", "#202124", "#3c4043", "#9aa0a6", "#e8eaed"),
+            DarkDefault,
             new KeepColor("Coral",   "#5c2b29", "#773330", "#f28b82", "#fce8e6"),
             new KeepColor("Peach",   "#614a19", "#805f1f", "#fbbc04", "#fef7e0"),
             new KeepColor("Sand",    "#635d19", "#80771f", "#fff475", "#fefde8"),
@@ -42,43 +46,91 @@ namespace QuickNote.Avalonia.Views
             new KeepColor("Chalk",   "#3c3f41", "#505357", "#e8eaed", "#f1f3f4"),
         };
 
-        public static KeepColor GetColor(string? nameOrId)
+        public static KeepColor GetColor(string? nameOrId, bool isDarkMode = true)
         {
             if (!string.IsNullOrWhiteSpace(nameOrId))
             {
                 var match = Colors.FirstOrDefault(c => string.Equals(c.Name, nameOrId, StringComparison.OrdinalIgnoreCase)
                                                     || string.Equals(c.Background, nameOrId, StringComparison.OrdinalIgnoreCase));
-                if (match != null) return match;
+                if (match != null)
+                {
+                    if (string.Equals(match.Name, "Default", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return isDarkMode ? DarkDefault : LightDefault;
+                    }
+                    return match;
+                }
             }
 
-            int idx = Math.Abs((nameOrId ?? "default").GetHashCode()) % Colors.Length;
-            return Colors[idx];
+            return isDarkMode ? DarkDefault : LightDefault;
         }
+
+        public static KeepColor GetDefaultColor(bool isDarkMode = true) => isDarkMode ? DarkDefault : LightDefault;
     }
 
     public class MobileNoteItem : INotifyPropertyChanged
     {
-        private static readonly IBrush SelectedBorderBrush = new SolidColorBrush(Color.Parse("#3b82f6"));
-        private static readonly IBrush SelectedCheckBgBrush = new SolidColorBrush(Color.Parse("#2563eb"));
-        private static readonly IBrush SelectedCheckBorderBrushConst = new SolidColorBrush(Color.Parse("#3b82f6"));
-        private static readonly IBrush UnselectedCheckBorderBrushConst = new SolidColorBrush(Color.Parse("#6b7280"));
+        private static readonly IBrush SelectedBorderBrush = new SolidColorBrush(Color.Parse("#3390ec"));
+        private static readonly IBrush SelectedCheckBgBrush = new SolidColorBrush(Color.Parse("#3390ec"));
+        private static readonly IBrush SelectedCheckBorderBrushConst = new SolidColorBrush(Color.Parse("#3390ec"));
+        private static readonly IBrush UnselectedCheckBorderBrushDark = new SolidColorBrush(Color.Parse("#4b5563"));
+        private static readonly IBrush UnselectedCheckBorderBrushLight = new SolidColorBrush(Color.Parse("#cbd5e1"));
         private static readonly Thickness SelectedBorderThicknessValue = new Thickness(2);
         private static readonly Thickness NormalBorderThicknessValue = new Thickness(1);
 
-        public NoteDocument Note { get; }
-        private readonly KeepColor _color;
+        private static readonly IBrush DarkSnippetBrush = new SolidColorBrush(Color.Parse("#8c97a8"));
+        private static readonly IBrush LightSnippetBrush = new SolidColorBrush(Color.Parse("#64748b"));
+        private static readonly IBrush DarkDateBrush = new SolidColorBrush(Color.Parse("#64748b"));
+        private static readonly IBrush LightDateBrush = new SolidColorBrush(Color.Parse("#94a3b8"));
+        private static readonly IBrush DarkFolderBadgeBg = new SolidColorBrush(Color.FromArgb(40, 51, 144, 236));
+        private static readonly IBrush LightFolderBadgeBg = new SolidColorBrush(Color.FromArgb(28, 36, 129, 204));
+        private static readonly IBrush DarkFolderBadgeFg = new SolidColorBrush(Color.Parse("#60a5fa"));
+        private static readonly IBrush LightFolderBadgeFg = new SolidColorBrush(Color.Parse("#2563eb"));
+        private static readonly IBrush DarkTagBadgeBg = new SolidColorBrush(Color.Parse("#1e2533"));
+        private static readonly IBrush LightTagBadgeBg = new SolidColorBrush(Color.Parse("#f1f5f9"));
+        private static readonly IBrush DarkTagBadgeFg = new SolidColorBrush(Color.Parse("#94a3b8"));
+        private static readonly IBrush LightTagBadgeFg = new SolidColorBrush(Color.Parse("#475569"));
 
-        public MobileNoteItem(NoteDocument note)
+        public NoteDocument Note { get; }
+        private KeepColor _color;
+        private bool _isDarkMode = true;
+
+        public MobileNoteItem(NoteDocument note, bool isDarkMode = true)
         {
             Note = note;
-            _color = ResolveColor(note);
+            _isDarkMode = isDarkMode;
+            _color = ResolveColor(note, isDarkMode);
+            ApplyBrushes();
+        }
+
+        private void ApplyBrushes()
+        {
             CardBackground = _color.BackgroundBrush;
             CardBorderBrush = _color.BorderBrush;
             CardAccentBrush = _color.AccentBrush;
             CardTextBrush = _color.TextBrush;
         }
 
-        private static KeepColor ResolveColor(NoteDocument note)
+        public void UpdateTheme(bool isDarkMode)
+        {
+            _isDarkMode = isDarkMode;
+            _color = ResolveColor(Note, isDarkMode);
+            ApplyBrushes();
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CardBackground)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CardBorderBrush)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CardAccentBrush)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CardTextBrush)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(EffectiveBorderBrush)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SnippetBrush)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DateBrush)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(FolderBadgeBg)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(FolderBadgeFg)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TagBadgeBg)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TagBadgeFg)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SelectionCheckBorderBrush)));
+        }
+
+        private static KeepColor ResolveColor(NoteDocument note, bool isDarkMode)
         {
             if (!string.IsNullOrWhiteSpace(note.Content) && note.Content.StartsWith("---"))
             {
@@ -91,21 +143,28 @@ namespace QuickNote.Avalonia.Views
                         var parts = line.Split(new[] { ':' }, 2);
                         if (parts.Length == 2 && parts[0].Trim().Equals("color", StringComparison.OrdinalIgnoreCase))
                         {
-                            return KeepPalette.GetColor(parts[1].Trim());
+                            return KeepPalette.GetColor(parts[1].Trim(), isDarkMode);
                         }
                     }
                 }
             }
 
-            var seed = note.Id != Guid.Empty ? note.Id.ToString() : (note.FileName ?? note.Title ?? "note");
-            return KeepPalette.GetColor(seed);
+            // Always single unified clean liquid glass default color (no random colors)
+            return KeepPalette.GetDefaultColor(isDarkMode);
         }
 
-        public IBrush CardBackground { get; }
-        public IBrush CardBorderBrush { get; }
-        public IBrush CardAccentBrush { get; }
-        public IBrush CardTextBrush { get; }
+        public IBrush CardBackground { get; private set; } = null!;
+        public IBrush CardBorderBrush { get; private set; } = null!;
+        public IBrush CardAccentBrush { get; private set; } = null!;
+        public IBrush CardTextBrush { get; private set; } = null!;
         public string ColorName => _color.Name;
+
+        public IBrush SnippetBrush => _isDarkMode ? DarkSnippetBrush : LightSnippetBrush;
+        public IBrush DateBrush => _isDarkMode ? DarkDateBrush : LightDateBrush;
+        public IBrush FolderBadgeBg => _isDarkMode ? DarkFolderBadgeBg : LightFolderBadgeBg;
+        public IBrush FolderBadgeFg => _isDarkMode ? DarkFolderBadgeFg : LightFolderBadgeFg;
+        public IBrush TagBadgeBg => _isDarkMode ? DarkTagBadgeBg : LightTagBadgeBg;
+        public IBrush TagBadgeFg => _isDarkMode ? DarkTagBadgeFg : LightTagBadgeFg;
 
         public string Title => !string.IsNullOrWhiteSpace(Note?.Title)
             ? Note.Title
@@ -197,7 +256,7 @@ namespace QuickNote.Avalonia.Views
 
         public IBrush SelectionCheckBorderBrush => IsSelected
             ? SelectedCheckBorderBrushConst
-            : UnselectedCheckBorderBrushConst;
+            : (_isDarkMode ? UnselectedCheckBorderBrushDark : UnselectedCheckBorderBrushLight);
 
         public event PropertyChangedEventHandler? PropertyChanged;
         public void Refresh() => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(null));
@@ -298,6 +357,125 @@ namespace QuickNote.Avalonia.Views
 
         public bool HasSelectedTag => !string.IsNullOrEmpty(_selectedTag);
         public string SelectedTagText => $"#{_selectedTag}";
+
+        // ── Telegram Liquid Glass Theming (Issue 3) ──────────────────────
+        private bool _isDarkMode = true;
+        public bool IsDarkMode
+        {
+            get => _isDarkMode;
+            set
+            {
+                if (_isDarkMode != value)
+                {
+                    _isDarkMode = value;
+                    if (_viewModel != null) _viewModel.IsDarkMode = value;
+                    if (Application.Current != null)
+                    {
+                        Application.Current.RequestedThemeVariant = value ? ThemeVariant.Dark : ThemeVariant.Light;
+                    }
+                    OnPropertyChanged(nameof(IsDarkMode));
+                    OnPropertyChanged(nameof(ThemeIconGeometry));
+                    OnPropertyChanged(nameof(ThemeToggleText));
+                    OnPropertyChanged(nameof(AppBackgroundBrush));
+                    OnPropertyChanged(nameof(GlassSurfaceBrush));
+                    OnPropertyChanged(nameof(GlassHeaderBackgroundBrush));
+                    OnPropertyChanged(nameof(GlassBorderBrush));
+                    OnPropertyChanged(nameof(TextPrimaryBrush));
+                    OnPropertyChanged(nameof(TextSecondaryBrush));
+                    OnPropertyChanged(nameof(TextMutedBrush));
+                    OnPropertyChanged(nameof(AccentBrush));
+                    OnPropertyChanged(nameof(DrawerBackgroundBrush));
+                    OnPropertyChanged(nameof(ModalBackgroundBrush));
+                    OnPropertyChanged(nameof(ChipSelectedBackgroundBrush));
+                    OnPropertyChanged(nameof(ChipUnselectedBackgroundBrush));
+                    OnPropertyChanged(nameof(ChipUnselectedTextBrush));
+                    OnPropertyChanged(nameof(FloatingBarBackgroundBrush));
+                    OnPropertyChanged(nameof(SelectionBarBackgroundBrush));
+                    OnPropertyChanged(nameof(FabBackgroundBrush));
+                    OnPropertyChanged(nameof(EditorToolbarBackgroundBrush));
+
+                    foreach (var note in FilteredNotes)
+                    {
+                        note.UpdateTheme(_isDarkMode);
+                    }
+
+                    if (MobileNotionEditor != null)
+                    {
+                        _ = MobileNotionEditor.SetThemeAsync(_isDarkMode);
+                    }
+
+                    RebuildTagChips();
+                    if (LeftDrawerOverlay?.IsVisible == true)
+                    {
+                        RebuildDrawerFolders();
+                        RebuildDrawerTags();
+                    }
+                }
+            }
+        }
+
+        // Dark Mode: Deep Midnight Space + Frosted Liquid Glass
+        private static readonly IBrush DarkAppBackground = new SolidColorBrush(Color.Parse("#0b0e14"));
+        private static readonly IBrush DarkGlassSurface = new SolidColorBrush(Color.FromArgb(235, 22, 28, 38));
+        private static readonly IBrush DarkGlassHeader = new SolidColorBrush(Color.FromArgb(240, 20, 26, 36));
+        private static readonly IBrush DarkGlassBorder = new SolidColorBrush(Color.FromArgb(50, 255, 255, 255));
+        private static readonly IBrush DarkTextPrimary = new SolidColorBrush(Color.Parse("#f8fafc"));
+        private static readonly IBrush DarkTextSecondary = new SolidColorBrush(Color.Parse("#8c97a8"));
+        private static readonly IBrush DarkTextMuted = new SolidColorBrush(Color.Parse("#5a6678"));
+        private static readonly IBrush DarkAccent = new SolidColorBrush(Color.Parse("#3390ec")); // Telegram Electric Blue
+        private static readonly IBrush DarkDrawerBg = new SolidColorBrush(Color.FromArgb(245, 17, 22, 34));
+        private static readonly IBrush DarkModalBg = new SolidColorBrush(Color.FromArgb(248, 20, 26, 36));
+        private static readonly IBrush DarkChipBg = new SolidColorBrush(Color.FromArgb(200, 26, 32, 44));
+        private static readonly IBrush DarkChipText = new SolidColorBrush(Color.Parse("#cbd5e1"));
+        private static readonly IBrush DarkFloatingBarBg = new SolidColorBrush(Color.FromArgb(235, 22, 28, 38));
+        private static readonly IBrush DarkSelectionBarBg = new SolidColorBrush(Color.FromArgb(240, 27, 39, 59));
+        private static readonly IBrush DarkToolbarBg = new SolidColorBrush(Color.FromArgb(245, 20, 26, 36));
+
+        // Light Mode: Ethereal Daylight Canvas + Frosted White Liquid Glass
+        private static readonly IBrush LightAppBackground = new SolidColorBrush(Color.Parse("#f0f4f9"));
+        private static readonly IBrush LightGlassSurface = new SolidColorBrush(Color.FromArgb(242, 255, 255, 255));
+        private static readonly IBrush LightGlassHeader = new SolidColorBrush(Color.FromArgb(245, 255, 255, 255));
+        private static readonly IBrush LightGlassBorder = new SolidColorBrush(Color.FromArgb(35, 0, 0, 0));
+        private static readonly IBrush LightTextPrimary = new SolidColorBrush(Color.Parse("#0f172a"));
+        private static readonly IBrush LightTextSecondary = new SolidColorBrush(Color.Parse("#64748b"));
+        private static readonly IBrush LightTextMuted = new SolidColorBrush(Color.Parse("#94a3b8"));
+        private static readonly IBrush LightAccent = new SolidColorBrush(Color.Parse("#2481cc")); // Telegram Electric Blue
+        private static readonly IBrush LightDrawerBg = new SolidColorBrush(Color.FromArgb(250, 255, 255, 255));
+        private static readonly IBrush LightModalBg = new SolidColorBrush(Color.FromArgb(250, 255, 255, 255));
+        private static readonly IBrush LightChipBg = new SolidColorBrush(Color.Parse("#e2e8f0"));
+        private static readonly IBrush LightChipText = new SolidColorBrush(Color.Parse("#334155"));
+        private static readonly IBrush LightFloatingBarBg = new SolidColorBrush(Color.FromArgb(245, 255, 255, 255));
+        private static readonly IBrush LightSelectionBarBg = new SolidColorBrush(Color.FromArgb(245, 224, 237, 255));
+        private static readonly IBrush LightToolbarBg = new SolidColorBrush(Color.FromArgb(245, 255, 255, 255));
+
+        public IBrush AppBackgroundBrush => _isDarkMode ? DarkAppBackground : LightAppBackground;
+        public IBrush GlassSurfaceBrush => _isDarkMode ? DarkGlassSurface : LightGlassSurface;
+        public IBrush GlassHeaderBackgroundBrush => _isDarkMode ? DarkGlassHeader : LightGlassHeader;
+        public IBrush GlassBorderBrush => _isDarkMode ? DarkGlassBorder : LightGlassBorder;
+        public IBrush TextPrimaryBrush => _isDarkMode ? DarkTextPrimary : LightTextPrimary;
+        public IBrush TextSecondaryBrush => _isDarkMode ? DarkTextSecondary : LightTextSecondary;
+        public IBrush TextMutedBrush => _isDarkMode ? DarkTextMuted : LightTextMuted;
+        public IBrush AccentBrush => _isDarkMode ? DarkAccent : LightAccent;
+        public IBrush DrawerBackgroundBrush => _isDarkMode ? DarkDrawerBg : LightDrawerBg;
+        public IBrush ModalBackgroundBrush => _isDarkMode ? DarkModalBg : LightModalBg;
+        public IBrush ChipSelectedBackgroundBrush => DarkAccent;
+        public IBrush ChipUnselectedBackgroundBrush => _isDarkMode ? DarkChipBg : LightChipBg;
+        public IBrush ChipUnselectedTextBrush => _isDarkMode ? DarkChipText : LightChipText;
+        public IBrush FloatingBarBackgroundBrush => _isDarkMode ? DarkFloatingBarBg : LightFloatingBarBg;
+        public IBrush SelectionBarBackgroundBrush => _isDarkMode ? DarkSelectionBarBg : LightSelectionBarBg;
+        public IBrush FabBackgroundBrush => DarkAccent;
+        public IBrush EditorToolbarBackgroundBrush => _isDarkMode ? DarkToolbarBg : LightToolbarBg;
+
+        private static readonly StreamGeometry FallbackSunGeom = StreamGeometry.Parse("M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58c-.39-.39-1.03-.39-1.41 0s-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37c-.39-.39-1.03-.39-1.41 0s-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41l-1.06-1.06zm1.06-10.96c.39-.39.39-1.03 0-1.41s-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36c.39-.39.39-1.03 0-1.41s-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z");
+        private static readonly StreamGeometry FallbackMoonGeom = StreamGeometry.Parse("M12.3 2a10 10 0 0 0-1.9 19.8 10 10 0 0 0 10.9-10.9A10.02 10.02 0 0 1 12.3 2z");
+
+        public StreamGeometry ThemeIconGeometry => _isDarkMode ? FallbackSunGeom : FallbackMoonGeom;
+        public string ThemeToggleText => _isDarkMode ? "Light Mode" : "Dark Mode";
+
+        public void OnToggleThemeClick(object? sender, RoutedEventArgs e)
+        {
+            IsDarkMode = !IsDarkMode;
+        }
 
         // ── Note Selection Mode (Issue 1) ─────────────────────────────────
         private bool _isSelectionMode = false;
@@ -952,9 +1130,10 @@ namespace QuickNote.Avalonia.Views
                 FontWeight = isAllNotes ? FontWeight.SemiBold : FontWeight.Normal,
                 CornerRadius = new CornerRadius(16),
                 Padding = new Thickness(14, 6),
-                Background = isAllNotes ? new SolidColorBrush(Color.Parse("#2563eb")) : new SolidColorBrush(Color.Parse("#1e1e24")),
-                Foreground = isAllNotes ? Brushes.White : new SolidColorBrush(Color.Parse("#9ca3af")),
-                BorderThickness = new Thickness(0),
+                Background = isAllNotes ? AccentBrush : ChipUnselectedBackgroundBrush,
+                Foreground = isAllNotes ? Brushes.White : ChipUnselectedTextBrush,
+                BorderBrush = isAllNotes ? Brushes.Transparent : GlassBorderBrush,
+                BorderThickness = new Thickness(isAllNotes ? 0 : 1),
                 HorizontalContentAlignment = global::Avalonia.Layout.HorizontalAlignment.Center,
                 VerticalContentAlignment = global::Avalonia.Layout.VerticalAlignment.Center
             };
@@ -992,9 +1171,10 @@ namespace QuickNote.Avalonia.Views
                     FontWeight = isSelected ? FontWeight.SemiBold : FontWeight.Normal,
                     CornerRadius = new CornerRadius(16),
                     Padding = new Thickness(14, 6),
-                    Background = isSelected ? new SolidColorBrush(Color.Parse("#2563eb")) : new SolidColorBrush(Color.Parse("#1e1e24")),
-                    Foreground = isSelected ? Brushes.White : new SolidColorBrush(Color.Parse("#9ca3af")),
-                    BorderThickness = new Thickness(0),
+                    Background = isSelected ? AccentBrush : ChipUnselectedBackgroundBrush,
+                    Foreground = isSelected ? Brushes.White : ChipUnselectedTextBrush,
+                    BorderBrush = isSelected ? Brushes.Transparent : GlassBorderBrush,
+                    BorderThickness = new Thickness(isSelected ? 0 : 1),
                     HorizontalContentAlignment = global::Avalonia.Layout.HorizontalAlignment.Center,
                     VerticalContentAlignment = global::Avalonia.Layout.VerticalAlignment.Center,
                     Tag = tag
@@ -1610,18 +1790,21 @@ namespace QuickNote.Avalonia.Views
                     return string.Equals(f, folderName, StringComparison.OrdinalIgnoreCase);
                 });
 
-                var btn = new Button
+                var folderRow = new Border
                 {
                     Background = isFolderSelectedInBatch
-                        ? new SolidColorBrush(Color.Parse("#1e293b"))
-                        : (isSelectedCategory ? new SolidColorBrush(Color.Parse("#252830")) : Brushes.Transparent),
-                    BorderBrush = isFolderSelectedInBatch ? new SolidColorBrush(Color.Parse("#3b82f6")) : Brushes.Transparent,
-                    BorderThickness = new Thickness(isFolderSelectedInBatch ? 1 : 0),
+                        ? (IsDarkMode ? new SolidColorBrush(Color.Parse("#1e293b")) : new SolidColorBrush(Color.Parse("#dbeafe")))
+                        : (isSelectedCategory 
+                            ? (IsDarkMode ? new SolidColorBrush(Color.Parse("#1a2230")) : new SolidColorBrush(Color.Parse("#e2e8f0"))) 
+                            : Brushes.Transparent),
+                    BorderBrush = isFolderSelectedInBatch 
+                        ? AccentBrush 
+                        : (isSelectedCategory ? GlassBorderBrush : Brushes.Transparent),
+                    BorderThickness = new Thickness(isFolderSelectedInBatch || isSelectedCategory ? 1 : 0),
                     CornerRadius = new CornerRadius(10),
                     Padding = new Thickness(10, 8),
                     Margin = new Thickness(depth * 14, 0, 0, 2),
-                    HorizontalAlignment = global::Avalonia.Layout.HorizontalAlignment.Stretch,
-                    HorizontalContentAlignment = global::Avalonia.Layout.HorizontalAlignment.Stretch
+                    HorizontalAlignment = global::Avalonia.Layout.HorizontalAlignment.Stretch
                 };
 
                 var grid = new Grid
@@ -1638,8 +1821,8 @@ namespace QuickNote.Avalonia.Views
                         Width = 18,
                         Height = 18,
                         CornerRadius = new CornerRadius(9),
-                        Background = isFolderSelectedInBatch ? new SolidColorBrush(Color.Parse("#2563eb")) : Brushes.Transparent,
-                        BorderBrush = isFolderSelectedInBatch ? new SolidColorBrush(Color.Parse("#3b82f6")) : new SolidColorBrush(Color.Parse("#6b7280")),
+                        Background = isFolderSelectedInBatch ? AccentBrush : Brushes.Transparent,
+                        BorderBrush = isFolderSelectedInBatch ? AccentBrush : TextSecondaryBrush,
                         BorderThickness = new Thickness(1.5),
                         Margin = new Thickness(0, 0, 10, 0),
                         VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center
@@ -1665,7 +1848,7 @@ namespace QuickNote.Avalonia.Views
                         Data = (StreamGeometry)Resources["IconFolder"]!,
                         Width = 18,
                         Height = 18,
-                        Foreground = isSelectedCategory ? new SolidColorBrush(Color.Parse("#3b82f6")) : new SolidColorBrush(Color.Parse("#9ca3af")),
+                        Foreground = isSelectedCategory ? AccentBrush : TextSecondaryBrush,
                         Margin = new Thickness(0, 0, 10, 0),
                         VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center
                     };
@@ -1678,69 +1861,113 @@ namespace QuickNote.Avalonia.Views
                     FontSize = 14,
                     FontWeight = (isSelectedCategory || isFolderSelectedInBatch) ? FontWeight.SemiBold : FontWeight.Normal,
                     Foreground = isFolderSelectedInBatch
-                        ? new SolidColorBrush(Color.Parse("#60a5fa"))
-                        : (isSelectedCategory ? Brushes.White : new SolidColorBrush(Color.Parse("#d1d5db"))),
+                        ? AccentBrush
+                        : (isSelectedCategory ? TextPrimaryBrush : TextSecondaryBrush),
                     TextTrimming = TextTrimming.CharacterEllipsis,
                     VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center
                 };
                 Grid.SetColumn(folderText, 1);
 
-                var badgeBorder = new Border
+                if (_isFolderSelectionMode)
                 {
-                    Background = new SolidColorBrush(Color.Parse("#282832")),
-                    CornerRadius = new CornerRadius(10),
-                    Padding = new Thickness(8, 2),
-                    VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center
-                };
-                var badgeText = new TextBlock
+                    // In selection mode: Direct Delete button on the right of the folder row
+                    var deleteRowBtn = new Button
+                    {
+                        Background = Brushes.Transparent,
+                        Padding = new Thickness(6, 4),
+                        VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center
+                    };
+                    deleteRowBtn.Content = new PathIcon
+                    {
+                        Data = (StreamGeometry)Resources["IconTrash"]!,
+                        Width = 15,
+                        Height = 15,
+                        Foreground = new SolidColorBrush(Color.Parse("#ef4444"))
+                    };
+                    var capturedDelFolder = folderPath;
+                    deleteRowBtn.Click += (s, e) =>
+                    {
+                        _selectedFolders.Clear();
+                        _selectedFolders.Add(capturedDelFolder);
+                        OnBatchDeleteFoldersClick(s, e);
+                    };
+                    Grid.SetColumn(deleteRowBtn, 2);
+                    grid.Children.Add(deleteRowBtn);
+                }
+                else
                 {
-                    Text = noteCount.ToString(),
-                    FontSize = 11,
-                    Foreground = new SolidColorBrush(Color.Parse("#9ca3af"))
-                };
-                badgeBorder.Child = badgeText;
-                Grid.SetColumn(badgeBorder, 2);
+                    var badgeBorder = new Border
+                    {
+                        Background = ChipUnselectedBackgroundBrush,
+                        CornerRadius = new CornerRadius(10),
+                        Padding = new Thickness(8, 2),
+                        VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center
+                    };
+                    var badgeText = new TextBlock
+                    {
+                        Text = noteCount.ToString(),
+                        FontSize = 11,
+                        Foreground = TextSecondaryBrush
+                    };
+                    badgeBorder.Child = badgeText;
+                    Grid.SetColumn(badgeBorder, 2);
+                    grid.Children.Add(badgeBorder);
+                }
 
                 grid.Children.Add(leadingIcon);
                 grid.Children.Add(folderText);
-                grid.Children.Add(badgeBorder);
 
-                btn.Content = grid;
+                folderRow.Child = grid;
 
-                // Long press detection for folder selection
-                DispatcherTimer? holdTimer = null;
+                // Long press hold detection for folder selection
+                Point? pressStart = null;
+                var holdTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
                 bool wasLongPress = false;
                 var capturedFolder = folderPath;
 
-                btn.PointerPressed += (s, pe) =>
+                folderRow.PointerPressed += (s, pe) =>
                 {
                     if (_isFolderSelectionMode) return;
                     wasLongPress = false;
-                    holdTimer?.Stop();
-                    holdTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(450) };
-                    holdTimer.Tick += (ts, te) =>
-                    {
-                        holdTimer?.Stop();
-                        holdTimer = null;
-                        wasLongPress = true;
-                        EnterFolderSelectionModeWithFolder(capturedFolder);
-                    };
+                    pressStart = pe.GetPosition(DrawerFoldersPanel);
+                    holdTimer.Stop();
                     holdTimer.Start();
                 };
 
-                btn.PointerReleased += (s, pe) =>
+                folderRow.PointerMoved += (s, pe) =>
                 {
-                    holdTimer?.Stop();
-                    holdTimer = null;
+                    if (pressStart.HasValue)
+                    {
+                        var cur = pe.GetPosition(DrawerFoldersPanel);
+                        if (Math.Abs(cur.X - pressStart.Value.X) > 12 || Math.Abs(cur.Y - pressStart.Value.Y) > 12)
+                        {
+                            holdTimer.Stop();
+                            pressStart = null;
+                        }
+                    }
                 };
 
-                btn.PointerCaptureLost += (s, pe) =>
+                folderRow.PointerReleased += (s, pe) =>
                 {
-                    holdTimer?.Stop();
-                    holdTimer = null;
+                    holdTimer.Stop();
+                    pressStart = null;
                 };
 
-                btn.Click += (s, e) =>
+                folderRow.PointerCaptureLost += (s, pe) =>
+                {
+                    holdTimer.Stop();
+                    pressStart = null;
+                };
+
+                holdTimer.Tick += (ts, te) =>
+                {
+                    holdTimer.Stop();
+                    pressStart = null;
+                    wasLongPress = true;
+                    EnterFolderSelectionModeWithFolder(capturedFolder);
+                };
+
+                folderRow.Tapped += (s, e) =>
                 {
                     if (wasLongPress)
                     {
@@ -1762,11 +1989,10 @@ namespace QuickNote.Avalonia.Views
 
                     _selectedCategory = folderName;
                     if (LeftDrawerOverlay != null) LeftDrawerOverlay.IsVisible = false;
-                    RebuildDrawerFolders();
                     ApplyFilters();
                 };
 
-                DrawerFoldersPanel.Children.Add(btn);
+                DrawerFoldersPanel.Children.Add(folderRow);
             }
         }
 
@@ -1876,7 +2102,9 @@ namespace QuickNote.Avalonia.Views
 
                 var btn = new Button
                 {
-                    Background = isSelected ? new SolidColorBrush(Color.Parse("#252830")) : Brushes.Transparent,
+                    Background = isSelected 
+                        ? (IsDarkMode ? new SolidColorBrush(Color.Parse("#1a2230")) : new SolidColorBrush(Color.Parse("#e2e8f0")))
+                        : Brushes.Transparent,
                     BorderThickness = new Thickness(0),
                     CornerRadius = new CornerRadius(10),
                     Padding = new Thickness(10, 8),
@@ -1894,7 +2122,7 @@ namespace QuickNote.Avalonia.Views
                     Text = "#",
                     FontSize = 14,
                     FontWeight = FontWeight.Bold,
-                    Foreground = isSelected ? new SolidColorBrush(Color.Parse("#3b82f6")) : new SolidColorBrush(Color.Parse("#9ca3af")),
+                    Foreground = isSelected ? AccentBrush : TextSecondaryBrush,
                     Margin = new Thickness(4, 0, 10, 0),
                     VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center
                 };
@@ -1905,7 +2133,7 @@ namespace QuickNote.Avalonia.Views
                     Text = tagName,
                     FontSize = 14,
                     FontWeight = isSelected ? FontWeight.SemiBold : FontWeight.Normal,
-                    Foreground = isSelected ? Brushes.White : new SolidColorBrush(Color.Parse("#d1d5db")),
+                    Foreground = isSelected ? TextPrimaryBrush : TextSecondaryBrush,
                     TextTrimming = TextTrimming.CharacterEllipsis,
                     VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center
                 };
@@ -1913,7 +2141,7 @@ namespace QuickNote.Avalonia.Views
 
                 var badgeBorder = new Border
                 {
-                    Background = new SolidColorBrush(Color.Parse("#282832")),
+                    Background = ChipUnselectedBackgroundBrush,
                     CornerRadius = new CornerRadius(10),
                     Padding = new Thickness(8, 2),
                     VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center
@@ -1922,7 +2150,7 @@ namespace QuickNote.Avalonia.Views
                 {
                     Text = count.ToString(),
                     FontSize = 11,
-                    Foreground = new SolidColorBrush(Color.Parse("#9ca3af"))
+                    Foreground = TextSecondaryBrush
                 };
                 badgeBorder.Child = badgeText;
                 Grid.SetColumn(badgeBorder, 2);
@@ -2215,7 +2443,7 @@ namespace QuickNote.Avalonia.Views
                 }
                 else
                 {
-                    var newItem = new MobileNoteItem(note)
+                    var newItem = new MobileNoteItem(note, _isDarkMode)
                     {
                         IsSelectionMode = _isSelectionMode
                     };
