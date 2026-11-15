@@ -90,8 +90,9 @@ namespace QuickNote.Infrastructure.Cloud
 
                 InitializeApiClient();
 
-                // Trigger initial sync to discover or create QuickNote folder and fetch notes
-                _ = Task.Run(async () => await PerformSyncAsync());
+                SyncLogger.Log($"Google sign-in successful: {profile?.Email}. Initiating first-time sync...");
+                // Run initial sync so all notes and folders are immediately synchronized
+                await PerformSyncAsync();
 
                 return true;
             }
@@ -159,58 +160,122 @@ namespace QuickNote.Infrastructure.Cloud
         {
             if (!IsAuthenticated)
             {
+                SyncLogger.Log("Sync skipped: Not signed in to Google Drive.");
                 return SyncResult.Fail("Not signed in to Google Drive");
             }
 
             if (!await _syncLock.WaitAsync(100))
             {
+                SyncLogger.Log("Sync skipped: Another sync operation is already in progress.");
                 return SyncResult.Ok(0, 0, 0, "Sync already in progress");
             }
 
             int uploaded = 0;
             int downloaded = 0;
             int conflicts = 0;
+            int foldersSynced = 0;
+
+            void ReportStage(string stageMsg, CloudSyncState state = CloudSyncState.Syncing)
+            {
+                SyncLogger.Log(stageMsg);
+                SyncStatusChanged?.Invoke(this, new CloudSyncStatus
+                {
+                    State = state,
+                    Message = stageMsg,
+                    AccountName = UserEmail ?? "Connected",
+                    LastSyncTime = LastSyncTime
+                });
+            }
 
             try
             {
-                Console.WriteLine($"[GoogleCloudSyncEngine] PerformSyncAsync started. NotesRoot: {_notesRoot}");
-                SyncStatusChanged?.Invoke(this, new CloudSyncStatus
-                {
-                    State = CloudSyncState.Syncing,
-                    Message = "Syncing with Google Drive...",
-                    AccountName = UserEmail ?? "Connected"
-                });
+                ReportStage("Starting Google Drive synchronization...");
 
                 if (_apiClient == null)
                 {
                     InitializeApiClient();
                 }
 
-                // 1. Ensure QuickNote folder exists in Google Drive
+                // 1. Ensure QuickNote root folder exists in Google Drive
                 var folderId = await _apiClient!.EnsureQuickNoteFolderAsync();
-                Console.WriteLine($"[GoogleCloudSyncEngine] QuickNote folder ID: {folderId}");
                 _settingsService.Settings.GoogleDriveFolderId = folderId;
 
                 // 2. Load sync manifest
                 var manifest = await _manifestManager.LoadManifestAsync();
                 manifest.QuickNoteFolderId = folderId;
 
-                // 3. Scan local files for new / modified notes
-                var pendingList = _manifestManager.ScanLocalChanges(_notesRoot);
-                Console.WriteLine($"[GoogleCloudSyncEngine] ScanLocalChanges found {pendingList.Count} pending uploads across {_notesRoot}");
+                // 3. Load initial remote snapshot to know existing cloud folders & files
+                ReportStage("Scanning Google Drive remote folder hierarchy...");
+                var remoteSnapshot = await _apiClient.FetchRemoteSnapshotAsync(folderId);
+                var folderCache = remoteSnapshot.RemoteFolders;
+                var remoteFileMap = remoteSnapshot.RemoteFiles;
+                SyncLogger.Log($"Cloud hierarchy discovered: {folderCache.Count} folder(s), {remoteFileMap.Count} note(s).");
 
-                // 4. Process pending local deletions -> propagate to Google Drive
+                // 4. Load current trash items so we NEVER resurrect or push trashed items
+                var trashItems = await _trashBinService.GetTrashItemsAsync();
+                var trashedOriginalPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var trashedDirPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var t in trashItems)
+                {
+                    if (!string.IsNullOrEmpty(t.OriginalPath))
+                    {
+                        var rel = Path.GetRelativePath(_notesRoot, t.OriginalPath).Replace('\\', '/').Trim('/');
+                        trashedOriginalPaths.Add(rel);
+                        trashedOriginalPaths.Add(Path.GetFileName(t.OriginalPath));
+                        if (t.IsDirectory)
+                        {
+                            trashedDirPaths.Add(rel);
+                        }
+                    }
+                }
+
+                // ─────────────────────────────────────────────────────────────
+                // PHASE 1: LOCAL PUSH FIRST (Items 2 & 3)
+                // ─────────────────────────────────────────────────────────────
+                ReportStage("Phase 1: Pushing local notes & folders to Google Drive...");
+
+                // A. Synchronize local folders to cloud (ensures blank local folders exist on cloud!)
+                if (Directory.Exists(_notesRoot))
+                {
+                    var localDirs = Directory.GetDirectories(_notesRoot, "*", SearchOption.AllDirectories);
+                    foreach (var dir in localDirs)
+                    {
+                        var dirName = Path.GetFileName(dir);
+                        if (dirName.StartsWith(".") || dir.Contains(".trash", StringComparison.OrdinalIgnoreCase) || dir.Contains(".assets", StringComparison.OrdinalIgnoreCase))
+                            continue;
+
+                        var relDir = Path.GetRelativePath(_notesRoot, dir).Replace('\\', '/').Trim('/');
+                        if (trashedDirPaths.Contains(relDir)) continue;
+
+                        if (!folderCache.ContainsKey(relDir))
+                        {
+                            try
+                            {
+                                var newFolderId = await _apiClient.EnsureFolderPathCachedAsync(folderId, relDir, folderCache);
+                                foldersSynced++;
+                                SyncLogger.Log($"Pushed local folder to Google Drive: '{relDir}'");
+                            }
+                            catch (Exception fEx)
+                            {
+                                Console.WriteLine($"[GoogleCloudSyncEngine] Folder upload error for '{relDir}': {fEx.Message}");
+                            }
+                        }
+                    }
+                }
+
+                // B. Propagate pending local deletions to Google Drive
                 var pendingDeletes = _manifestManager.GetPendingDeletions();
                 foreach (var del in pendingDeletes)
                 {
                     try
                     {
-                        Console.WriteLine($"[GoogleCloudSyncEngine] Propagating local deletion of {del.RelativePath} ({del.RemoteId}) to Google Drive...");
+                        Console.WriteLine($"[GoogleCloudSyncEngine] Deleting remote note '{del.RelativePath}' ({del.RemoteId})...");
                         await _apiClient.DeleteNoteAsync(del.RemoteId);
+                        SyncLogger.Log($"Deleted remote note: '{del.RelativePath}'");
                     }
                     catch (Exception delEx)
                     {
-                        Console.WriteLine($"[GoogleCloudSyncEngine] DeleteNoteAsync error for {del.RelativePath}: {delEx.Message}");
+                        Console.WriteLine($"[GoogleCloudSyncEngine] DeleteNoteAsync error for '{del.RelativePath}': {delEx.Message}");
                     }
                     finally
                     {
@@ -218,26 +283,102 @@ namespace QuickNote.Infrastructure.Cloud
                     }
                 }
 
-                // 5. List remote items in Google Drive QuickNote folder hierarchy
-                var remoteNoteList = await _apiClient.ListAllNotesRecursiveAsync(folderId);
-                Console.WriteLine($"[GoogleCloudSyncEngine] Listed {remoteNoteList.Count} remote notes from Google Drive");
-                var remoteFileMap = remoteNoteList
-                    .ToDictionary(x => x.RelativePath.Replace('\\', '/'), x => x.File, StringComparer.OrdinalIgnoreCase);
-
-                // Load current trash items so we NEVER resurrect trashed notes
-                var trashItems = await _trashBinService.GetTrashItemsAsync();
-                var trashedOriginalPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                foreach (var t in trashItems)
+                // C. Clean up any remote folders that were moved to local trash
+                foreach (var trashedRelDir in trashedDirPaths)
                 {
-                    if (!string.IsNullOrEmpty(t.OriginalPath))
+                    if (folderCache.TryGetValue(trashedRelDir, out var trashedFolderRemoteId))
                     {
-                        var rel = Path.GetRelativePath(_notesRoot, t.OriginalPath).Replace('\\', '/');
-                        trashedOriginalPaths.Add(rel);
-                        trashedOriginalPaths.Add(Path.GetFileName(t.OriginalPath));
+                        try
+                        {
+                            await _apiClient.DeleteNoteAsync(trashedFolderRemoteId);
+                            folderCache.Remove(trashedRelDir);
+                            SyncLogger.Log($"Removed trashed folder from Google Drive: '{trashedRelDir}'");
+                        }
+                        catch { }
                     }
                 }
 
-                // 6. Process remote files (Initial fetch & Remote deltas)
+                // D. Scan local files & upload new or modified notes
+                var pendingUploads = _manifestManager.ScanLocalChanges(_notesRoot);
+                SyncLogger.Log($"Found {pendingUploads.Count} pending local note change(s) for upload.");
+
+                foreach (var entry in manifest.Entries.Values.ToList())
+                {
+                    if (entry.Status != SyncStatus.PendingUpload) continue;
+
+                    var fileKey = entry.RelativePath.Replace('\\', '/').Trim('/');
+                    var localFullPath = Path.Combine(_notesRoot, entry.RelativePath);
+
+                    if (!File.Exists(localFullPath)) continue;
+
+                    // If note is in local trash, don't upload it!
+                    if (trashedOriginalPaths.Contains(fileKey) || trashedOriginalPaths.Contains(Path.GetFileName(fileKey)))
+                    {
+                        continue;
+                    }
+
+                    try
+                    {
+                        var baseName = Path.GetFileName(entry.RelativePath);
+                        var relDir = Path.GetDirectoryName(entry.RelativePath)?.Replace('\\', '/').Trim('/') ?? "";
+                        var targetFolderId = await _apiClient.EnsureFolderPathCachedAsync(folderId, relDir, folderCache);
+                        var localContent = await File.ReadAllTextAsync(localFullPath);
+                        var localHash = SyncManifestManager.ComputeFileHash(localFullPath);
+                        var localModTime = File.GetLastWriteTimeUtc(localFullPath);
+
+                        if (remoteFileMap.TryGetValue(fileKey, out var existingRemote))
+                        {
+                            // Update existing cloud note
+                            var updatedRemote = await _apiClient.UpdateExistingNoteAsync(existingRemote.Id, localContent);
+                            _manifestManager.RecordSuccessfulUpload(entry.RelativePath, updatedRemote.Id, updatedRemote.Md5Checksum ?? string.Empty, updatedRemote.ModifiedTime.UtcDateTime, localHash, localModTime);
+                            uploaded++;
+                            SyncLogger.Log($"Uploaded modified note: '{entry.RelativePath}'");
+                        }
+                        else
+                        {
+                            // Upload new cloud note
+                            var createdRemote = await _apiClient.UploadNewNoteAsync(targetFolderId, baseName, localContent);
+                            _manifestManager.RecordSuccessfulUpload(entry.RelativePath, createdRemote.Id, createdRemote.Md5Checksum ?? string.Empty, createdRemote.ModifiedTime.UtcDateTime, localHash, localModTime);
+                            remoteFileMap[fileKey] = createdRemote;
+                            uploaded++;
+                            SyncLogger.Log($"Uploaded new note: '{entry.RelativePath}'");
+                        }
+                    }
+                    catch (Exception upEx)
+                    {
+                        Console.WriteLine($"[GoogleCloudSyncEngine] Upload error for note '{entry.RelativePath}': {upEx.Message}");
+                        SyncLogger.Log($"Upload failed for '{entry.RelativePath}': {upEx.Message}");
+                    }
+                }
+
+                // ─────────────────────────────────────────────────────────────
+                // PHASE 2: CLOUD DOWNLOAD SECOND (Items 2 & 3)
+                // ─────────────────────────────────────────────────────────────
+                ReportStage("Phase 2: Downloading remote notes & folders...");
+
+                // A. Replicate remote folders locally (ensures blank remote folders exist on local disk!)
+                foreach (var kvp in folderCache)
+                {
+                    var relDir = kvp.Key;
+                    if (string.IsNullOrWhiteSpace(relDir)) continue;
+
+                    if (trashedDirPaths.Contains(relDir))
+                    {
+                        // Folder was trashed locally, delete remote zombie
+                        try { await _apiClient.DeleteNoteAsync(kvp.Value); } catch { }
+                        continue;
+                    }
+
+                    var localDirPath = Path.Combine(_notesRoot, relDir);
+                    if (!Directory.Exists(localDirPath))
+                    {
+                        Directory.CreateDirectory(localDirPath);
+                        foldersSynced++;
+                        SyncLogger.Log($"Created local directory from Google Drive: '{relDir}'");
+                    }
+                }
+
+                // B. Download remote notes
                 foreach (var kvp in remoteFileMap)
                 {
                     var relPath = kvp.Key;
@@ -247,40 +388,44 @@ namespace QuickNote.Infrastructure.Cloud
 
                     if (!localExists)
                     {
-                        // Check if item is in trash or was intentionally deleted locally
+                        // If item is in trash, delete remote copy to prevent resurrection
                         if (trashedOriginalPaths.Contains(relPath) || trashedOriginalPaths.Contains(Path.GetFileName(relPath)))
                         {
-                            Console.WriteLine($"[GoogleCloudSyncEngine] Remote note {relPath} is in local trash. Deleting remote copy to prevent resurrection...");
                             try
                             {
                                 await _apiClient.DeleteNoteAsync(remote.Id);
+                                SyncLogger.Log($"Removed trashed note from cloud: '{relPath}'");
                             }
                             catch { }
                             continue;
                         }
 
-                        // One-time fetch: note is on cloud, not local -> Download it
+                        // Download new note from cloud
                         try
                         {
-                            Console.WriteLine($"[GoogleCloudSyncEngine] Downloading remote note {relPath} ({remote.Id})...");
                             var content = await _apiClient.DownloadNoteTextAsync(remote.Id);
                             var dir = Path.GetDirectoryName(localFullPath);
-                            if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+                            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                            {
+                                Directory.CreateDirectory(dir);
+                            }
                             await File.WriteAllTextAsync(localFullPath, content);
                             File.SetLastWriteTimeUtc(localFullPath, remote.ModifiedTime.UtcDateTime);
 
                             var hash = SyncManifestManager.ComputeFileHash(localFullPath);
                             _manifestManager.RecordSuccessfulDownload(relPath, remote.Id, remote.Md5Checksum ?? string.Empty, remote.ModifiedTime.UtcDateTime, hash, remote.ModifiedTime.UtcDateTime);
                             downloaded++;
+                            SyncLogger.Log($"Downloaded remote note: '{relPath}'");
                         }
                         catch (Exception dlEx)
                         {
-                            Console.WriteLine($"[GoogleCloudSyncEngine] Failed downloading {relPath}: {dlEx.Message}");
+                            Console.WriteLine($"[GoogleCloudSyncEngine] Download error for '{relPath}': {dlEx.Message}");
+                            SyncLogger.Log($"Download error for '{relPath}': {dlEx.Message}");
                         }
                     }
                     else
                     {
-                        // File exists both locally and remotely
+                        // File exists both locally and remotely: check remote updates
                         manifest.Entries.TryGetValue(relPath, out var entry);
                         bool localModified = entry?.Status == SyncStatus.PendingUpload;
                         var localHash = SyncManifestManager.ComputeFileHash(localFullPath);
@@ -290,51 +435,31 @@ namespace QuickNote.Infrastructure.Cloud
 
                         if (localModified && remoteModified && !string.Equals(localHash, entry?.LocalHash, StringComparison.OrdinalIgnoreCase))
                         {
-                            // Both modified! Safe conflict resolution: save remote copy as conflict file, keep local
+                            // Conflict detected!
                             try
                             {
-                                Console.WriteLine($"[GoogleCloudSyncEngine] Conflict detected on {relPath}. Creating conflict copy...");
                                 var remoteContent = await _apiClient.DownloadNoteTextAsync(remote.Id);
                                 SyncManifestManager.CreateConflictCopy(localFullPath, remoteContent, remote.ModifiedTime.UtcDateTime);
                                 conflicts++;
+                                SyncLogger.Log($"Conflict detected & resolved with conflict copy: '{relPath}'");
 
-                                // Now upload our local version to replace the primary file
+                                // Keep local as primary and re-upload to cloud
                                 var localContent = await File.ReadAllTextAsync(localFullPath);
                                 var updatedRemote = await _apiClient.UpdateExistingNoteAsync(remote.Id, localContent);
                                 var localModTime = File.GetLastWriteTimeUtc(localFullPath);
-
                                 _manifestManager.RecordSuccessfulUpload(relPath, updatedRemote.Id, updatedRemote.Md5Checksum ?? string.Empty, updatedRemote.ModifiedTime.UtcDateTime, localHash, localModTime);
                                 uploaded++;
                             }
                             catch (Exception cEx)
                             {
-                                Console.WriteLine($"[GoogleCloudSyncEngine] Conflict handling error for {relPath}: {cEx.Message}");
+                                Console.WriteLine($"[GoogleCloudSyncEngine] Conflict handling error for '{relPath}': {cEx.Message}");
                             }
                         }
-                        else if (localModified)
+                        else if (remoteModified && !localModified)
                         {
-                            // Local edited, remote untouched -> Upload to cloud
+                            // Remote edited on another device -> download update
                             try
                             {
-                                Console.WriteLine($"[GoogleCloudSyncEngine] Updating remote note {relPath} ({remote.Id})...");
-                                var localContent = await File.ReadAllTextAsync(localFullPath);
-                                var updatedRemote = await _apiClient.UpdateExistingNoteAsync(remote.Id, localContent);
-                                var localModTime = File.GetLastWriteTimeUtc(localFullPath);
-
-                                _manifestManager.RecordSuccessfulUpload(relPath, updatedRemote.Id, updatedRemote.Md5Checksum ?? string.Empty, updatedRemote.ModifiedTime.UtcDateTime, localHash, localModTime);
-                                uploaded++;
-                            }
-                            catch (Exception upEx)
-                            {
-                                Console.WriteLine($"[GoogleCloudSyncEngine] Upload error for {relPath}: {upEx.Message}");
-                            }
-                        }
-                        else if (remoteModified)
-                        {
-                            // Remote edited on another device -> Download to phone
-                            try
-                            {
-                                Console.WriteLine($"[GoogleCloudSyncEngine] Downloading updated remote note {relPath}...");
                                 var content = await _apiClient.DownloadNoteTextAsync(remote.Id);
                                 await File.WriteAllTextAsync(localFullPath, content);
                                 File.SetLastWriteTimeUtc(localFullPath, remote.ModifiedTime.UtcDateTime);
@@ -342,74 +467,38 @@ namespace QuickNote.Infrastructure.Cloud
                                 var newHash = SyncManifestManager.ComputeFileHash(localFullPath);
                                 _manifestManager.RecordSuccessfulDownload(relPath, remote.Id, remote.Md5Checksum ?? string.Empty, remote.ModifiedTime.UtcDateTime, newHash, remote.ModifiedTime.UtcDateTime);
                                 downloaded++;
+                                SyncLogger.Log($"Updated local note from remote changes: '{relPath}'");
                             }
                             catch (Exception dlEx)
                             {
-                                Console.WriteLine($"[GoogleCloudSyncEngine] Download error for {relPath}: {dlEx.Message}");
+                                Console.WriteLine($"[GoogleCloudSyncEngine] Remote update error for '{relPath}': {dlEx.Message}");
                             }
                         }
                     }
                 }
 
-                // 7. Upload any local files that do not exist remotely yet
-                foreach (var entry in manifest.Entries.Values.ToList())
-                {
-                    var fileKey = entry.RelativePath.Replace('\\', '/');
-                    var baseName = Path.GetFileName(entry.RelativePath);
-                    bool alreadyRemote = remoteFileMap.ContainsKey(fileKey);
-
-                    if (entry.Status == SyncStatus.PendingUpload && !alreadyRemote)
-                    {
-                        var localFullPath = Path.Combine(_notesRoot, entry.RelativePath);
-                        if (File.Exists(localFullPath))
-                        {
-                            try
-                            {
-                                Console.WriteLine($"[GoogleCloudSyncEngine] Uploading new local note {entry.RelativePath}...");
-                                var relDir = Path.GetDirectoryName(entry.RelativePath)?.Replace('\\', '/') ?? "";
-                                var targetFolderId = await _apiClient.EnsureFolderPathAsync(folderId, relDir);
-                                var localContent = await File.ReadAllTextAsync(localFullPath);
-                                var createdRemote = await _apiClient.UploadNewNoteAsync(targetFolderId, baseName, localContent);
-                                var localHash = SyncManifestManager.ComputeFileHash(localFullPath);
-                                var localModTime = File.GetLastWriteTimeUtc(localFullPath);
-
-                                _manifestManager.RecordSuccessfulUpload(entry.RelativePath, createdRemote.Id, createdRemote.Md5Checksum ?? string.Empty, createdRemote.ModifiedTime.UtcDateTime, localHash, localModTime);
-                                uploaded++;
-                                Console.WriteLine($"[GoogleCloudSyncEngine] Upload success: {entry.RelativePath} -> ID {createdRemote.Id}");
-                            }
-                            catch (Exception upEx)
-                            {
-                                Console.WriteLine($"[GoogleCloudSyncEngine] Upload error for new note {entry.RelativePath}: {upEx.Message}");
-                            }
-                        }
-                    }
-                }
-
-                // 8. Save updated manifest and settings
+                // ─────────────────────────────────────────────────────────────
+                // PHASE 3: MANIFEST, TIMESTAMP & COMPLETION
+                // ─────────────────────────────────────────────────────────────
                 await _manifestManager.SaveManifestAsync();
 
                 _settingsService.Settings.LastGoogleDriveSyncTime = DateTime.UtcNow;
                 await _settingsService.SaveSettingsAsync();
 
-                var statusMessage = $"Google Drive Synced (↑{uploaded} ↓{downloaded}{(conflicts > 0 ? $" ⚠️{conflicts}" : "")})";
-                Console.WriteLine($"[GoogleCloudSyncEngine] {statusMessage}");
-                SyncStatusChanged?.Invoke(this, new CloudSyncStatus
-                {
-                    State = CloudSyncState.Synced,
-                    Message = statusMessage,
-                    AccountName = UserEmail ?? "Connected",
-                    LastSyncTime = DateTime.Now
-                });
+                var statusMessage = $"Google Drive Synced (↑{uploaded} pushed, ↓{downloaded} downloaded{(conflicts > 0 ? $", ⚠️{conflicts} conflicts" : "")})";
+                ReportStage(statusMessage, CloudSyncState.Synced);
 
                 return SyncResult.Ok(uploaded, downloaded, conflicts, statusMessage);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[GoogleCloudSyncEngine] Sync error: {ex.Message}\n{ex.StackTrace}");
+                var errorMsg = $"Sync failed: {ex.Message}";
+                Console.WriteLine($"[GoogleCloudSyncEngine] {errorMsg}\n{ex.StackTrace}");
+                SyncLogger.Log($"ERROR: {errorMsg}");
                 SyncStatusChanged?.Invoke(this, new CloudSyncStatus
                 {
                     State = CloudSyncState.Error,
-                    Message = $"Sync failed: {ex.Message}",
+                    Message = errorMsg,
                     AccountName = UserEmail
                 });
                 return SyncResult.Fail(ex.Message, ex);

@@ -131,9 +131,124 @@
       color: #64748b !important;
     }
     html[data-theme="light"] .milkdown pre {
-      background-color: #f1f5f9 !important;
-      border: 1px solid #cbd5e1 !important;
+      background-color: #f8fafc !important;
+      border: 1px solid #e2e8f0 !important;
+      border-radius: 10px !important;
       color: #0f172a !important;
+    }
+
+    /* Light Mode Code Blocks (Crepe / CodeMirror 6) */
+    html[data-theme="light"] .milkdown-code-block,
+    body.theme-light .milkdown-code-block,
+    html[data-theme="light"] .milkdown .milkdown-code-block,
+    body.theme-light .milkdown .milkdown-code-block,
+    html[data-theme="light"] .cm-editor,
+    body.theme-light .cm-editor {
+      background-color: #f8fafc !important;
+      border: 1px solid #e2e8f0 !important;
+      border-radius: 10px !important;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+      overflow: hidden !important;
+    }
+
+    html[data-theme="light"] .milkdown-code-block .tools,
+    body.theme-light .milkdown-code-block .tools,
+    html[data-theme="light"] .milkdown-code-block header,
+    body.theme-light .milkdown-code-block header {
+      background-color: #f1f5f9 !important;
+      border-bottom: 1px solid #e2e8f0 !important;
+      color: #475569 !important;
+      padding: 6px 10px !important;
+    }
+
+    html[data-theme="light"] .milkdown-code-block button,
+    body.theme-light .milkdown-code-block button,
+    html[data-theme="light"] .milkdown-code-block select,
+    body.theme-light .milkdown-code-block select {
+      background-color: #ffffff !important;
+      border: 1px solid #cbd5e1 !important;
+      border-radius: 6px !important;
+      color: #334155 !important;
+      font-size: 12px !important;
+      font-weight: 500 !important;
+      padding: 4px 8px !important;
+    }
+
+    html[data-theme="light"] .milkdown-code-block button:hover,
+    body.theme-light .milkdown-code-block button:hover {
+      background-color: #e2e8f0 !important;
+      color: #0f172a !important;
+    }
+
+    /* Gutters & Line Numbers in Light Mode */
+    html[data-theme="light"] .cm-gutters,
+    body.theme-light .cm-gutters {
+      background-color: #f8fafc !important;
+      border-right: 1px solid #e2e8f0 !important;
+      color: #94a3b8 !important;
+    }
+
+    html[data-theme="light"] .cm-gutterElement,
+    body.theme-light .cm-gutterElement {
+      color: #94a3b8 !important;
+    }
+
+    /* Active Line & Active Line Gutter - FIX FOR BLACK BOX IN SS2 */
+    html[data-theme="light"] .cm-activeLineGutter,
+    body.theme-light .cm-activeLineGutter {
+      background-color: #e2e8f0 !important;
+      color: #0f172a !important;
+      font-weight: 600 !important;
+    }
+
+    html[data-theme="light"] .cm-activeLine,
+    body.theme-light .cm-activeLine {
+      background-color: rgba(36, 129, 204, 0.06) !important;
+    }
+
+    /* Code Text & Syntax Highlighting in Light Mode */
+    html[data-theme="light"] .cm-content,
+    body.theme-light .cm-content,
+    html[data-theme="light"] .cm-line,
+    body.theme-light .cm-line {
+      color: #1e293b !important;
+      font-family: "JetBrains Mono", "Cascadia Code", "Fira Code", Consolas, monospace !important;
+      font-size: 13.5px !important;
+      caret-color: #2481cc !important;
+    }
+
+    /* Syntax Tokens for CodeMirror */
+    html[data-theme="light"] .cm-line span.ͼb,
+    html[data-theme="light"] .cm-line span.cm-keyword {
+      color: #2563eb !important;
+      font-weight: 600 !important;
+    }
+    html[data-theme="light"] .cm-line span.ͼc,
+    html[data-theme="light"] .cm-line span.cm-string {
+      color: #059669 !important;
+    }
+    html[data-theme="light"] .cm-line span.ͼd,
+    html[data-theme="light"] .cm-line span.cm-number {
+      color: #d97706 !important;
+    }
+    html[data-theme="light"] .cm-line span.ͼm,
+    html[data-theme="light"] .cm-line span.cm-comment {
+      color: #64748b !important;
+      font-style: italic !important;
+    }
+    html[data-theme="light"] .cm-line span.ͼe,
+    html[data-theme="light"] .cm-line span.cm-variableName {
+      color: #0f172a !important;
+    }
+
+    /* Disable spellcheck red squiggles inside code blocks */
+    .milkdown-code-block,
+    .cm-editor,
+    .cm-content,
+    pre,
+    code {
+      -webkit-spellcheck: false;
+      spellcheck: false;
     }
     html[data-theme="light"] .milkdown code:not(pre code) {
       background-color: #e2e8f0 !important;

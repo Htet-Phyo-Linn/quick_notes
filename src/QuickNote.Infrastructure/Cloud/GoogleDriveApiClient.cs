@@ -124,6 +124,71 @@ namespace QuickNote.Infrastructure.Cloud
             return currentParent;
         }
 
+        public async Task<string> EnsureFolderPathCachedAsync(string rootFolderId, string relativeDirectory, Dictionary<string, string> folderCache)
+        {
+            if (string.IsNullOrWhiteSpace(relativeDirectory)) return rootFolderId;
+            var normalized = relativeDirectory.Replace('\\', '/').Trim('/');
+            if (folderCache.TryGetValue(normalized, out var cachedId))
+            {
+                return cachedId;
+            }
+
+            var segments = normalized.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            var currentPath = "";
+            var currentParentId = rootFolderId;
+
+            foreach (var segment in segments)
+            {
+                currentPath = string.IsNullOrEmpty(currentPath) ? segment : $"{currentPath}/{segment}";
+                if (folderCache.TryGetValue(currentPath, out var segId))
+                {
+                    currentParentId = segId;
+                }
+                else
+                {
+                    currentParentId = await EnsureSubfolderAsync(currentParentId, segment);
+                    folderCache[currentPath] = currentParentId;
+                }
+            }
+
+            return currentParentId;
+        }
+
+        public async Task<RemoteSyncSnapshot> FetchRemoteSnapshotAsync(string rootFolderId)
+        {
+            var snapshot = new RemoteSyncSnapshot();
+            snapshot.RemoteFolders[""] = rootFolderId;
+
+            var queue = new Queue<(string FolderId, string RelativePath)>();
+            queue.Enqueue((rootFolderId, ""));
+
+            while (queue.Count > 0)
+            {
+                var (currentFolderId, currentRelPath) = queue.Dequeue();
+                var items = await ListFolderNotesAsync(currentFolderId);
+
+                foreach (var item in items)
+                {
+                    if (item.IsFolder)
+                    {
+                        var relFolderPath = string.IsNullOrEmpty(currentRelPath) ? item.Name : $"{currentRelPath}/{item.Name}";
+                        if (!snapshot.RemoteFolders.ContainsKey(relFolderPath))
+                        {
+                            snapshot.RemoteFolders[relFolderPath] = item.Id;
+                            queue.Enqueue((item.Id, relFolderPath));
+                        }
+                    }
+                    else if (item.Name.EndsWith(".md", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var relFilePath = string.IsNullOrEmpty(currentRelPath) ? item.Name : $"{currentRelPath}/{item.Name}";
+                        snapshot.RemoteFiles[relFilePath] = item;
+                    }
+                }
+            }
+
+            return snapshot;
+        }
+
         public async Task<List<(string RelativePath, GoogleDriveFileDto File)>> ListAllNotesRecursiveAsync(string rootFolderId, string prefix = "")
         {
             var result = new List<(string RelativePath, GoogleDriveFileDto File)>();
@@ -265,5 +330,11 @@ namespace QuickNote.Infrastructure.Cloud
                 return false;
             }
         }
+    }
+
+    public class RemoteSyncSnapshot
+    {
+        public Dictionary<string, string> RemoteFolders { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+        public Dictionary<string, GoogleDriveFileDto> RemoteFiles { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     }
 }

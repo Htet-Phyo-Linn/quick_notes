@@ -39,6 +39,8 @@
         <StreamGeometry x:Key="IconMoon">M12.3 2a10 10 0 0 0-1.9 19.8 10 10 0 0 0 10.9-10.9A10.02 10.02 0 0 1 12.3 2z</StreamGeometry>
         <StreamGeometry x:Key="IconDotsVertical">M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z</StreamGeometry>
         <StreamGeometry x:Key="IconImage">M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z</StreamGeometry>
+        <StreamGeometry x:Key="IconChevronUp">M12 8l-6 6 1.41 1.41L12 10.83l4.59 4.58L18 14z</StreamGeometry>
+        <StreamGeometry x:Key="IconTerminal">M20 4H4c-1.11 0-2 .89-2 2v12c0 1.1.89 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.11-.89-2-2-2zm0 14H4V8h16v10zm-2-1h-6v-2h6v2zM7.5 17l-1.41-1.41L8.67 13l-2.58-2.59L7.5 9l4 4-4 4z</StreamGeometry>
     </UserControl.Resources>
 
     <UserControl.Styles>
@@ -58,6 +60,30 @@
     </UserControl.Styles>
 
     <Grid>
+        <!-- FLOATING TOAST NOTIFICATION CAPSULE (Issue 4) -->
+        <Border x:Name="ToastCapsule"
+                IsVisible="False"
+                VerticalAlignment="Top"
+                HorizontalAlignment="Center"
+                Margin="0,18,0,0"
+                Padding="16,9"
+                CornerRadius="24"
+                Background="{Binding FloatingBarBackgroundBrush}"
+                BorderBrush="{Binding GlassBorderBrush}"
+                BorderThickness="1"
+                BoxShadow="0 8 32 #50000000"
+                ZIndex="1000">
+            <Border.Transitions>
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.2" />
+                </Transitions>
+            </Border.Transitions>
+            <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                <ProgressBar x:Name="ToastProgressBar" IsIndeterminate="True" Width="18" Height="18" VerticalAlignment="Center" IsVisible="False" />
+                <PathIcon x:Name="ToastIcon" Data="{StaticResource IconCheck}" Width="16" Height="16" Foreground="#10b981" VerticalAlignment="Center" />
+                <TextBlock x:Name="ToastMessageText" Text="Sync complete" FontSize="13" FontWeight="SemiBold" Foreground="{Binding TextPrimaryBrush}" VerticalAlignment="Center" />
+            </StackPanel>
+        </Border>
         <!-- SCREEN 1: GOOGLE KEEP STYLE NOTES FEED -->
         <Grid x:Name="NotesFeedScreen" RowDefinitions="Auto,Auto,*,Auto" Background="{Binding AppBackgroundBrush}" IsVisible="True">
             <Grid.Transitions>
@@ -353,71 +379,101 @@
                 </StackPanel>
             </Grid>
 
-            <!-- Bottom Google Keep Action Bar with Quick Actions & FAB or Selection Actions -->
+            <!-- Modern Telegram Liquid Glass Floating Bottom Dock (Issue 7) -->
             <Border Grid.Row="3"
+                    Margin="12,0,12,12"
+                    Height="58"
+                    CornerRadius="29"
                     Background="{Binding FloatingBarBackgroundBrush}"
                     BorderBrush="{Binding GlassBorderBrush}"
-                    BorderThickness="0,1,0,0"
-                    Padding="14,8"
-                    BoxShadow="0 -4 20 #20000000">
+                    BorderThickness="1"
+                    Padding="8,5"
+                    BoxShadow="0 8 32 #35000000">
                 <Panel>
-                    <!-- Normal Mode: Keep FAB + Quick Notes -->
+                    <!-- Normal Mode: Floating Pill Dock -->
                     <Grid IsVisible="{Binding !IsSelectionMode}" ColumnDefinitions="Auto,Auto,Auto,*,Auto">
-                        <!-- New Checklist Note -->
+                        <!-- Quick Checklist Note -->
                         <Button Grid.Column="0"
                                 Click="OnNewChecklistNoteClick"
-                                Background="Transparent"
-                                Foreground="{Binding TextSecondaryBrush}"
-                                Padding="8"
+                                Width="40" Height="40"
                                 CornerRadius="20"
+                                Background="{Binding ChipUnselectedBackgroundBrush}"
+                                BorderBrush="{Binding GlassBorderBrush}"
+                                BorderThickness="1"
+                                Margin="0,0,6,0"
+                                Padding="0"
+                                HorizontalContentAlignment="Center"
+                                VerticalContentAlignment="Center"
                                 ToolTip.Tip="New checklist">
-                            <PathIcon Data="{StaticResource IconCheckbox}" Width="18" Height="18" Foreground="{Binding TextSecondaryBrush}" />
+                            <PathIcon Data="{StaticResource IconCheckbox}" Width="17" Height="17" Foreground="{Binding AccentBrush}" />
                         </Button>
 
-                        <!-- New Code Note -->
+                        <!-- Quick Code Note -->
                         <Button Grid.Column="1"
                                 Click="OnNewCodeNoteClick"
-                                Background="Transparent"
-                                Foreground="{Binding TextSecondaryBrush}"
-                                Padding="8"
+                                Width="40" Height="40"
                                 CornerRadius="20"
+                                Background="{Binding ChipUnselectedBackgroundBrush}"
+                                BorderBrush="{Binding GlassBorderBrush}"
+                                BorderThickness="1"
+                                Margin="0,0,6,0"
+                                Padding="0"
+                                HorizontalContentAlignment="Center"
+                                VerticalContentAlignment="Center"
                                 ToolTip.Tip="New code note">
-                            <PathIcon Data="{StaticResource IconCode}" Width="18" Height="18" Foreground="{Binding TextSecondaryBrush}" />
+                            <PathIcon Data="{StaticResource IconCode}" Width="17" Height="17" Foreground="{Binding AccentBrush}" />
                         </Button>
 
                         <!-- Sync Button -->
                         <Button Grid.Column="2"
                                 Click="OnSyncClick"
-                                Background="Transparent"
-                                Foreground="{Binding TextSecondaryBrush}"
-                                Padding="8"
+                                Width="40" Height="40"
                                 CornerRadius="20"
+                                Background="{Binding ChipUnselectedBackgroundBrush}"
+                                BorderBrush="{Binding GlassBorderBrush}"
+                                BorderThickness="1"
+                                Padding="0"
+                                HorizontalContentAlignment="Center"
+                                VerticalContentAlignment="Center"
                                 ToolTip.Tip="Sync notes">
-                            <PathIcon Data="{StaticResource IconSync}" Width="17" Height="17" Foreground="{Binding TextSecondaryBrush}" />
+                            <PathIcon Data="{StaticResource IconSync}" Width="16" Height="16" Foreground="{Binding CloudSyncIconBrush}" />
                         </Button>
 
-                        <!-- Note Count Status Text -->
-                        <TextBlock Grid.Column="3"
-                                   Text="{Binding NoteCountStatus}"
-                                   FontSize="11"
-                                   Foreground="{Binding TextMutedBrush}"
-                                   HorizontalAlignment="Center"
-                                   VerticalAlignment="Center" />
+                        <!-- Note Count Capsule Badge -->
+                        <Border Grid.Column="3"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                Background="{Binding ChipUnselectedBackgroundBrush}"
+                                BorderBrush="{Binding GlassBorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="12"
+                                Padding="12,4">
+                            <TextBlock Text="{Binding NoteCountStatus}"
+                                       FontSize="11"
+                                       FontWeight="SemiBold"
+                                       Foreground="{Binding TextSecondaryBrush}"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center" />
+                        </Border>
 
-                        <!-- Keep FAB (+) -->
+                        <!-- Telegram Liquid Glass FAB (+) -->
                         <Border Grid.Column="4"
-                                CornerRadius="23"
-                                BoxShadow="0 4 16 #503390ec"
-                                VerticalAlignment="Center">
+                                Width="44" Height="44"
+                                CornerRadius="22"
+                                Background="{Binding FabBackgroundBrush}"
+                                BoxShadow="0 4 16 #603390ec"
+                                VerticalAlignment="Center"
+                                Margin="4,0,2,0">
                             <Button Click="OnFabNewNoteClick"
-                                    Width="46"
-                                    Height="46"
-                                    CornerRadius="23"
-                                    Background="{Binding FabBackgroundBrush}"
+                                    Width="44" Height="44"
+                                    CornerRadius="22"
+                                    Background="Transparent"
                                     BorderThickness="0"
-                                    VerticalAlignment="Center"
+                                    Padding="0"
+                                    HorizontalContentAlignment="Center"
+                                    VerticalContentAlignment="Center"
                                     ToolTip.Tip="New note">
-                                <PathIcon Data="{StaticResource IconPlus}" Width="20" Height="20" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                <PathIcon Data="{StaticResource IconPlus}" Width="20" Height="20" Foreground="#ffffff" HorizontalAlignment="Center" VerticalAlignment="Center" />
                             </Button>
                         </Border>
                     </Grid>
@@ -429,10 +485,10 @@
                                 Click="OnBatchMoveNotesClick"
                                 Background="Transparent"
                                 HorizontalAlignment="Center"
-                                Padding="12,6"
+                                Padding="12,4"
                                 CornerRadius="10">
-                            <StackPanel Orientation="Vertical" Spacing="4" HorizontalAlignment="Center">
-                                <PathIcon Data="{StaticResource IconFolder}" Width="20" Height="20" Foreground="{Binding AccentBrush}" HorizontalAlignment="Center" />
+                            <StackPanel Orientation="Vertical" Spacing="2" HorizontalAlignment="Center">
+                                <PathIcon Data="{StaticResource IconFolder}" Width="18" Height="18" Foreground="{Binding AccentBrush}" HorizontalAlignment="Center" />
                                 <TextBlock Text="Move" FontSize="11" FontWeight="SemiBold" Foreground="{Binding TextPrimaryBrush}" HorizontalAlignment="Center" />
                             </StackPanel>
                         </Button>
@@ -442,10 +498,10 @@
                                 Click="OnBatchCopyNotesClick"
                                 Background="Transparent"
                                 HorizontalAlignment="Center"
-                                Padding="12,6"
+                                Padding="12,4"
                                 CornerRadius="10">
-                            <StackPanel Orientation="Vertical" Spacing="4" HorizontalAlignment="Center">
-                                <PathIcon Data="{StaticResource IconCopy}" Width="20" Height="20" Foreground="#a78bfa" HorizontalAlignment="Center" />
+                            <StackPanel Orientation="Vertical" Spacing="2" HorizontalAlignment="Center">
+                                <PathIcon Data="{StaticResource IconCopy}" Width="18" Height="18" Foreground="#a78bfa" HorizontalAlignment="Center" />
                                 <TextBlock Text="Copy" FontSize="11" FontWeight="SemiBold" Foreground="{Binding TextPrimaryBrush}" HorizontalAlignment="Center" />
                             </StackPanel>
                         </Button>
@@ -455,11 +511,11 @@
                                 Click="OnBatchDeleteNotesClick"
                                 Background="Transparent"
                                 HorizontalAlignment="Center"
-                                Padding="12,6"
+                                Padding="12,4"
                                 CornerRadius="10">
-                            <StackPanel Orientation="Vertical" Spacing="4" HorizontalAlignment="Center">
-                                <PathIcon Data="{StaticResource IconTrash}" Width="20" Height="20" Foreground="#f87171" HorizontalAlignment="Center" />
-                                <TextBlock Text="Delete" FontSize="11" FontWeight="SemiBold" Foreground="#f87171" HorizontalAlignment="Center" />
+                            <StackPanel Orientation="Vertical" Spacing="2" HorizontalAlignment="Center">
+                                <PathIcon Data="{StaticResource IconTrash}" Width="18" Height="18" Foreground="#ef4444" HorizontalAlignment="Center" />
+                                <TextBlock Text="Delete" FontSize="11" FontWeight="SemiBold" Foreground="#ef4444" HorizontalAlignment="Center" />
                             </StackPanel>
                         </Button>
                     </Grid>
@@ -678,6 +734,23 @@
                         <StackPanel Spacing="4">
                             <TextBlock Text="Last Synced" FontSize="11" Foreground="{Binding TextMutedBrush}" />
                             <TextBlock Text="{Binding LastSyncTimeText}" FontSize="13" Foreground="{Binding TextSecondaryBrush}" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Sync Progress / Status Indicator (Issue 1 & 4) -->
+                    <Border x:Name="SyncProgressContainer"
+                            IsVisible="False"
+                            Background="{Binding GlassSurfaceBrush}"
+                            BorderBrush="{Binding GlassBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="12"
+                            Padding="12">
+                        <StackPanel Spacing="8">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock x:Name="SyncPhaseLabel" Text="Syncing with Google Drive..." FontSize="12" FontWeight="SemiBold" Foreground="{Binding TextPrimaryBrush}" />
+                                <TextBlock x:Name="SyncPercentLabel" Grid.Column="1" Text="In progress" FontSize="11" Foreground="{Binding AccentBrush}" />
+                            </Grid>
+                            <ProgressBar x:Name="SyncModalProgressBar" IsIndeterminate="True" Height="4" CornerRadius="2" Foreground="{Binding AccentBrush}" />
                         </StackPanel>
                     </Border>
 
@@ -991,7 +1064,7 @@
 
                     <!-- Drawer Footer: Normal vs Folder Selection Actions -->
                     <Border Grid.Row="2" Padding="14,10" BorderBrush="{Binding GlassBorderBrush}" BorderThickness="0,1,0,0">
-                        <Panel>
+                        <StackPanel Spacing="6">
                             <!-- Normal Drawer Footer: Cloud Sync Status -->
                             <Button x:Name="DrawerNormalFooter"
                                     Click="OnOpenCloudSyncClick"
@@ -1011,6 +1084,39 @@
                                     <PathIcon Grid.Column="2" Data="{StaticResource IconSync}" Width="14" Height="14" Foreground="#10b981" VerticalAlignment="Center" />
                                 </Grid>
                             </Button>
+
+                            <!-- Collapsible View Sync Logs (Issue 8) -->
+                            <Button Click="OnToggleSyncLogsClick"
+                                    Background="Transparent"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Stretch"
+                                    Padding="10,6"
+                                    CornerRadius="8">
+                                <Grid ColumnDefinitions="Auto,*,Auto">
+                                    <PathIcon Grid.Column="0" Data="{StaticResource IconTerminal}" Width="14" Height="14" Foreground="{Binding TextSecondaryBrush}" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1" Text="View Sync Logs" FontSize="12" FontWeight="SemiBold" Foreground="{Binding TextSecondaryBrush}" VerticalAlignment="Center" />
+                                    <PathIcon Grid.Column="2" x:Name="SyncLogsChevron" Data="{StaticResource IconChevronDown}" Width="12" Height="12" Foreground="{Binding TextSecondaryBrush}" VerticalAlignment="Center" />
+                                </Grid>
+                            </Button>
+
+                            <!-- Sync Logs Expandable Drawer Panel -->
+                            <Border x:Name="SyncLogsContainer"
+                                    IsVisible="False"
+                                    Background="{Binding GlassSurfaceBrush}"
+                                    BorderBrush="{Binding GlassBorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="10"
+                                    Padding="8"
+                                    MaxHeight="140">
+                                <ScrollViewer x:Name="SyncLogsScrollViewer">
+                                    <TextBlock x:Name="SyncLogsText"
+                                               Text="No sync activity recorded yet."
+                                               FontFamily="Cascadia Code, Consolas, monospace"
+                                               FontSize="10"
+                                               Foreground="{Binding TextSecondaryBrush}"
+                                               TextWrapping="Wrap" />
+                                </ScrollViewer>
+                            </Border>
 
                             <!-- Folder Selection Actions: Move, Delete (Issue 1) -->
                             <Grid x:Name="DrawerFolderSelectionFooter" IsVisible="False" ColumnDefinitions="*,*">
@@ -1046,7 +1152,7 @@
                                     </StackPanel>
                                 </Button>
                             </Grid>
-                        </Panel>
+                        </StackPanel>
                     </Border>
                 </Grid>
             </Border>

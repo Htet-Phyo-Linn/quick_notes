@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
@@ -14,7 +15,9 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.Platform.Storage;
 using QuickNote.Avalonia.ViewModels;
+using QuickNote.Core.Interfaces;
 using QuickNote.Core.Models;
+using QuickNote.Infrastructure.Cloud;
 
 namespace QuickNote.Avalonia.Views
 {
@@ -533,6 +536,9 @@ namespace QuickNote.Avalonia.Views
             // Connect Android back press and dynamic keyboard height bridge
             AndroidPlatformBridge.KeyboardHeightChanged += OnKeyboardHeightChanged;
             AndroidPlatformBridge.HandleBackPress = OnBackPressedInternal;
+
+            // Hook real-time sync logger
+            SyncLogger.LogAdded += OnSyncLogAdded;
         }
 
         private void AssignViewDataContext()
@@ -659,6 +665,10 @@ namespace QuickNote.Avalonia.Views
             {
                 _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
                 _viewModel.Notes.CollectionChanged -= OnNotesCollectionChanged;
+                if (_viewModel.CloudSyncService != null)
+                {
+                    _viewModel.CloudSyncService.SyncStatusChanged -= OnCloudSyncStatusChanged;
+                }
             }
 
             _viewModel = DataContext as MainViewModel;
@@ -669,6 +679,10 @@ namespace QuickNote.Avalonia.Views
             {
                 _viewModel.PropertyChanged += OnViewModelPropertyChanged;
                 _viewModel.Notes.CollectionChanged += OnNotesCollectionChanged;
+                if (_viewModel.CloudSyncService != null)
+                {
+                    _viewModel.CloudSyncService.SyncStatusChanged += OnCloudSyncStatusChanged;
+                }
 
                 if (MobileNotionEditor != null)
                 {
@@ -1189,7 +1203,7 @@ namespace QuickNote.Avalonia.Views
 
             var btn = new Button
             {
-                Background = isSelected ? new SolidColorBrush(Color.Parse("#252d3d")) : Brushes.Transparent,
+                Background = isSelected ? (_isDarkMode ? new SolidColorBrush(Color.Parse("#252d3d")) : new SolidColorBrush(Color.Parse("#e0f2fe"))) : Brushes.Transparent,
                 BorderThickness = new Thickness(0),
                 CornerRadius = new CornerRadius(6),
                 Padding = new Thickness(8, 6),
@@ -1207,7 +1221,7 @@ namespace QuickNote.Avalonia.Views
                 Data = (StreamGeometry)Resources["IconFolder"]!,
                 Width = 14,
                 Height = 14,
-                Foreground = isSelected ? new SolidColorBrush(Color.Parse("#3b82f6")) : new SolidColorBrush(Color.Parse("#9ca3af")),
+                Foreground = isSelected ? new SolidColorBrush(Color.Parse("#3b82f6")) : TextSecondaryBrush,
                 Margin = new Thickness(0, 0, 8, 0),
                 VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center
             };
@@ -1218,7 +1232,7 @@ namespace QuickNote.Avalonia.Views
                 Text = displayTitle,
                 FontSize = 12,
                 FontWeight = isSelected ? FontWeight.SemiBold : FontWeight.Normal,
-                Foreground = isSelected ? new SolidColorBrush(Color.Parse("#60a5fa")) : Brushes.White,
+                Foreground = isSelected ? AccentBrush : TextPrimaryBrush,
                 TextTrimming = TextTrimming.CharacterEllipsis,
                 VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center
             };
@@ -1535,8 +1549,8 @@ namespace QuickNote.Avalonia.Views
         {
             var btn = new Button
             {
-                Background = new SolidColorBrush(Color.Parse("#181820")),
-                BorderBrush = new SolidColorBrush(Color.Parse("#2e2e38")),
+                Background = _isDarkMode ? new SolidColorBrush(Color.Parse("#181820")) : new SolidColorBrush(Color.Parse("#f1f5f9")),
+                BorderBrush = GlassBorderBrush,
                 BorderThickness = new Thickness(1),
                 CornerRadius = new CornerRadius(8),
                 Padding = new Thickness(12, 10),
@@ -1560,7 +1574,7 @@ namespace QuickNote.Avalonia.Views
             {
                 Text = displayTitle,
                 FontSize = 13,
-                Foreground = Brushes.White,
+                Foreground = TextPrimaryBrush,
                 TextTrimming = TextTrimming.CharacterEllipsis,
                 VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center
             };
@@ -2563,8 +2577,8 @@ namespace QuickNote.Avalonia.Views
         {
             var btn = new Button
             {
-                Background = new SolidColorBrush(Color.Parse("#181820")),
-                BorderBrush = new SolidColorBrush(Color.Parse("#2e2e38")),
+                Background = _isDarkMode ? new SolidColorBrush(Color.Parse("#181820")) : new SolidColorBrush(Color.Parse("#f1f5f9")),
+                BorderBrush = GlassBorderBrush,
                 BorderThickness = new Thickness(1),
                 CornerRadius = new CornerRadius(8),
                 Padding = new Thickness(12, 10),
@@ -2588,7 +2602,7 @@ namespace QuickNote.Avalonia.Views
             {
                 Text = displayTitle,
                 FontSize = 13,
-                Foreground = Brushes.White,
+                Foreground = TextPrimaryBrush,
                 TextTrimming = TextTrimming.CharacterEllipsis,
                 VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center
             };
@@ -2992,14 +3006,31 @@ namespace QuickNote.Avalonia.Views
         {
             if (_viewModel != null)
             {
-                if (_viewModel.CloudSyncService != null)
+                ShowToast("Syncing with Google Drive...", isProgress: true);
+                bool success = true;
+                string msg = "Sync completed";
+                try
                 {
-                    await _viewModel.CloudSyncService.TriggerSyncAsync();
+                    if (_viewModel.CloudSyncService != null)
+                    {
+                        var result = await _viewModel.CloudSyncService.TriggerSyncAsync();
+                        success = result.Success;
+                        msg = result.Success ? "Sync completed" : $"Sync: {result.Message}";
+                    }
+                    await _viewModel.RefreshFolderTreeAsync();
+                    await _viewModel.Refresh();
+                    RebuildTagChips();
+                    RebuildDrawerFolders();
+                    RebuildDrawerTags();
+                    ApplyFilters();
+                    UpdateModalAccountStatus();
                 }
-                await _viewModel.Refresh();
-                RebuildTagChips();
-                ApplyFilters();
-                UpdateModalAccountStatus();
+                catch (Exception ex)
+                {
+                    success = false;
+                    msg = $"Sync error: {ex.Message}";
+                }
+                ShowToast(msg, isProgress: false, isError: !success);
             }
         }
 
@@ -3241,6 +3272,7 @@ namespace QuickNote.Avalonia.Views
             try
             {
                 Console.WriteLine($"[MobileMainView] HandleAuthCodeAsync starting...");
+                ShowToast("Signing in & synchronizing notes...", isProgress: true);
                 var verifier = _pendingCodeVerifier;
                 _pendingCodeVerifier = null;
 
@@ -3248,16 +3280,20 @@ namespace QuickNote.Avalonia.Views
                 {
                     var success = await _viewModel.CloudSyncService.CompleteSignInAsync(code, verifier);
                     Console.WriteLine($"[MobileMainView] CompleteSignInAsync result: {success}");
+                    await _viewModel.RefreshFolderTreeAsync();
                     await _viewModel.Refresh();
                     UpdateModalAccountStatus();
                     RebuildTagChips();
                     RebuildDrawerFolders();
+                    RebuildDrawerTags();
                     ApplyFilters();
+                    ShowToast(success ? "Signed in & sync completed!" : "Failed to sign in.", isProgress: false, isError: !success);
                 }
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"[MobileMainView] HandleAuthCodeAsync error: {ex.Message}\n{ex.StackTrace}");
+                ShowToast($"Sign in error: {ex.Message}", isProgress: false, isError: true);
             }
         }
 
@@ -3266,14 +3302,143 @@ namespace QuickNote.Avalonia.Views
             if (_viewModel?.CloudSyncService != null)
             {
                 Console.WriteLine($"[MobileMainView] OnSyncNowClick triggered");
-                var result = await _viewModel.CloudSyncService.TriggerSyncAsync();
-                Console.WriteLine($"[MobileMainView] TriggerSyncAsync result: {result.Message}");
-                await _viewModel.Refresh();
-                UpdateModalAccountStatus();
-                RebuildTagChips();
-                RebuildDrawerFolders();
-                ApplyFilters();
+                if (SyncProgressContainer != null) SyncProgressContainer.IsVisible = true;
+                if (BtnSyncNow != null) BtnSyncNow.IsEnabled = false;
+                if (SyncPhaseLabel != null) SyncPhaseLabel.Text = "Starting synchronization...";
+                ShowToast("Syncing with Google Drive...", isProgress: true);
+                try
+                {
+                    var result = await _viewModel.CloudSyncService.TriggerSyncAsync();
+                    Console.WriteLine($"[MobileMainView] TriggerSyncAsync result: {result.Message}");
+                    await _viewModel.RefreshFolderTreeAsync();
+                    await _viewModel.Refresh();
+                    UpdateModalAccountStatus();
+                    RebuildTagChips();
+                    RebuildDrawerFolders();
+                    RebuildDrawerTags();
+                    ApplyFilters();
+                    ShowToast(result.Success ? "Sync completed successfully" : $"Sync warning: {result.Message}", isProgress: false, isError: !result.Success);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[MobileMainView] OnSyncNowClick error: {ex.Message}");
+                    ShowToast($"Sync error: {ex.Message}", isProgress: false, isError: true);
+                }
+                finally
+                {
+                    if (SyncProgressContainer != null) SyncProgressContainer.IsVisible = false;
+                    if (BtnSyncNow != null) BtnSyncNow.IsEnabled = true;
+                }
             }
+        }
+
+        // ── Real-time Sync Progress, Logs & Toast Notifications (Issue 1, 4, 8) ───────
+        private CancellationTokenSource? _toastCts;
+
+        public void ShowToast(string message, bool isProgress = false, bool isError = false, int autoDismissMs = 3000)
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                _toastCts?.Cancel();
+                _toastCts = new CancellationTokenSource();
+                var token = _toastCts.Token;
+
+                if (ToastCapsule == null) return;
+                if (ToastMessageText != null) ToastMessageText.Text = message;
+                if (ToastProgressBar != null) ToastProgressBar.IsVisible = isProgress;
+                if (ToastIcon != null)
+                {
+                    ToastIcon.IsVisible = !isProgress;
+                    if (!isProgress)
+                    {
+                        ToastIcon.Foreground = isError
+                            ? new SolidColorBrush(Color.Parse("#ef4444"))
+                            : new SolidColorBrush(Color.Parse("#10b981"));
+                    }
+                }
+
+                ToastCapsule.IsVisible = true;
+
+                if (!isProgress)
+                {
+                    Task.Delay(autoDismissMs, token).ContinueWith(t =>
+                    {
+                        if (!t.IsCanceled)
+                        {
+                            Dispatcher.UIThread.Post(() =>
+                            {
+                                if (ToastCapsule != null) ToastCapsule.IsVisible = false;
+                            });
+                        }
+                    });
+                }
+            });
+        }
+
+        public void HideToast()
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                _toastCts?.Cancel();
+                if (ToastCapsule != null) ToastCapsule.IsVisible = false;
+            });
+        }
+
+        private void OnToggleSyncLogsClick(object? sender, RoutedEventArgs e)
+        {
+            if (SyncLogsContainer == null) return;
+            bool isVisible = !SyncLogsContainer.IsVisible;
+            SyncLogsContainer.IsVisible = isVisible;
+            if (SyncLogsChevron != null && Resources.TryGetValue(isVisible ? "IconChevronUp" : "IconChevronDown", out var iconGeo))
+            {
+                SyncLogsChevron.Data = (StreamGeometry)iconGeo!;
+            }
+            if (isVisible && SyncLogsText != null)
+            {
+                SyncLogsText.Text = SyncLogger.GetFormattedLogs();
+            }
+        }
+
+        private void OnSyncLogAdded(string log)
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (SyncLogsText != null && SyncLogsContainer?.IsVisible == true)
+                {
+                    SyncLogsText.Text = SyncLogger.GetFormattedLogs();
+                }
+            });
+        }
+
+        private void OnCloudSyncStatusChanged(object? sender, CloudSyncStatus status)
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (status.State == CloudSyncState.Syncing)
+                {
+                    if (SyncProgressContainer != null) SyncProgressContainer.IsVisible = true;
+                    if (SyncPhaseLabel != null) SyncPhaseLabel.Text = status.Message;
+                    if (SyncPercentLabel != null) SyncPercentLabel.Text = "Syncing...";
+                    if (ToastCapsule != null && ToastCapsule.IsVisible && ToastProgressBar != null && ToastProgressBar.IsVisible)
+                    {
+                        if (ToastMessageText != null) ToastMessageText.Text = status.Message;
+                    }
+                }
+                else if (status.State == CloudSyncState.Synced)
+                {
+                    if (SyncProgressContainer != null) SyncProgressContainer.IsVisible = false;
+                    OnPropertyChanged(nameof(LastSyncTimeText));
+                    OnPropertyChanged(nameof(CloudSyncStatusText));
+                    OnPropertyChanged(nameof(CloudSyncIconBrush));
+                }
+                else if (status.State == CloudSyncState.Error)
+                {
+                    if (SyncProgressContainer != null) SyncProgressContainer.IsVisible = false;
+                    OnPropertyChanged(nameof(LastSyncTimeText));
+                    OnPropertyChanged(nameof(CloudSyncStatusText));
+                    OnPropertyChanged(nameof(CloudSyncIconBrush));
+                }
+            });
         }
 
         private async void OnDisconnectGoogleClick(object? sender, RoutedEventArgs e)
