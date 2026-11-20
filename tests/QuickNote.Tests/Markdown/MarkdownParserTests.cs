@@ -55,5 +55,76 @@ namespace QuickNote.Tests.Markdown
             Assert.Contains("performance_metrics", doc.Tags);
             Assert.Contains("bug-fix", doc.Tags);
         }
+
+        [Fact]
+        public void ComputeRenderText_StripsTitleAndCodeFences_ReturnsCleanBody()
+        {
+            var content = "# aaa\n\nppp";
+            var render = MarkdownParser.ComputeRenderText(content, "aaa");
+            Assert.Equal("ppp", render);
+        }
+
+        [Fact]
+        public void ComputeRenderText_WithCodeBlocksAndHashtags_StripsFences()
+        {
+            var content = "# CyberArk Users AD Collect\n\n```PowerShell\nsysteminfo | findstr /B / C:\"Domain\"\n```\n#cyberark #ad";
+            var render = MarkdownParser.ComputeRenderText(content, "CyberArk Users AD Collect");
+            Assert.DoesNotContain("```PowerShell", render);
+            Assert.DoesNotContain("```", render);
+            Assert.Contains("systeminfo", render);
+            Assert.Contains("findstr", render);
+        }
+
+        [Fact]
+        public void ComputeRenderText_WithHtmlAndTable_StripsRawHtmlAndMarkdown()
+        {
+            var content = "---\ntags:\n  - cyberark\n---\n# License Renew\n\n<br />\n| Step | Description |\n| 1 | Download new license |";
+            var render = MarkdownParser.ComputeRenderText(content, "License Renew");
+            Assert.DoesNotContain("<br />", render);
+            Assert.DoesNotContain("<br>", render);
+            Assert.DoesNotContain("| Step |", render);
+            Assert.Contains("Download new license", render);
+        }
+
+        [Fact]
+        public void ComputeRenderText_EmptyContent_ReturnsEmptyNote()
+        {
+            Assert.Equal("Empty note", MarkdownParser.ComputeRenderText("", "Untitled"));
+            Assert.Equal("Empty note", MarkdownParser.ComputeRenderText(null, "Untitled"));
+            Assert.Equal("Empty note", MarkdownParser.ComputeRenderText("   \n\n  ", "Untitled"));
+            Assert.Equal("Empty note", MarkdownParser.ComputeRenderText("# Just Title\n\n", "Just Title"));
+        }
+
+        [Fact]
+        public void Parse_WithFrontMatterUuid_PreservesNoteIdAcrossPaths()
+        {
+            var expectedId = Guid.NewGuid();
+            var content = $"---\nid: {expectedId:D}\ntags: [unit-test]\n---\n# My Note\nContent.";
+
+            var doc1 = _parser.Parse("folder1/note.md", content);
+            var doc2 = _parser.Parse("folder2/renamed_note.md", content);
+
+            Assert.Equal(expectedId, doc1.Id);
+            Assert.Equal(expectedId, doc2.Id);
+            Assert.Equal(doc1.Id, doc2.Id);
+        }
+
+        [Fact]
+        public void EnsureFrontmatterId_AddsIdWhenMissing_AndPreservesExistingId()
+        {
+            var targetId = Guid.NewGuid();
+            var plainContent = "# Plain Note\nNo frontmatter here.";
+
+            var withId = MarkdownParser.EnsureFrontmatterId(plainContent, targetId);
+            Assert.Contains($"id: {targetId:D}", withId);
+
+            var doc = _parser.Parse("plain.md", withId);
+            Assert.Equal(targetId, doc.Id);
+
+            // Re-running EnsureFrontmatterId should not duplicate or change the ID
+            var anotherId = Guid.NewGuid();
+            var unchanged = MarkdownParser.EnsureFrontmatterId(withId, anotherId);
+            Assert.Equal(withId, unchanged);
+        }
     }
 }

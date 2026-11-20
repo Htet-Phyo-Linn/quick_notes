@@ -11,6 +11,8 @@ namespace QuickNote.Core.Models
         public string FileName { get; set; } = string.Empty;
         public string FolderPath { get; set; } = string.Empty;
         public string Title { get; set; } = string.Empty;
+        public string Snippet { get; set; } = string.Empty;
+        public string RenderText { get; set; } = string.Empty;
         public string Content { get; set; } = string.Empty;
         public string[] Headings { get; set; } = Array.Empty<string>();
         public List<Heading> HeadingTree { get; set; } = new List<Heading>();

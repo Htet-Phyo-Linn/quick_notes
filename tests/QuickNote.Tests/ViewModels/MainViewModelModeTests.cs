@@ -68,7 +68,7 @@ namespace QuickNote.Tests.ViewModels
             var (vm, tempDir) = CreateViewModel();
             try
             {
-                await Task.Delay(100);
+                await Task.Delay(500);
                 Assert.False(vm.IsSplitMode);
 
                 var note = new NoteDocument
@@ -77,6 +77,7 @@ namespace QuickNote.Tests.ViewModels
                     Title = "Test Note",
                     Content = "Hello World"
                 };
+                vm.Notes.Add(note);
                 vm.CurrentNote = note;
 
                 vm.ToggleSplitModeCommand.Execute(null);

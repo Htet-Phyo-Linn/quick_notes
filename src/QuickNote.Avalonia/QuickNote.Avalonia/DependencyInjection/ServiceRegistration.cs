@@ -50,6 +50,9 @@ namespace QuickNote.Avalonia.DependencyInjection
             services.AddSingleton<ITrashBinService>(sp =>
                 new TrashBinService(notesRoot));
 
+            services.AddSingleton<IBackupService>(sp =>
+                new BackupService(notesRoot));
+
             services.AddSingleton<ISettingsService>(sp =>
                 new JsonSettingsService(notesRoot));
 

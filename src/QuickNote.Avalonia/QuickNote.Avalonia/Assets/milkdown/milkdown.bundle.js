@@ -137583,6 +137583,14 @@ Expected function or array of functions, received type ${typeof value}.`
         console.error("[Speller initialization failed]", e);
       }
       var ignoredWordsSet = /* @__PURE__ */ new Set();
+      if (typeof window !== "undefined" && Array.isArray(window.__ignoredWords)) {
+        window.__ignoredWords.forEach((w) => {
+          if (w && typeof w === "string") {
+            const clean2 = w.trim().toLowerCase();
+            if (clean2) ignoredWordsSet.add(clean2);
+          }
+        });
+      }
       var isSpellCheckActive = true;
       var spellCheckPluginKey = new PluginKey("spellCheckPlugin");
       function buildSpellCheckDecorations(doc6) {
@@ -137903,6 +137911,7 @@ Expected function or array of functions, received type ${typeof value}.`
         });
         let contentChangedDebounceTimer = null;
         let pendingMarkdownToSend = null;
+        let lastSentMarkdown = null;
         function flushContentChanged() {
           if (contentChangedDebounceTimer) {
             clearTimeout(contentChangedDebounceTimer);
@@ -137911,10 +137920,13 @@ Expected function or array of functions, received type ${typeof value}.`
           if (pendingMarkdownToSend !== null) {
             const md = pendingMarkdownToSend;
             pendingMarkdownToSend = null;
-            sendMessage({
-              type: "contentChanged",
-              markdown: md
-            });
+            if (md !== lastSentMarkdown) {
+              lastSentMarkdown = md;
+              sendMessage({
+                type: "contentChanged",
+                markdown: md
+              });
+            }
           }
         }
         window.flushContentChanged = flushContentChanged;
@@ -137938,10 +137950,13 @@ Expected function or array of functions, received type ${typeof value}.`
               if (pendingMarkdownToSend !== null) {
                 const md = pendingMarkdownToSend;
                 pendingMarkdownToSend = null;
-                sendMessage({
-                  type: "contentChanged",
-                  markdown: md
-                });
+                if (md !== lastSentMarkdown) {
+                  lastSentMarkdown = md;
+                  sendMessage({
+                    type: "contentChanged",
+                    markdown: md
+                  });
+                }
               }
             }, 150);
           });
@@ -137985,6 +138000,7 @@ Expected function or array of functions, received type ${typeof value}.`
           }
           const cleanMd = (markdown2 || "").replace(/(!\[.*?\]\([^\n\r]*?\))\r?\n(?=!\[)/g, "$1\n\n");
           lastMarkdownFromHost = cleanMd;
+          lastSentMarkdown = cleanMd;
           const md = cleanMd || "";
           const imgRegex = /!\[.*?\]\(\s*<?([^\s>)]+)>?\s*\)/g;
           let match2;
@@ -138763,6 +138779,9 @@ Expected function or array of functions, received type ${typeof value}.`
       var contextMenuCodeBlockEl = null;
       var lastPlainPasteTimestamp = 0;
       window.setIgnoredWords = (words22) => {
+        if (typeof window !== "undefined") {
+          window.__ignoredWords = Array.isArray(words22) ? words22 : [];
+        }
         if (Array.isArray(words22)) {
           ignoredWordsSet.clear();
           words22.forEach((w) => {
@@ -138862,13 +138881,23 @@ Expected function or array of functions, received type ${typeof value}.`
           ignoreBtn.onclick = (e) => {
             e.preventDefault();
             e.stopPropagation();
-            const lower = wordInfo.word.toLowerCase();
-            ignoredWordsSet.add(lower);
-            const view = getEditorView();
-            if (view && view.state) {
-              view.dispatch(view.state.tr.setMeta(spellCheckPluginKey, { refresh: true }));
+            const raw3 = wordInfo.word || "";
+            const cleanWord = raw3.trim().replace(/^['"-]+|['"-]+$/g, "");
+            if (cleanWord) {
+              const lower = cleanWord.toLowerCase();
+              ignoredWordsSet.add(lower);
+              if (typeof window !== "undefined") {
+                if (!Array.isArray(window.__ignoredWords)) window.__ignoredWords = [];
+                if (!window.__ignoredWords.some((w) => typeof w === "string" && w.toLowerCase() === lower)) {
+                  window.__ignoredWords.push(cleanWord);
+                }
+              }
+              const view = getEditorView();
+              if (view && view.state) {
+                view.dispatch(view.state.tr.setMeta(spellCheckPluginKey, { refresh: true }));
+              }
+              sendMessage({ type: "ignoreWord", word: cleanWord });
             }
-            sendMessage({ type: "ignoreWord", word: wordInfo.word });
             hideSpellPopup();
           };
         }
@@ -139707,13 +139736,30 @@ Expected function or array of functions, received type ${typeof value}.`
           case "inline-code":
             toggleMark2("code_inline", inlineCodeSchema);
             break;
-          case "ignore-word":
+          case "ignore-word": {
             const ignoreBtn = document.getElementById("menu-ignore-word");
             const wordToIgnore = ignoreBtn && ignoreBtn.dataset.word || (window.getSelection() ? window.getSelection().toString().trim() : "");
             if (wordToIgnore) {
-              sendMessage({ type: "ignoreWord", word: wordToIgnore });
+              const cleanWord = wordToIgnore.trim().replace(/^['"-]+|['"-]+$/g, "");
+              if (cleanWord) {
+                const lower = cleanWord.toLowerCase();
+                ignoredWordsSet.add(lower);
+                if (typeof window !== "undefined") {
+                  if (!Array.isArray(window.__ignoredWords)) window.__ignoredWords = [];
+                  if (!window.__ignoredWords.some((w) => typeof w === "string" && w.toLowerCase() === lower)) {
+                    window.__ignoredWords.push(cleanWord);
+                  }
+                }
+                const view2 = getEditorView();
+                if (view2 && view2.state) {
+                  view2.dispatch(view2.state.tr.setMeta(spellCheckPluginKey, { refresh: true }));
+                }
+                sendMessage({ type: "ignoreWord", word: cleanWord });
+              }
+              hideContextMenu();
             }
             break;
+          }
         }
       }
       function toggleMark2(markName, schemaHelper) {

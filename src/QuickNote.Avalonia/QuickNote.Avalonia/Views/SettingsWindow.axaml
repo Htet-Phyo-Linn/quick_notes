@@ -3,42 +3,46 @@
         xmlns:vm="using:QuickNote.Avalonia.ViewModels"
         x:Class="QuickNote.Avalonia.Views.SettingsWindow"
         x:DataType="vm:MainViewModel"
-        Title="Settings &amp; Storage Profiles"
-        Width="660" Height="650"
-        MinWidth="550" MinHeight="500"
+        Title="Settings &amp; Preferences"
+        Width="700" Height="620"
+        MinWidth="600" MinHeight="500"
         WindowStartupLocation="CenterOwner"
-        Background="#242424"
+        Background="{DynamicResource AppBackground}"
         CanResize="true">
 
     <Window.Resources>
         <StreamGeometry x:Key="IconSettings">M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z</StreamGeometry>
+        <StreamGeometry x:Key="IconPalette">M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 19.4c-.39.39-.39 1.02 0 1.41.39.39 1.02.39 1.41 0l1.9-1.9C9.27 19.64 10.59 20 12 20c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z</StreamGeometry>
         <StreamGeometry x:Key="IconCloud">M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z</StreamGeometry>
         <StreamGeometry x:Key="IconSpellCheck">M12.45 16h2.09L9.43 3H7.57L2.46 16h2.09l1.12-3h5.66l1.12 3zm-6.01-4.72L8.5 5.88l2.06 5.4H6.44zM21.5 9l-7 7-3.5-3.5 1.41-1.41L14.5 13.17l5.59-5.59L21.5 9z</StreamGeometry>
         <StreamGeometry x:Key="IconKeyboard">M20 5H4c-1.1 0-1.99.9-1.99 2L2 17c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-9 3h2v2h-2V8zm0 3h2v2h-2v-2zM8 8h2v2H8V8zm0 3h2v2H8v-2zm-1 2H5v-2h2v2zm0-3H5V8h2v2zm9 7H8v-2h8v2zm0-4h-2v-2h2v2zm0-3h-2V8h2v2zm3 3h-2v-2h2v2zm0-3h-2V8h2v2z</StreamGeometry>
         <StreamGeometry x:Key="IconCheck">M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z</StreamGeometry>
+        <StreamGeometry x:Key="IconImport">M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z</StreamGeometry>
+        <StreamGeometry x:Key="IconExport">M19 12v7H5v-7H3v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zm-6 .67l2.59-2.58L17 11.5l-5 5-5-5 1.41-1.41L11 12.67V3h2v9.67z</StreamGeometry>
+        <StreamGeometry x:Key="IconReset">M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z</StreamGeometry>
     </Window.Resources>
 
-    <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="22">
+    <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="20,18,20,18">
         <!-- Title & Header -->
         <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,14">
             <StackPanel Grid.Column="0">
                 <StackPanel Orientation="Horizontal" Spacing="8">
-                    <PathIcon Data="{StaticResource IconSettings}" Width="16" Height="16" Foreground="#3b82f6" VerticalAlignment="Center" />
-                    <TextBlock Text="Settings &amp; Storage Profiles" FontWeight="Bold" FontSize="16" Foreground="#f3f4f6" VerticalAlignment="Center" />
+                    <PathIcon Data="{StaticResource IconSettings}" Width="16" Height="16" Foreground="{DynamicResource Accent}" VerticalAlignment="Center" />
+                    <TextBlock Text="Settings &amp; Preferences" FontWeight="Bold" FontSize="16" Foreground="{DynamicResource AppTextPrimary}" VerticalAlignment="Center" />
                 </StackPanel>
-                <TextBlock Text="Manage storage accounts, spell check dictionary, and view all keyboard shortcuts." Foreground="#9ca3af" FontSize="12" Margin="0,4,0,0" />
+                <TextBlock Text="Configure theme appearance, storage profiles, dictionary, and shortcuts." Foreground="{DynamicResource AppTextSecondary}" FontSize="12" Margin="0,3,0,0" />
             </StackPanel>
         </Grid>
 
-        <!-- Tab Switcher Bar -->
-        <Border Grid.Row="1" Background="#18181b" CornerRadius="6" Padding="3" Margin="0,0,0,14">
-            <Grid ColumnDefinitions="*,*,*">
-                <!-- Tab 1: Storage Profiles Button -->
+        <!-- Modern Segmented Tab Bar -->
+        <Border Grid.Row="1" Background="{DynamicResource AppCardBackground}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="1" CornerRadius="8" Padding="3" Margin="0,0,0,14">
+            <Grid ColumnDefinitions="*,*,*,*">
+                <!-- Tab 0: Appearance / Theme -->
                 <Button Grid.Column="0"
-                        Command="{Binding ShowProfileTabCommand}"
+                        Command="{Binding ShowThemeTabCommand}"
                         BorderThickness="0"
-                        CornerRadius="4"
-                        Padding="8,6"
+                        CornerRadius="6"
+                        Padding="8,7"
                         HorizontalAlignment="Stretch"
                         HorizontalContentAlignment="Center"
                         Cursor="Hand">
@@ -47,21 +51,21 @@
                             <Setter Property="Background" Value="Transparent" />
                         </Style>
                         <Style Selector="Button:pointerover">
-                            <Setter Property="Background" Value="#27272a" />
+                            <Setter Property="Background" Value="{DynamicResource AppHover}" />
                         </Style>
                     </Button.Styles>
                     <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
-                        <PathIcon Data="{StaticResource IconCloud}" Width="13" Height="13" Foreground="#60a5fa" VerticalAlignment="Center" />
-                        <TextBlock Text="Profiles" FontSize="12.5" FontWeight="SemiBold" Foreground="#f3f4f6" VerticalAlignment="Center" />
+                        <PathIcon Data="{StaticResource IconPalette}" Width="13" Height="13" Foreground="#a855f7" VerticalAlignment="Center" />
+                        <TextBlock Text="Appearance" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource AppTextPrimary}" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
 
-                <!-- Tab 2: Spell Check & Dictionary Button -->
+                <!-- Tab 1: Storage Profiles -->
                 <Button Grid.Column="1"
-                        Command="{Binding ShowDictionaryTabCommand}"
+                        Command="{Binding ShowProfileTabCommand}"
                         BorderThickness="0"
-                        CornerRadius="4"
-                        Padding="8,6"
+                        CornerRadius="6"
+                        Padding="8,7"
                         HorizontalAlignment="Stretch"
                         HorizontalContentAlignment="Center"
                         Cursor="Hand">
@@ -70,21 +74,44 @@
                             <Setter Property="Background" Value="Transparent" />
                         </Style>
                         <Style Selector="Button:pointerover">
-                            <Setter Property="Background" Value="#27272a" />
+                            <Setter Property="Background" Value="{DynamicResource AppHover}" />
+                        </Style>
+                    </Button.Styles>
+                    <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
+                        <PathIcon Data="{StaticResource IconCloud}" Width="13" Height="13" Foreground="{DynamicResource Accent}" VerticalAlignment="Center" />
+                        <TextBlock Text="Profiles" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource AppTextPrimary}" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+
+                <!-- Tab 2: Spell Check & Dictionary -->
+                <Button Grid.Column="2"
+                        Command="{Binding ShowDictionaryTabCommand}"
+                        BorderThickness="0"
+                        CornerRadius="6"
+                        Padding="8,7"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Center"
+                        Cursor="Hand">
+                    <Button.Styles>
+                        <Style Selector="Button">
+                            <Setter Property="Background" Value="Transparent" />
+                        </Style>
+                        <Style Selector="Button:pointerover">
+                            <Setter Property="Background" Value="{DynamicResource AppHover}" />
                         </Style>
                     </Button.Styles>
                     <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
                         <PathIcon Data="{StaticResource IconSpellCheck}" Width="13" Height="13" Foreground="#34d399" VerticalAlignment="Center" />
-                        <TextBlock Text="Dictionary" FontSize="12.5" FontWeight="SemiBold" Foreground="#f3f4f6" VerticalAlignment="Center" />
+                        <TextBlock Text="Dictionary" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource AppTextPrimary}" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
 
                 <!-- Tab 3: Shortcuts Button -->
-                <Button Grid.Column="2"
+                <Button Grid.Column="3"
                         Command="{Binding ShowShortcutsTabCommand}"
                         BorderThickness="0"
-                        CornerRadius="4"
-                        Padding="8,6"
+                        CornerRadius="6"
+                        Padding="8,7"
                         HorizontalAlignment="Stretch"
                         HorizontalContentAlignment="Center"
                         Cursor="Hand">
@@ -93,79 +120,318 @@
                             <Setter Property="Background" Value="Transparent" />
                         </Style>
                         <Style Selector="Button:pointerover">
-                            <Setter Property="Background" Value="#27272a" />
+                            <Setter Property="Background" Value="{DynamicResource AppHover}" />
                         </Style>
                     </Button.Styles>
                     <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
                         <PathIcon Data="{StaticResource IconKeyboard}" Width="13" Height="13" Foreground="#f59e0b" VerticalAlignment="Center" />
-                        <TextBlock Text="Shortcuts" FontSize="12.5" FontWeight="SemiBold" Foreground="#f3f4f6" VerticalAlignment="Center" />
+                        <TextBlock Text="Shortcuts" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource AppTextPrimary}" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
             </Grid>
         </Border>
 
+        <!-- TAB 0 CONTENT: Appearance & Themes -->
+        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" IsVisible="{Binding IsThemeTabActive}">
+            <StackPanel Spacing="14">
+                <TextBlock Text="THEME PALETTES (AVAILABLE ON WINDOWS &amp; ANDROID)" FontWeight="Bold" FontSize="11" Foreground="{DynamicResource AppTextSecondary}" LetterSpacing="0.8" />
+
+                <!-- 2x2 Grid of Built-in Themes -->
+                <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto">
+                    <!-- Theme 1: Android Dark (Liquid Glass) -->
+                    <Border Grid.Row="0" Grid.Column="0"
+                            Background="{DynamicResource AppCardBackground}"
+                            BorderBrush="{DynamicResource AppBorder}"
+                            BorderThickness="1.5"
+                            CornerRadius="8"
+                            Padding="12"
+                            Margin="0,0,6,8"
+                            Cursor="Hand"
+                            PointerPressed="AndroidDarkCard_PointerPressed">
+                        <Grid RowDefinitions="Auto,*,Auto">
+                            <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto">
+                                <Border Grid.Column="0" Width="28" Height="28" CornerRadius="14" Background="#0b0e14" BorderBrush="#3390ec" BorderThickness="1.5" Margin="0,0,8,0">
+                                    <Border Width="12" Height="12" CornerRadius="6" Background="#3390ec" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock Text="Android Dark" FontWeight="Bold" FontSize="12.5" Foreground="{DynamicResource AppTextPrimary}" />
+                                    <TextBlock Text="Liquid Glass &amp; Electric Blue" FontSize="10.5" Foreground="{DynamicResource AppTextSecondary}" />
+                                </StackPanel>
+                                <Border x:Name="BadgeAndroidDark" Grid.Column="2"
+                                        Background="#064e3b" BorderBrush="#059669" BorderThickness="1" CornerRadius="8" Padding="6,1.5" VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal" Spacing="3">
+                                        <PathIcon Data="{StaticResource IconCheck}" Width="9" Height="9" Foreground="#34d399" VerticalAlignment="Center" />
+                                        <TextBlock Text="Active" FontSize="10" FontWeight="SemiBold" Foreground="#34d399" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+                            <TextBlock Grid.Row="1" Text="Deep midnight space (#0b0e14) with frosted liquid glass and vibrant cyan/electric blue accent (#3390ec)."
+                                       FontSize="11" Foreground="{DynamicResource AppTextSecondary}" TextWrapping="Wrap" Margin="0,8,0,8" />
+                            <!-- Color Swatches -->
+                            <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="6">
+                                <Border Width="14" Height="14" CornerRadius="7" Background="#0b0e14" BorderBrush="#283548" BorderThickness="1" ToolTip.Tip="Background" />
+                                <Border Width="14" Height="14" CornerRadius="7" Background="#161c26" BorderBrush="#283548" BorderThickness="1" ToolTip.Tip="Card" />
+                                <Border Width="14" Height="14" CornerRadius="7" Background="#3390ec" ToolTip.Tip="Electric Blue Accent" />
+                                <Border Width="14" Height="14" CornerRadius="7" Background="#f8fafc" ToolTip.Tip="Text" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- Theme 2: Android Light (Daylight Canvas) -->
+                    <Border Grid.Row="0" Grid.Column="1"
+                            Background="{DynamicResource AppCardBackground}"
+                            BorderBrush="{DynamicResource AppBorder}"
+                            BorderThickness="1.5"
+                            CornerRadius="8"
+                            Padding="12"
+                            Margin="6,0,0,8"
+                            Cursor="Hand"
+                            PointerPressed="AndroidLightCard_PointerPressed">
+                        <Grid RowDefinitions="Auto,*,Auto">
+                            <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto">
+                                <Border Grid.Column="0" Width="28" Height="28" CornerRadius="14" Background="#f0f4f9" BorderBrush="#2481cc" BorderThickness="1.5" Margin="0,0,8,0">
+                                    <Border Width="12" Height="12" CornerRadius="6" Background="#2481cc" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock Text="Android Light" FontWeight="Bold" FontSize="12.5" Foreground="{DynamicResource AppTextPrimary}" />
+                                    <TextBlock Text="Daylight &amp; Frosted Glass" FontSize="10.5" Foreground="{DynamicResource AppTextSecondary}" />
+                                </StackPanel>
+                                <Border x:Name="BadgeAndroidLight" Grid.Column="2"
+                                        Background="#064e3b" BorderBrush="#059669" BorderThickness="1" CornerRadius="8" Padding="6,1.5" VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal" Spacing="3">
+                                        <PathIcon Data="{StaticResource IconCheck}" Width="9" Height="9" Foreground="#34d399" VerticalAlignment="Center" />
+                                        <TextBlock Text="Active" FontSize="10" FontWeight="SemiBold" Foreground="#34d399" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+                            <TextBlock Grid.Row="1" Text="Ethereal daylight canvas (#f0f4f9) with crisp white cards and soft electric blue accent (#2481cc)."
+                                       FontSize="11" Foreground="{DynamicResource AppTextSecondary}" TextWrapping="Wrap" Margin="0,8,0,8" />
+                            <!-- Color Swatches -->
+                            <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="6">
+                                <Border Width="14" Height="14" CornerRadius="7" Background="#f0f4f9" BorderBrush="#cbd5e1" BorderThickness="1" ToolTip.Tip="Background" />
+                                <Border Width="14" Height="14" CornerRadius="7" Background="#ffffff" BorderBrush="#cbd5e1" BorderThickness="1" ToolTip.Tip="Card" />
+                                <Border Width="14" Height="14" CornerRadius="7" Background="#2481cc" ToolTip.Tip="Electric Blue Accent" />
+                                <Border Width="14" Height="14" CornerRadius="7" Background="#0f172a" ToolTip.Tip="Text" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- Theme 3: Windows Dark (Obsidian Slate) -->
+                    <Border Grid.Row="1" Grid.Column="0"
+                            Background="{DynamicResource AppCardBackground}"
+                            BorderBrush="{DynamicResource AppBorder}"
+                            BorderThickness="1.5"
+                            CornerRadius="8"
+                            Padding="12"
+                            Margin="0,0,6,0"
+                            Cursor="Hand"
+                            PointerPressed="WindowsDarkCard_PointerPressed">
+                        <Grid RowDefinitions="Auto,*,Auto">
+                            <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto">
+                                <Border Grid.Column="0" Width="28" Height="28" CornerRadius="14" Background="#11141c" BorderBrush="#2563eb" BorderThickness="1.5" Margin="0,0,8,0">
+                                    <Border Width="12" Height="12" CornerRadius="6" Background="#2563eb" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock Text="Windows Dark" FontWeight="Bold" FontSize="12.5" Foreground="{DynamicResource AppTextPrimary}" />
+                                    <TextBlock Text="Obsidian &amp; Cobalt Blue" FontSize="10.5" Foreground="{DynamicResource AppTextSecondary}" />
+                                </StackPanel>
+                                <Border x:Name="BadgeWindowsDark" Grid.Column="2"
+                                        Background="#064e3b" BorderBrush="#059669" BorderThickness="1" CornerRadius="8" Padding="6,1.5" VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal" Spacing="3">
+                                        <PathIcon Data="{StaticResource IconCheck}" Width="9" Height="9" Foreground="#34d399" VerticalAlignment="Center" />
+                                        <TextBlock Text="Active" FontSize="10" FontWeight="SemiBold" Foreground="#34d399" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+                            <TextBlock Grid.Row="1" Text="Main branch classic dark obsidian slate (#11141c) with desktop cobalt blue accent (#2563eb)."
+                                       FontSize="11" Foreground="{DynamicResource AppTextSecondary}" TextWrapping="Wrap" Margin="0,8,0,8" />
+                            <!-- Color Swatches -->
+                            <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="6">
+                                <Border Width="14" Height="14" CornerRadius="7" Background="#11141c" BorderBrush="#283244" BorderThickness="1" ToolTip.Tip="Background" />
+                                <Border Width="14" Height="14" CornerRadius="7" Background="#161b26" BorderBrush="#283244" BorderThickness="1" ToolTip.Tip="Card" />
+                                <Border Width="14" Height="14" CornerRadius="7" Background="#2563eb" ToolTip.Tip="Cobalt Blue Accent" />
+                                <Border Width="14" Height="14" CornerRadius="7" Background="#f8fafc" ToolTip.Tip="Text" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- Theme 4: Windows Light (Modern Slate White) -->
+                    <Border Grid.Row="1" Grid.Column="1"
+                            Background="{DynamicResource AppCardBackground}"
+                            BorderBrush="{DynamicResource AppBorder}"
+                            BorderThickness="1.5"
+                            CornerRadius="8"
+                            Padding="12"
+                            Margin="6,0,0,0"
+                            Cursor="Hand"
+                            PointerPressed="WindowsLightCard_PointerPressed">
+                        <Grid RowDefinitions="Auto,*,Auto">
+                            <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto">
+                                <Border Grid.Column="0" Width="28" Height="28" CornerRadius="14" Background="#ffffff" BorderBrush="#2563eb" BorderThickness="1.5" Margin="0,0,8,0">
+                                    <Border Width="12" Height="12" CornerRadius="6" Background="#2563eb" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock Text="Windows Light" FontWeight="Bold" FontSize="12.5" Foreground="{DynamicResource AppTextPrimary}" />
+                                    <TextBlock Text="Slate White &amp; Cobalt Blue" FontSize="10.5" Foreground="{DynamicResource AppTextSecondary}" />
+                                </StackPanel>
+                                <Border x:Name="BadgeWindowsLight" Grid.Column="2"
+                                        Background="#064e3b" BorderBrush="#059669" BorderThickness="1" CornerRadius="8" Padding="6,1.5" VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal" Spacing="3">
+                                        <PathIcon Data="{StaticResource IconCheck}" Width="9" Height="9" Foreground="#34d399" VerticalAlignment="Center" />
+                                        <TextBlock Text="Active" FontSize="10" FontWeight="SemiBold" Foreground="#34d399" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+                            <TextBlock Grid.Row="1" Text="Clean high-contrast slate white workspace (#ffffff) with crisp desktop cobalt blue accent (#2563eb)."
+                                       FontSize="11" Foreground="{DynamicResource AppTextSecondary}" TextWrapping="Wrap" Margin="0,8,0,8" />
+                            <!-- Color Swatches -->
+                            <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="6">
+                                <Border Width="14" Height="14" CornerRadius="7" Background="#ffffff" BorderBrush="#cbd5e1" BorderThickness="1" ToolTip.Tip="Background" />
+                                <Border Width="14" Height="14" CornerRadius="7" Background="#f8fafc" BorderBrush="#cbd5e1" BorderThickness="1" ToolTip.Tip="Card" />
+                                <Border Width="14" Height="14" CornerRadius="7" Background="#2563eb" ToolTip.Tip="Cobalt Blue Accent" />
+                                <Border Width="14" Height="14" CornerRadius="7" Background="#0f172a" ToolTip.Tip="Text" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </Grid>
+
+                <!-- Custom Themes & Config Actions -->
+                <Border Background="{DynamicResource AppCardBackground}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="1" CornerRadius="8" Padding="14">
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="CUSTOM THEME CONFIG &amp; IMPORT" FontWeight="Bold" FontSize="11" Foreground="{DynamicResource AppTextSecondary}" LetterSpacing="0.8" />
+                        <TextBlock Text="Easily customize or import color schemes like Obsidian or VS Code themes using standard JSON configuration."
+                                   FontSize="11.5" Foreground="{DynamicResource AppTextSecondary}" TextWrapping="Wrap" />
+
+                        <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,4,0,0">
+                            <!-- Import Theme Button -->
+                            <Button Click="ImportThemeButton_Click"
+                                    Background="{DynamicResource Accent}"
+                                    Foreground="{DynamicResource AccentForeground}"
+                                    BorderThickness="0" CornerRadius="6" Padding="14,7" Cursor="Hand">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <PathIcon Data="{StaticResource IconImport}" Width="12" Height="12" Foreground="White" VerticalAlignment="Center" />
+                                    <TextBlock Text="Import Theme (JSON)..." FontWeight="SemiBold" FontSize="12" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+
+                            <!-- Export Theme Button -->
+                            <Button Click="ExportThemeButton_Click"
+                                    Background="{DynamicResource AppButtonBackground}"
+                                    Foreground="{DynamicResource AppTextPrimary}"
+                                    BorderThickness="1" BorderBrush="{DynamicResource AppBorder}" CornerRadius="6" Padding="14,7" Cursor="Hand">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <PathIcon Data="{StaticResource IconExport}" Width="12" Height="12" Foreground="{DynamicResource AppTextSecondary}" VerticalAlignment="Center" />
+                                    <TextBlock Text="Export Current Theme" FontWeight="SemiBold" FontSize="12" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+
+                            <!-- Reset Defaults Button -->
+                            <Button Click="ResetThemesButton_Click"
+                                    Background="Transparent"
+                                    Foreground="{DynamicResource AppTextSecondary}"
+                                    BorderThickness="1" BorderBrush="{DynamicResource AppBorder}" CornerRadius="6" Padding="12,7" Cursor="Hand">
+                                <StackPanel Orientation="Horizontal" Spacing="5">
+                                    <PathIcon Data="{StaticResource IconReset}" Width="11" Height="11" Foreground="{DynamicResource AppTextSecondary}" VerticalAlignment="Center" />
+                                    <TextBlock Text="Reset Defaults" FontSize="11.5" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+
+                        <!-- Status Message -->
+                        <TextBlock x:Name="TxtThemeStatus" Text="" FontSize="11.5" Foreground="#10b981" FontWeight="Medium" IsVisible="False" Margin="0,4,0,0" />
+                    </StackPanel>
+                </Border>
+
+                <!-- Quick Tip Card -->
+                <Border Background="{DynamicResource AppCardBackground}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="1" CornerRadius="8" Padding="14">
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="⚡ Quick Shortcut" FontWeight="SemiBold" FontSize="12.5" Foreground="{DynamicResource Accent}" />
+                        <TextBlock Text="You can toggle between Dark and Light mode instantly from the top toolbar sun/moon icon or anytime by pressing Ctrl + T."
+                                   FontSize="11.5" Foreground="{DynamicResource AppTextSecondary}" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
         <!-- TAB 1 CONTENT: Storage Profiles -->
         <Grid Grid.Row="2" RowDefinitions="Auto,*,Auto" IsVisible="{Binding IsProfileTabActive}">
             <!-- Profile List Header -->
-            <TextBlock Grid.Row="0" Text="AVAILABLE STORAGE PROFILES" FontWeight="Bold" FontSize="11" Foreground="#6b7280" Margin="0,0,0,6" />
+            <TextBlock Grid.Row="0" Text="AVAILABLE STORAGE PROFILES" FontWeight="Bold" FontSize="11" Foreground="{DynamicResource AppTextSecondary}" Margin="0,0,0,8" />
 
-            <!-- Profile List -->
-            <Border Grid.Row="1" Background="#18181b" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="6" MaxHeight="220" Margin="0,0,0,12">
+            <!-- Profile List Container -->
+            <Border Grid.Row="1" Background="{DynamicResource AppCardBackground}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="1" CornerRadius="8" Padding="6" MinHeight="180">
                 <ListBox ItemsSource="{Binding AvailableProfiles}" SelectedItem="{Binding SelectedProfile, Mode=TwoWay}" Background="Transparent">
                     <ListBox.Styles>
                         <Style Selector="ListBoxItem">
                             <Setter Property="Padding" Value="8,6" />
-                            <Setter Property="Margin" Value="2,2" />
+                            <Setter Property="Margin" Value="0,0,0,4" />
                             <Setter Property="CornerRadius" Value="6" />
                             <Setter Property="Background" Value="Transparent" />
                         </Style>
                         <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
-                            <Setter Property="Background" Value="#27272a" />
+                            <Setter Property="Background" Value="{DynamicResource AppHover}" />
                         </Style>
                         <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
-                            <Setter Property="Background" Value="#1e293b" />
-                            <Setter Property="BorderBrush" Value="#3b82f6" />
+                            <Setter Property="Background" Value="{DynamicResource AppSelectedBackground}" />
+                            <Setter Property="BorderBrush" Value="{DynamicResource Accent}" />
                             <Setter Property="BorderThickness" Value="1" />
                         </Style>
                     </ListBox.Styles>
                     <ListBox.ItemTemplate>
                         <DataTemplate DataType="vm:ProfileItemViewModel">
-                            <Grid ColumnDefinitions="Auto,*,Auto" Margin="2,4">
+                            <Grid ColumnDefinitions="Auto,*,Auto" Margin="4,3">
                                 <!-- Account Icon -->
-                                <Border Grid.Column="0" Width="36" Height="36" CornerRadius="6" Background="#27272a" Margin="0,0,10,0" VerticalAlignment="Center">
+                                <Border Grid.Column="0" Width="36" Height="36" CornerRadius="8" Background="{DynamicResource AppHover}" Margin="0,0,10,0" VerticalAlignment="Center">
                                     <PathIcon Data="{StaticResource IconCloud}" Width="16" Height="16" Foreground="{Binding IconForeground}" VerticalAlignment="Center" HorizontalAlignment="Center" />
                                 </Border>
 
-                                <!-- Account Name & Path (Vertical Stack with TextTrimming to prevent clipping) -->
+                                <!-- Account Name & Path -->
                                 <Grid Grid.Column="1" RowDefinitions="Auto,Auto" VerticalAlignment="Center" Margin="0,0,8,0">
-                                    <TextBlock Grid.Row="0" Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="13" Foreground="#f3f4f6" TextTrimming="CharacterEllipsis" MaxWidth="360" />
+                                    <TextBlock Grid.Row="0" Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource AppTextPrimary}" TextTrimming="CharacterEllipsis" MaxWidth="360" />
                                     <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="6" Margin="0,2,0,0">
-                                        <Border Background="{Binding BadgeBackground}" CornerRadius="3" Padding="5,1,5,1" VerticalAlignment="Center">
+                                        <Border Background="{Binding BadgeBackground}" CornerRadius="4" Padding="6,1.5" VerticalAlignment="Center">
                                             <TextBlock Text="{Binding AccountType}" FontSize="10.5" FontWeight="Medium" Foreground="{Binding BadgeForeground}" />
                                         </Border>
-                                        <TextBlock Text="{Binding Path}" FontSize="11" Foreground="#9ca3af" TextTrimming="CharacterEllipsis" MaxWidth="280" VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding Path}" FontSize="11" Foreground="{DynamicResource AppTextSecondary}" TextTrimming="CharacterEllipsis" MaxWidth="300" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </Grid>
 
-                                <!-- Active Badge -->
-                                <Border Grid.Column="2" IsVisible="{Binding IsActive}" Background="#064e3b" BorderBrush="#059669" BorderThickness="1" CornerRadius="10" Padding="8,2" VerticalAlignment="Center" Margin="4,0,2,0">
-                                    <StackPanel Orientation="Horizontal" Spacing="4">
-                                        <PathIcon Data="{StaticResource IconCheck}" Width="10" Height="10" Foreground="#34d399" VerticalAlignment="Center" />
-                                        <TextBlock Text="Active" FontSize="11" FontWeight="SemiBold" Foreground="#34d399" VerticalAlignment="Center" />
-                                    </StackPanel>
-                                </Border>
+                                <!-- Right Status: Active Badge or Google Sign In Button -->
+                                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                    <!-- Active Pill Badge -->
+                                    <Border IsVisible="{Binding IsActive}" Background="#064e3b" BorderBrush="#059669" BorderThickness="1" CornerRadius="10" Padding="8,2" VerticalAlignment="Center">
+                                        <StackPanel Orientation="Horizontal" Spacing="4">
+                                            <PathIcon Data="{StaticResource IconCheck}" Width="10" Height="10" Foreground="#34d399" VerticalAlignment="Center" />
+                                            <TextBlock Text="Active" FontSize="11" FontWeight="SemiBold" Foreground="#34d399" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- Google Drive Sign-In Required Button -->
+                                    <Button IsVisible="{Binding !IsSignedIn}"
+                                            Click="OpenGoogleLogin_Click"
+                                            Content="Sign In"
+                                            Background="{DynamicResource Accent}"
+                                            Foreground="{DynamicResource AccentForeground}"
+                                            BorderThickness="0"
+                                            CornerRadius="6"
+                                            Padding="12,5"
+                                            FontWeight="SemiBold"
+                                            FontSize="11.5"
+                                            Cursor="Hand"
+                                            ToolTip.Tip="Sign in with your Google account" />
+                                </StackPanel>
                             </Grid>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>
             </Border>
 
-            <!-- Migration Checkbox -->
-            <Border Grid.Row="2" Background="#1f1f23" BorderBrush="#374151" BorderThickness="1" CornerRadius="6" Padding="12,10" Margin="0,0,0,14">
+            <!-- Migration Checkbox Card -->
+            <Border Grid.Row="2" Background="{DynamicResource AppCardBackground}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="1" CornerRadius="8" Padding="12,10" Margin="0,10,0,10">
                 <CheckBox IsChecked="{Binding MigrateNotesOnSwitch, Mode=TwoWay}" HorizontalAlignment="Stretch">
                     <StackPanel Spacing="2" Margin="6,0,0,0">
-                        <TextBlock Text="Copy existing notes &amp; attachments to selected profile" FontWeight="Medium" FontSize="13" Foreground="#e5e7eb" />
-                        <TextBlock Text="Copies all folders, notes, and .assets images from the current profile to the target folder." FontSize="11" Foreground="#9ca3af" TextWrapping="Wrap" />
+                        <TextBlock Text="Copy existing notes &amp; attachments to selected profile" FontWeight="Medium" FontSize="12.5" Foreground="{DynamicResource AppTextPrimary}" />
+                        <TextBlock Text="Copies all folders, notes, and .assets images from the current profile to the target folder." FontSize="11" Foreground="{DynamicResource AppTextSecondary}" TextWrapping="Wrap" />
                     </StackPanel>
                 </CheckBox>
             </Border>
@@ -174,11 +440,11 @@
         <!-- TAB 2 CONTENT: Spell Check & Custom Dictionary -->
         <Grid Grid.Row="2" RowDefinitions="Auto,Auto,*" IsVisible="{Binding IsDictionaryTabActive}">
             <!-- Spell Check Toggle Card -->
-            <Border Grid.Row="0" Background="#1f1f23" BorderBrush="#374151" BorderThickness="1" CornerRadius="6" Padding="14,12" Margin="0,0,0,14">
+            <Border Grid.Row="0" Background="{DynamicResource AppCardBackground}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="1" CornerRadius="8" Padding="14,12" Margin="0,0,0,12">
                 <Grid ColumnDefinitions="*,Auto">
                     <StackPanel Grid.Column="0" Spacing="3" VerticalAlignment="Center" Margin="0,0,12,0">
-                        <TextBlock Text="Editor Spell Check" FontWeight="SemiBold" FontSize="13.5" Foreground="#f3f4f6" />
-                        <TextBlock Text="Show red wavy squiggles for misspelled words. Turn off to avoid underlines on technical terms (WinRM, LDAPS, PowerShell)." FontSize="11.5" Foreground="#9ca3af" TextWrapping="Wrap" />
+                        <TextBlock Text="Editor Spell Check" FontWeight="SemiBold" FontSize="13.5" Foreground="{DynamicResource AppTextPrimary}" />
+                        <TextBlock Text="Show red squiggles for misspelled words. Turn off to avoid underlines on technical terms (WinRM, LDAPS, kubectl)." FontSize="11.5" Foreground="{DynamicResource AppTextSecondary}" TextWrapping="Wrap" />
                     </StackPanel>
                     <ToggleSwitch Grid.Column="1"
                                   IsChecked="{Binding IsSpellCheckEnabled, Mode=TwoWay}"
@@ -193,38 +459,38 @@
                 <TextBox Grid.Column="0"
                          Text="{Binding NewIgnoredWordInput, Mode=TwoWay}"
                          PlaceholderText="Add word or technical term (e.g. WinRM, ldaps, kubectl)..."
-                         Background="#18181b"
-                         Foreground="#f3f4f6"
-                         BorderBrush="#3f3f46"
+                         Background="{DynamicResource AppInputBackground}"
+                         Foreground="{DynamicResource AppTextPrimary}"
+                         BorderBrush="{DynamicResource AppBorder}"
                          BorderThickness="1"
                          CornerRadius="6,0,0,6"
                          Padding="10,7"
-                         FontSize="13"
+                         FontSize="12.5"
                          KeyDown="NewIgnoredWord_KeyDown" />
                 <Button Grid.Column="1"
                         Command="{Binding AddIgnoredWordCommand}"
                         Content="Add to Dictionary"
-                        Background="#2563eb"
-                        Foreground="White"
+                        Background="{DynamicResource Accent}"
+                        Foreground="{DynamicResource AccentForeground}"
                         BorderThickness="0"
                         CornerRadius="0,6,6,0"
                         Padding="14,7"
                         FontWeight="SemiBold"
-                        FontSize="12.5"
+                        FontSize="12"
                         Cursor="Hand" />
             </Grid>
 
             <!-- Custom Dictionary Words List -->
-            <Border Grid.Row="2" Background="#18181b" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="6" Padding="12" MinHeight="140" MaxHeight="260" Margin="0,0,0,14">
+            <Border Grid.Row="2" Background="{DynamicResource AppCardBackground}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="1" CornerRadius="8" Padding="12" MinHeight="140" MaxHeight="240">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Spacing="8">
                         <Grid ColumnDefinitions="*,Auto">
-                            <TextBlock Grid.Column="0" Text="CUSTOM IGNORED WORDS" FontWeight="Bold" FontSize="11" Foreground="#6b7280" />
-                            <TextBlock Grid.Column="1" Text="{Binding IgnoredWords.Count, StringFormat='{}{0} words'}" FontSize="11" Foreground="#9ca3af" />
+                            <TextBlock Grid.Column="0" Text="CUSTOM IGNORED WORDS" FontWeight="Bold" FontSize="11" Foreground="{DynamicResource AppTextSecondary}" />
+                            <TextBlock Grid.Column="1" Text="{Binding IgnoredWords.Count, StringFormat='{}{0} words'}" FontSize="11" Foreground="{DynamicResource AppTextSecondary}" />
                         </Grid>
 
                         <TextBlock Text="No custom words added. Right-click any word in the editor to ignore it, or type words above."
-                                   Foreground="#6b7280" FontSize="12" FontStyle="Italic"
+                                   Foreground="{DynamicResource AppTextMuted}" FontSize="11.5" FontStyle="Italic"
                                    IsVisible="{Binding !IgnoredWords.Count}" Margin="0,8,0,0" />
 
                         <ItemsControl ItemsSource="{Binding IgnoredWords}">
@@ -235,9 +501,9 @@
                             </ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate DataType="x:String">
-                                    <Border Background="#27272a" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="12" Padding="8,3" Margin="0,0,6,6">
+                                    <Border Background="{DynamicResource AppHover}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="1" CornerRadius="12" Padding="8,3" Margin="0,0,6,6">
                                         <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding}" Foreground="#e5e7eb" FontSize="12" VerticalAlignment="Center" />
+                                            <TextBlock Text="{Binding}" Foreground="{DynamicResource AppTextPrimary}" FontSize="11.5" VerticalAlignment="Center" />
                                             <Button Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).RemoveIgnoredWordCommand}"
                                                     CommandParameter="{Binding}"
                                                     Content="✕"
@@ -261,121 +527,64 @@
 
         <!-- TAB 3 CONTENT: Keyboard Shortcuts -->
         <Grid Grid.Row="2" RowDefinitions="Auto,*" IsVisible="{Binding IsShortcutsTabActive}">
-            <TextBlock Grid.Row="0" Text="QUICKNOTE KEYBOARD SHORTCUTS" FontWeight="Bold" FontSize="11" Foreground="#6b7280" Margin="0,0,0,8" />
+            <TextBlock Grid.Row="0" Text="QUICKNOTE KEYBOARD SHORTCUTS" FontWeight="Bold" FontSize="11" Foreground="{DynamicResource AppTextSecondary}" Margin="0,0,0,8" />
 
-            <Border Grid.Row="1" Background="#18181b" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="6" Padding="14" MaxHeight="380" Margin="0,0,0,14">
+            <Border Grid.Row="1" Background="{DynamicResource AppCardBackground}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="1" CornerRadius="8" Padding="14">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel Spacing="16">
+                    <StackPanel Spacing="14">
                         <!-- Category: Navigation & Tabs -->
                         <StackPanel Spacing="6">
-                            <TextBlock Text="Navigation &amp; Note Tabs" FontWeight="SemiBold" FontSize="12.5" Foreground="#60a5fa" />
+                            <TextBlock Text="Navigation &amp; Note Tabs" FontWeight="SemiBold" FontSize="12.5" Foreground="{DynamicResource Accent}" />
                             <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto" ColumnDefinitions="*,Auto" Margin="4,0,0,0">
-                                <TextBlock Grid.Row="0" Grid.Column="0" Text="New Note" Foreground="#e5e7eb" FontSize="12" VerticalAlignment="Center" Margin="0,3" />
-                                <Border Grid.Row="0" Grid.Column="1" Background="#27272a" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" Margin="0,2">
-                                    <TextBlock Text="Ctrl + N" FontFamily="Cascadia Code, Consolas, monospace" FontSize="11" Foreground="#f3f4f6" />
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="New Note" Foreground="{DynamicResource AppTextPrimary}" FontSize="12" VerticalAlignment="Center" Margin="0,3" />
+                                <Border Grid.Row="0" Grid.Column="1" Background="{DynamicResource AppHover}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" Margin="0,2">
+                                    <TextBlock Text="Ctrl + N" FontFamily="Cascadia Code, Consolas, monospace" FontSize="11" Foreground="{DynamicResource AppTextPrimary}" />
                                 </Border>
 
-                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Close Current Tab" Foreground="#e5e7eb" FontSize="12" VerticalAlignment="Center" Margin="0,3" />
-                                <Border Grid.Row="1" Grid.Column="1" Background="#27272a" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" Margin="0,2">
-                                    <TextBlock Text="Ctrl + W" FontFamily="Cascadia Code, Consolas, monospace" FontSize="11" Foreground="#f3f4f6" />
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Close Current Tab" Foreground="{DynamicResource AppTextPrimary}" FontSize="12" VerticalAlignment="Center" Margin="0,3" />
+                                <Border Grid.Row="1" Grid.Column="1" Background="{DynamicResource AppHover}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" Margin="0,2">
+                                    <TextBlock Text="Ctrl + W" FontFamily="Cascadia Code, Consolas, monospace" FontSize="11" Foreground="{DynamicResource AppTextPrimary}" />
                                 </Border>
 
-                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Next Tab / Previous Tab" Foreground="#e5e7eb" FontSize="12" VerticalAlignment="Center" Margin="0,3" />
-                                <Border Grid.Row="2" Grid.Column="1" Background="#27272a" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" Margin="0,2">
-                                    <TextBlock Text="Ctrl + Tab / Ctrl + Shift + Tab" FontFamily="Cascadia Code, Consolas, monospace" FontSize="11" Foreground="#f3f4f6" />
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Next Tab / Previous Tab" Foreground="{DynamicResource AppTextPrimary}" FontSize="12" VerticalAlignment="Center" Margin="0,3" />
+                                <Border Grid.Row="2" Grid.Column="1" Background="{DynamicResource AppHover}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" Margin="0,2">
+                                    <TextBlock Text="Ctrl + Tab / Ctrl + Shift + Tab" FontFamily="Cascadia Code, Consolas, monospace" FontSize="11" Foreground="{DynamicResource AppTextPrimary}" />
                                 </Border>
 
-                                <TextBlock Grid.Row="3" Grid.Column="0" Text="Quick Jump / Search Notes" Foreground="#e5e7eb" FontSize="12" VerticalAlignment="Center" Margin="0,3" />
-                                <Border Grid.Row="3" Grid.Column="1" Background="#27272a" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" Margin="0,2">
-                                    <TextBlock Text="Ctrl + P" FontFamily="Cascadia Code, Consolas, monospace" FontSize="11" Foreground="#f3f4f6" />
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="Quick Jump / Search Notes" Foreground="{DynamicResource AppTextPrimary}" FontSize="12" VerticalAlignment="Center" Margin="0,3" />
+                                <Border Grid.Row="3" Grid.Column="1" Background="{DynamicResource AppHover}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" Margin="0,2">
+                                    <TextBlock Text="Ctrl + P" FontFamily="Cascadia Code, Consolas, monospace" FontSize="11" Foreground="{DynamicResource AppTextPrimary}" />
                                 </Border>
 
-                                <TextBlock Grid.Row="4" Grid.Column="0" Text="Open Settings &amp; Profiles" Foreground="#e5e7eb" FontSize="12" VerticalAlignment="Center" Margin="0,3" />
-                                <Border Grid.Row="4" Grid.Column="1" Background="#27272a" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" Margin="0,2">
-                                    <TextBlock Text="Ctrl + ," FontFamily="Cascadia Code, Consolas, monospace" FontSize="11" Foreground="#f3f4f6" />
+                                <TextBlock Grid.Row="4" Grid.Column="0" Text="Open Settings &amp; Profiles" Foreground="{DynamicResource AppTextPrimary}" FontSize="12" VerticalAlignment="Center" Margin="0,3" />
+                                <Border Grid.Row="4" Grid.Column="1" Background="{DynamicResource AppHover}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" Margin="0,2">
+                                    <TextBlock Text="Ctrl + ," FontFamily="Cascadia Code, Consolas, monospace" FontSize="11" Foreground="{DynamicResource AppTextPrimary}" />
                                 </Border>
                             </Grid>
                         </StackPanel>
 
-                        <!-- Category: Find & Replace -->
+                        <!-- Category: Theme & Editor Formatting -->
                         <StackPanel Spacing="6">
-                            <TextBlock Text="Find &amp; Replace" FontWeight="SemiBold" FontSize="12.5" Foreground="#34d399" />
+                            <TextBlock Text="Theme &amp; Formatting" FontWeight="SemiBold" FontSize="12.5" Foreground="#f59e0b" />
                             <Grid RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="*,Auto" Margin="4,0,0,0">
-                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Find in Current Note" Foreground="#e5e7eb" FontSize="12" VerticalAlignment="Center" Margin="0,3" />
-                                <Border Grid.Row="0" Grid.Column="1" Background="#27272a" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" Margin="0,2">
-                                    <TextBlock Text="Ctrl + F" FontFamily="Cascadia Code, Consolas, monospace" FontSize="11" Foreground="#f3f4f6" />
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Toggle Dark / Light Theme" Foreground="{DynamicResource AppTextPrimary}" FontSize="12" VerticalAlignment="Center" Margin="0,3" />
+                                <Border Grid.Row="0" Grid.Column="1" Background="{DynamicResource AppHover}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" Margin="0,2">
+                                    <TextBlock Text="Ctrl + T" FontFamily="Cascadia Code, Consolas, monospace" FontSize="11" Foreground="{DynamicResource AppTextPrimary}" />
                                 </Border>
 
-                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Find &amp; Replace (VS Code Style)" Foreground="#e5e7eb" FontSize="12" VerticalAlignment="Center" Margin="0,3" />
-                                <Border Grid.Row="1" Grid.Column="1" Background="#27272a" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" Margin="0,2">
-                                    <TextBlock Text="Ctrl + Shift + F" FontFamily="Cascadia Code, Consolas, monospace" FontSize="11" Foreground="#f3f4f6" />
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Bold Text" Foreground="{DynamicResource AppTextPrimary}" FontSize="12" VerticalAlignment="Center" Margin="0,3" />
+                                <Border Grid.Row="1" Grid.Column="1" Background="{DynamicResource AppHover}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" Margin="0,2">
+                                    <TextBlock Text="Ctrl + B" FontFamily="Cascadia Code, Consolas, monospace" FontSize="11" Foreground="{DynamicResource AppTextPrimary}" />
                                 </Border>
 
-                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Next / Previous Search Match" Foreground="#e5e7eb" FontSize="12" VerticalAlignment="Center" Margin="0,3" />
-                                <Border Grid.Row="2" Grid.Column="1" Background="#27272a" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" Margin="0,2">
-                                    <TextBlock Text="Enter / Shift + Enter" FontFamily="Cascadia Code, Consolas, monospace" FontSize="11" Foreground="#f3f4f6" />
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Italic Text" Foreground="{DynamicResource AppTextPrimary}" FontSize="12" VerticalAlignment="Center" Margin="0,3" />
+                                <Border Grid.Row="2" Grid.Column="1" Background="{DynamicResource AppHover}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" Margin="0,2">
+                                    <TextBlock Text="Ctrl + I" FontFamily="Cascadia Code, Consolas, monospace" FontSize="11" Foreground="{DynamicResource AppTextPrimary}" />
                                 </Border>
 
-                                <TextBlock Grid.Row="3" Grid.Column="0" Text="Close Search Bar" Foreground="#e5e7eb" FontSize="12" VerticalAlignment="Center" Margin="0,3" />
-                                <Border Grid.Row="3" Grid.Column="1" Background="#27272a" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" Margin="0,2">
-                                    <TextBlock Text="Escape" FontFamily="Cascadia Code, Consolas, monospace" FontSize="11" Foreground="#f3f4f6" />
-                                </Border>
-                            </Grid>
-                        </StackPanel>
-
-                        <!-- Category: Editor Formatting -->
-                        <StackPanel Spacing="6">
-                            <TextBlock Text="Editor Formatting" FontWeight="SemiBold" FontSize="12.5" Foreground="#f59e0b" />
-                            <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" ColumnDefinitions="*,Auto" Margin="4,0,0,0">
-                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Bold" Foreground="#e5e7eb" FontSize="12" VerticalAlignment="Center" Margin="0,3" />
-                                <Border Grid.Row="0" Grid.Column="1" Background="#27272a" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" Margin="0,2">
-                                    <TextBlock Text="Ctrl + B" FontFamily="Cascadia Code, Consolas, monospace" FontSize="11" Foreground="#f3f4f6" />
-                                </Border>
-
-                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Italic" Foreground="#e5e7eb" FontSize="12" VerticalAlignment="Center" Margin="0,3" />
-                                <Border Grid.Row="1" Grid.Column="1" Background="#27272a" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" Margin="0,2">
-                                    <TextBlock Text="Ctrl + I" FontFamily="Cascadia Code, Consolas, monospace" FontSize="11" Foreground="#f3f4f6" />
-                                </Border>
-
-                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Insert / Edit Link" Foreground="#e5e7eb" FontSize="12" VerticalAlignment="Center" Margin="0,3" />
-                                <Border Grid.Row="2" Grid.Column="1" Background="#27272a" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" Margin="0,2">
-                                    <TextBlock Text="Ctrl + K" FontFamily="Cascadia Code, Consolas, monospace" FontSize="11" Foreground="#f3f4f6" />
-                                </Border>
-
-                                <TextBlock Grid.Row="3" Grid.Column="0" Text="Undo / Redo" Foreground="#e5e7eb" FontSize="12" VerticalAlignment="Center" Margin="0,3" />
-                                <Border Grid.Row="3" Grid.Column="1" Background="#27272a" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" Margin="0,2">
-                                    <TextBlock Text="Ctrl + Z / Ctrl + Y" FontFamily="Cascadia Code, Consolas, monospace" FontSize="11" Foreground="#f3f4f6" />
-                                </Border>
-
-                                <TextBlock Grid.Row="4" Grid.Column="0" Text="Slash Command Palette (Headings, Tables, Lists, Code)" Foreground="#e5e7eb" FontSize="12" VerticalAlignment="Center" Margin="0,3" />
-                                <Border Grid.Row="4" Grid.Column="1" Background="#27272a" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" Margin="0,2">
-                                    <TextBlock Text="/" FontFamily="Cascadia Code, Consolas, monospace" FontSize="11" Foreground="#f3f4f6" />
-                                </Border>
-
-                                <TextBlock Grid.Row="5" Grid.Column="0" Text="Inline Code" Foreground="#e5e7eb" FontSize="12" VerticalAlignment="Center" Margin="0,3" />
-                                <Border Grid.Row="5" Grid.Column="1" Background="#27272a" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" Margin="0,2">
-                                    <TextBlock Text="`code`" FontFamily="Cascadia Code, Consolas, monospace" FontSize="11" Foreground="#f3f4f6" />
-                                </Border>
-                            </Grid>
-                        </StackPanel>
-
-                        <!-- Category: Tables & Headings -->
-                        <StackPanel Spacing="6">
-                            <TextBlock Text="Tables &amp; Headings" FontWeight="SemiBold" FontSize="12.5" Foreground="#a855f7" />
-                            <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="*,Auto" Margin="4,0,0,0">
-                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Next Table Cell (Add New Row at end)" Foreground="#e5e7eb" FontSize="12" VerticalAlignment="Center" Margin="0,3" />
-                                <Border Grid.Row="0" Grid.Column="1" Background="#27272a" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" Margin="0,2">
-                                    <TextBlock Text="Tab" FontFamily="Cascadia Code, Consolas, monospace" FontSize="11" Foreground="#f3f4f6" />
-                                </Border>
-
-                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Previous Table Cell" Foreground="#e5e7eb" FontSize="12" VerticalAlignment="Center" Margin="0,3" />
-                                <Border Grid.Row="1" Grid.Column="1" Background="#27272a" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" Margin="0,2">
-                                    <TextBlock Text="Shift + Tab" FontFamily="Cascadia Code, Consolas, monospace" FontSize="11" Foreground="#f3f4f6" />
-                                </Border>
-
-                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Collapse / Expand Heading Section" Foreground="#e5e7eb" FontSize="12" VerticalAlignment="Center" Margin="0,3" />
-                                <Border Grid.Row="2" Grid.Column="1" Background="#27272a" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" Margin="0,2">
-                                    <TextBlock Text="Click ▾ / ▸ on Heading" FontFamily="Cascadia Code, Consolas, monospace" FontSize="11" Foreground="#f3f4f6" />
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="Slash Command Palette (Headings, Tables, Lists, Code)" Foreground="{DynamicResource AppTextPrimary}" FontSize="12" VerticalAlignment="Center" Margin="0,3" />
+                                <Border Grid.Row="3" Grid.Column="1" Background="{DynamicResource AppHover}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" Margin="0,2">
+                                    <TextBlock Text="/" FontFamily="Cascadia Code, Consolas, monospace" FontSize="11" Foreground="{DynamicResource AppTextPrimary}" />
                                 </Border>
                             </Grid>
                         </StackPanel>
@@ -385,16 +594,16 @@
         </Grid>
 
         <!-- Action Buttons -->
-        <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+        <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right" Margin="0,10,0,0">
             <Button Content="Cancel" Click="CloseButton_Click" IsCancel="True"
                     IsVisible="{Binding IsProfileTabActive}"
-                    Background="Transparent" Foreground="#9ca3af" BorderThickness="0" Padding="14,7" Cursor="Hand" />
+                    Background="Transparent" Foreground="{DynamicResource AppTextSecondary}" BorderThickness="0" Padding="14,7" Cursor="Hand" />
             <Button Content="Switch Profile" Click="SwitchProfileButton_Click"
                     IsVisible="{Binding IsProfileTabActive}"
-                    Background="#2563eb" Foreground="White" BorderThickness="0" CornerRadius="5" Padding="18,7" FontWeight="SemiBold" Cursor="Hand" />
+                    Background="{DynamicResource Accent}" Foreground="{DynamicResource AccentForeground}" BorderThickness="0" CornerRadius="6" Padding="18,7" FontWeight="SemiBold" Cursor="Hand" />
             <Button Content="Close" Click="CloseButton_Click" IsCancel="True"
                     IsVisible="{Binding !IsProfileTabActive}"
-                    Background="#2563eb" Foreground="White" BorderThickness="0" CornerRadius="5" Padding="18,7" FontWeight="SemiBold" Cursor="Hand" />
+                    Background="{DynamicResource Accent}" Foreground="{DynamicResource AccentForeground}" BorderThickness="0" CornerRadius="6" Padding="18,7" FontWeight="SemiBold" Cursor="Hand" />
         </StackPanel>
     </Grid>
 </Window>

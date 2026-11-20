@@ -48,7 +48,7 @@ namespace QuickNote.Avalonia.ViewModels
             else SplitEditorRight();
         }
         [RelayCommand] public void ToggleReading() => IsReadingMode = !IsReadingMode;
-        [RelayCommand] public void ToggleTheme()   => IsDarkMode    = !IsDarkMode;
+        [RelayCommand] public void ToggleTheme()   => QuickNote.Avalonia.Themes.ThemeManager.Instance.ToggleDarkLightMode();
 
         // ── Export commands ─────────────────────────────────────────
         [RelayCommand] public void ExportAsMarkdown() => ExportRequested?.Invoke("md");
@@ -217,13 +217,40 @@ namespace QuickNote.Avalonia.ViewModels
         }
 
         // ── Outline ───────────────────────────────────────────────
-        private void UpdateOutline(string markdown)
+        private DispatcherTimer? _outlineDebounceTimer;
+        private string? _pendingOutlineMarkdown;
+
+        private void UpdateOutline(string markdown, bool immediate = false)
+        {
+            _pendingOutlineMarkdown = markdown;
+            if (immediate)
+            {
+                _outlineDebounceTimer?.Stop();
+                ExecuteUpdateOutline();
+                return;
+            }
+
+            if (_outlineDebounceTimer == null)
+            {
+                _outlineDebounceTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
+                _outlineDebounceTimer.Tick += (s, e) =>
+                {
+                    _outlineDebounceTimer.Stop();
+                    ExecuteUpdateOutline();
+                };
+            }
+            _outlineDebounceTimer.Stop();
+            _outlineDebounceTimer.Start();
+        }
+
+        private void ExecuteUpdateOutline()
         {
             OutlineHeadings.Clear();
-            if (string.IsNullOrWhiteSpace(markdown)) return;
+            var md = _pendingOutlineMarkdown;
+            if (string.IsNullOrWhiteSpace(md)) return;
             try
             {
-                foreach (var h in _outlineService.BuildOutline(markdown))
+                foreach (var h in _outlineService.BuildOutline(md))
                     OutlineHeadings.Add(h);
             }
             catch { }

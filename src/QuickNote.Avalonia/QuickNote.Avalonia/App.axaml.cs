@@ -5,9 +5,11 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Microsoft.Extensions.DependencyInjection;
 using QuickNote.Avalonia.DependencyInjection;
+using QuickNote.Avalonia.Themes;
 using QuickNote.Avalonia.ViewModels;
 using QuickNote.Avalonia.Views;
 using QuickNote.Core.Interfaces;
+using QuickNote.Core.Utilities;
 using QuickNote.Infrastructure.Configuration;
 using QuickNote.Infrastructure.Interfaces;
 
@@ -24,13 +26,12 @@ public partial class App : Application
 
     public override void OnFrameworkInitializationCompleted()
     {
-        string defaultNotesRoot = Path.Combine(
-            Environment.GetFolderPath(OperatingSystem.IsAndroid() ? Environment.SpecialFolder.Personal : Environment.SpecialFolder.MyDocuments),
-            "QuickNote");
+        string defaultNotesRoot = StoragePathHelper.GetDefaultLocalNotesPath();
 
         // Attempt to load settings to respect any configured OneDrive or custom notes folder
         var settingsService = new JsonSettingsService(defaultNotesRoot);
-        string notesRoot = !string.IsNullOrWhiteSpace(settingsService.Settings.NotesRoot) && Directory.Exists(settingsService.Settings.NotesRoot)
+        ThemeManager.Instance.Initialize(settingsService);
+        string notesRoot = !string.IsNullOrWhiteSpace(settingsService.Settings.NotesRoot)
             ? settingsService.Settings.NotesRoot
             : defaultNotesRoot;
 
@@ -56,7 +57,9 @@ public partial class App : Application
             sp.GetRequiredService<IFileWatcher>(),
             sp.GetRequiredService<ICloudSyncService>(),
             sp.GetRequiredService<ISettingsService>(),
-            notesRoot
+            notesRoot,
+            sp.GetService<IMarkdownParser>(),
+            sp.GetService<IBackupService>()
         ));
 
         Services = serviceCollection.BuildServiceProvider();

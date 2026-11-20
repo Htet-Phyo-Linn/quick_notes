@@ -18,6 +18,7 @@ namespace QuickNote.Core.Interfaces
         public string? OneDriveClientId { get; set; }
         public System.DateTime? LastCloudSyncTime { get; set; }
         public bool IsGoogleDriveSyncEnabled { get; set; }
+        public string? GoogleDriveNotesPath { get; set; }
         public string? GoogleDriveRefreshToken { get; set; }
         public string? GoogleDriveUserEmail { get; set; }
         public string? GoogleDriveUserName { get; set; }
@@ -27,6 +28,9 @@ namespace QuickNote.Core.Interfaces
         public string? SelectedGoogleAccountName { get; set; }
         public System.DateTime? LastGoogleDriveSyncTime { get; set; }
         public bool IsSpellCheckEnabled { get; set; } = true;
+        public string? MobileThemeStyle { get; set; } = "Android";
+        public string CurrentThemeId { get; set; } = "android-dark";
+        public System.Collections.Generic.List<QuickNote.Core.Models.ThemeSchema> CustomThemes { get; set; } = new();
         public System.Collections.Generic.List<string> IgnoredWords { get; set; } = new();
 
         private System.Collections.Generic.Dictionary<string, bool> _folderExpandedStates = new(System.StringComparer.OrdinalIgnoreCase);

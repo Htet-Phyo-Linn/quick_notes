@@ -34,8 +34,46 @@ namespace QuickNote.Avalonia.ViewModels
             _saveSettingsTimer.Start();
         }
 
-        public async Task RefreshFolderTreeAsync()
+        public void RefreshFolderTreeInMemory()
         {
+            try
+            {
+                var expandedMap = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+                CaptureExpandedStates(FolderNodes, expandedMap);
+
+                if (_settingsService?.Settings?.FolderExpandedStates != null)
+                {
+                    foreach (var kvp in _settingsService.Settings.FolderExpandedStates)
+                    {
+                        if (!string.IsNullOrWhiteSpace(kvp.Key) && !expandedMap.ContainsKey(kvp.Key))
+                            expandedMap[kvp.Key] = kvp.Value;
+                    }
+                }
+
+                var root = _folderService.BuildFolderTreeFromNotes(_notesRoot, Notes, expandedMap);
+                FolderNodes.Clear();
+                if (root != null)
+                {
+                    foreach (var child in root.Children)
+                    {
+                        FolderNodes.Add(child);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[RefreshFolderTreeInMemory] Error: {ex.Message}");
+            }
+        }
+
+        public async Task RefreshFolderTreeAsync(bool scanDisk = false)
+        {
+            if (!scanDisk && Notes.Count > 0)
+            {
+                RefreshFolderTreeInMemory();
+                return;
+            }
+
             if (_isRefreshingTree) return;
             _isRefreshingTree = true;
             try
@@ -58,6 +96,10 @@ namespace QuickNote.Avalonia.ViewModels
                 {
                     ApplyNoteTitlesToTree(root);
                     RestoreExpandedStates(root, expandedMap);
+                    if (OperatingSystem.IsAndroid())
+                    {
+                        CollapseAllFoldersRecursive(root);
+                    }
                     foreach (var child in root.Children)
                     {
                         AttachExpandListener(child);
@@ -145,6 +187,18 @@ namespace QuickNote.Avalonia.ViewModels
 
             foreach (var child in node.Children)
                 RestoreExpandedStates(child, map);
+        }
+
+        private static void CollapseAllFoldersRecursive(FolderNode node)
+        {
+            if (node.IsDirectory)
+            {
+                node.IsExpanded = false;
+                foreach (var child in node.Children)
+                {
+                    CollapseAllFoldersRecursive(child);
+                }
+            }
         }
 
         private string RelativePath(FolderNode node)

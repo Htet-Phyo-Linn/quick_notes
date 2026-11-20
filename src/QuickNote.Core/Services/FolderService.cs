@@ -34,6 +34,101 @@ namespace QuickNote.Core.Services
             return Task.FromResult(rootNode);
         }
 
+        public FolderNode BuildFolderTreeFromNotes(string rootPath, System.Collections.Generic.IEnumerable<NoteDocument> notes, System.Collections.Generic.IDictionary<string, bool>? expandedStates = null)
+        {
+            var rootName = Path.GetFileName(rootPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            if (string.IsNullOrWhiteSpace(rootName)) rootName = "Notes";
+
+            var rootNode = new FolderNode
+            {
+                Name = rootName,
+                FullPath = rootPath,
+                RelativePath = string.Empty,
+                IsDirectory = true,
+                IsExpanded = true
+            };
+
+            var folderMap = new System.Collections.Generic.Dictionary<string, FolderNode>(StringComparer.OrdinalIgnoreCase);
+            folderMap[""] = rootNode;
+
+            FolderNode GetOrCreateFolder(string relativeDir)
+            {
+                var normKey = NormalizePathKey(relativeDir);
+                if (folderMap.TryGetValue(normKey, out var existing))
+                    return existing;
+
+                var parentDir = Path.GetDirectoryName(relativeDir)?.Replace('\\', '/') ?? string.Empty;
+                var parentNode = GetOrCreateFolder(parentDir);
+
+                var dirName = Path.GetFileName(relativeDir);
+                bool isExpanded = false;
+                if (expandedStates != null && expandedStates.TryGetValue(normKey, out bool savedState))
+                {
+                    isExpanded = savedState;
+                }
+
+                var fullDirPath = Path.Combine(rootPath, relativeDir.Replace('/', Path.DirectorySeparatorChar));
+                var folderNode = new FolderNode
+                {
+                    Name = dirName,
+                    FullPath = fullDirPath,
+                    RelativePath = normKey,
+                    IsDirectory = true,
+                    IsExpanded = isExpanded
+                };
+
+                parentNode.Children.Add(folderNode);
+                folderMap[normKey] = folderNode;
+                return folderNode;
+            }
+
+            foreach (var note in notes)
+            {
+                if (note == null) continue;
+                var rel = note.RelativePath?.Replace('\\', '/').TrimStart('/') ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(rel) && !string.IsNullOrWhiteSpace(note.FullPath))
+                {
+                    rel = Path.GetRelativePath(rootPath, note.FullPath).Replace('\\', '/').TrimStart('/');
+                }
+
+                var relDir = Path.GetDirectoryName(rel)?.Replace('\\', '/') ?? string.Empty;
+                var parentFolder = GetOrCreateFolder(relDir);
+
+                var fileNode = new FolderNode
+                {
+                    Name = Path.GetFileNameWithoutExtension(note.FileName ?? note.FullPath ?? "note"),
+                    Title = note.Title ?? string.Empty,
+                    FullPath = note.FullPath ?? string.Empty,
+                    RelativePath = rel,
+                    IsDirectory = false,
+                    Note = note
+                };
+                parentFolder.Children.Add(fileNode);
+            }
+
+            void SortNodeRecursive(FolderNode node)
+            {
+                if (node.Children.Count > 1)
+                {
+                    var sorted = node.Children
+                        .OrderByDescending(c => c.IsDirectory)
+                        .ThenBy(c => c.DisplayName, StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+                    node.Children.Clear();
+                    foreach (var c in sorted)
+                        node.Children.Add(c);
+                }
+                foreach (var child in node.Children)
+                {
+                    if (child.IsDirectory)
+                        SortNodeRecursive(child);
+                }
+            }
+
+            SortNodeRecursive(rootNode);
+            return rootNode;
+        }
+
         public static string NormalizePathKey(string path)
         {
             if (string.IsNullOrWhiteSpace(path)) return string.Empty;

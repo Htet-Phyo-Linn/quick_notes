@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using CommunityToolkit.Mvvm.Input;
@@ -123,6 +124,9 @@ namespace QuickNote.Avalonia.ViewModels
         {
             OnPropertyChanged(nameof(HasCurrentNote));
             OnPropertyChanged(nameof(HasNoCurrentNote));
+            OnPropertyChanged(nameof(HasCurrentNoteLastModified));
+            OnPropertyChanged(nameof(CurrentNoteLastModifiedText));
+            OnPropertyChanged(nameof(CurrentNoteLastModifiedFullText));
 
             if (newValue == null)
             {
@@ -138,6 +142,15 @@ namespace QuickNote.Avalonia.ViewModels
             }
 
             _isInternalContentChange = true;
+            if (string.IsNullOrEmpty(newValue.Content) && !string.IsNullOrEmpty(newValue.FullPath) && System.IO.File.Exists(newValue.FullPath))
+            {
+                try
+                {
+                    newValue.Content = System.IO.File.ReadAllText(newValue.FullPath);
+                }
+                catch { }
+            }
+
             var (extractedTitle, bodyContent) = SeparateTitleAndBody(
                 newValue.Content ?? string.Empty, newValue.Title);
 
@@ -170,7 +183,7 @@ namespace QuickNote.Avalonia.ViewModels
             }
 
             UpdateWordAndLineCounts(EditorContent);
-            UpdateOutline(EditorContent);
+            UpdateOutline(EditorContent, immediate: true);
             MarkdownRenderRequested?.Invoke(EditorContent);
             SyncActiveTab(newValue);
         }
@@ -178,6 +191,7 @@ namespace QuickNote.Avalonia.ViewModels
         partial void OnNoteTitleChanged(string value)
         {
             if (_isInternalContentChange || CurrentNote == null) return;
+            NotifyUserActivity();
 
             CurrentNote.Title = value;
             if (ActiveTab != null)
@@ -216,12 +230,13 @@ namespace QuickNote.Avalonia.ViewModels
             // Only fire render for real user edits — NOT during internal note-switch.
             // OnCurrentNoteChanged explicitly fires MarkdownRenderRequested after all state is settled.
             if (_isInternalContentChange || CurrentNote == null) return;
+            NotifyUserActivity();
 
             MarkdownRenderRequested?.Invoke(value);
             _isModified = true;
             if (ActiveTab != null) ActiveTab.IsModified = true;
             StatusText = "Editing...";
-            UpdateOutline(value);
+            UpdateOutline(value, immediate: false);
 
             // If same file is open in Right pane, sync content ONLY if Left pane is active editor
             if (IsSplitViewActive && ActiveEditorPane == EditorPane.Left && RightCurrentNote != null && string.Equals(RightCurrentNote.FullPath, CurrentNote.FullPath, StringComparison.OrdinalIgnoreCase))
@@ -274,8 +289,15 @@ namespace QuickNote.Avalonia.ViewModels
             SearchResults.Clear();
             try
             {
+                var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 foreach (var res in _searchEngine.Search(query))
-                    SearchResults.Add(res);
+                {
+                    var key = !string.IsNullOrWhiteSpace(res.FilePath) ? Path.GetFullPath(res.FilePath) : res.DocumentId.ToString();
+                    if (seen.Add(key))
+                    {
+                        SearchResults.Add(res);
+                    }
+                }
             }
             catch { }
         }

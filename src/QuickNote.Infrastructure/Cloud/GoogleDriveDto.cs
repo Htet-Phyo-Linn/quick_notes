@@ -69,6 +69,9 @@ namespace QuickNote.Infrastructure.Cloud
         [JsonPropertyName("trashed")]
         public bool Trashed { get; set; }
 
+        [JsonPropertyName("parents")]
+        public List<string>? Parents { get; set; }
+
         public bool IsFolder => string.Equals(MimeType, "application/vnd.google-apps.folder", StringComparison.OrdinalIgnoreCase);
     }
 

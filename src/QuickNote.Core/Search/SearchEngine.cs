@@ -416,7 +416,11 @@ namespace QuickNote.Core.Search
                 }
             }
 
-            return results.OrderByDescending(r => r.Score).ThenBy(r => r.NoteTitle);
+            return results
+                .GroupBy(r => !string.IsNullOrWhiteSpace(r.FilePath) ? Path.GetFullPath(r.FilePath).ToLowerInvariant() : r.DocumentId.ToString())
+                .Select(g => g.OrderByDescending(r => r.Score).First())
+                .OrderByDescending(r => r.Score)
+                .ThenBy(r => r.NoteTitle);
         }
 
         private IEnumerable<Heading> FlattenHeadings(IEnumerable<Heading> headings)

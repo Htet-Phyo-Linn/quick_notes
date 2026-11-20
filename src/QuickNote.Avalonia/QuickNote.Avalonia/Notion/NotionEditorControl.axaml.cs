@@ -5,6 +5,8 @@ using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
+using QuickNote.Avalonia.Themes;
+using QuickNote.Core.Models;
 
 namespace QuickNote.Avalonia.Notion
 {
@@ -40,6 +42,16 @@ namespace QuickNote.Avalonia.Notion
             WebViewControl.WebMessageReceived += OnWebMessageReceived;
             WebViewControl.NavigationCompleted += OnNavigationCompleted;
             GotFocus += (s, e) => EditorFocused?.Invoke();
+
+            PropertyChanged += (s, e) =>
+            {
+                if (e.Property == IsVisibleProperty && IsVisible && _isEditorReady && _pendingMarkdown != null)
+                {
+                    var md = _pendingMarkdown;
+                    _pendingMarkdown = null;
+                    Dispatcher.UIThread.Post(() => SendMarkdownToEditor(md, force: true), DispatcherPriority.Normal);
+                }
+            };
         }
 
         private void ConfigureNativeWebViewSettings()
@@ -104,6 +116,13 @@ namespace QuickNote.Avalonia.Notion
             }
         }
 
+        private bool _isEditorInitialized = false;
+
+        public void Prewarm()
+        {
+            InitializeEditor();
+        }
+
         protected override void OnLoaded(RoutedEventArgs e)
         {
             base.OnLoaded(e);
@@ -112,6 +131,9 @@ namespace QuickNote.Avalonia.Notion
 
         private void InitializeEditor()
         {
+            if (_isEditorInitialized) return;
+            _isEditorInitialized = true;
+
             ConfigureNativeWebViewSettings();
 
             if (OperatingSystem.IsAndroid())
@@ -168,6 +190,18 @@ namespace QuickNote.Avalonia.Notion
         }
 
         public bool IsDarkMode { get; set; } = true;
+        public string ThemeVariant { get; set; } = "android";
+
+        public async Task SetThemeVariantAsync(string variant)
+        {
+            ThemeVariant = variant;
+            if (WebViewControl == null) return;
+            try
+            {
+                await WebViewControl.InvokeScript($"if (window.setThemeVariant) {{ window.setThemeVariant('{variant}'); }}");
+            }
+            catch { }
+        }
 
         public async Task SetThemeAsync(bool isDark)
         {
@@ -178,6 +212,28 @@ namespace QuickNote.Avalonia.Notion
                 await WebViewControl.InvokeScript($"if (window.setTheme) {{ window.setTheme('{(isDark ? "dark" : "light")}'); }}");
             }
             catch { }
+        }
+
+        public async Task SetThemeSchemaAsync(ThemeSchema theme)
+        {
+            if (theme == null) return;
+            var isDark = theme.BaseVariant.Equals("Dark", StringComparison.OrdinalIgnoreCase);
+            var variant = theme.Id.StartsWith("windows", StringComparison.OrdinalIgnoreCase) ? "windows" : "android";
+            await SetThemeVariantAsync(variant);
+            await SetThemeAsync(isDark);
+
+            var bg = theme.GetColor("EditorBackground", theme.GetColor("AppBackground", isDark ? "#0b0e14" : "#ffffff"));
+            var fg = theme.GetColor("EditorForeground", theme.GetColor("AppTextPrimary", isDark ? "#f8fafc" : "#0f172a"));
+            var accent = theme.AccentColor;
+
+            if (WebViewControl != null)
+            {
+                try
+                {
+                    await WebViewControl.InvokeScript($"if (window.setCustomThemeColors) {{ window.setCustomThemeColors('{bg}', '{fg}', '{accent}'); }}");
+                }
+                catch { }
+            }
         }
 
         public string? NotesRoot { get; set; }
@@ -198,7 +254,16 @@ namespace QuickNote.Avalonia.Notion
                     if (msgType == "ready")
                     {
                         _isEditorReady = true;
-                        _ = SetThemeAsync(IsDarkMode);
+                        var currentTheme = ThemeManager.Instance.CurrentTheme;
+                        if (currentTheme != null)
+                        {
+                            _ = SetThemeSchemaAsync(currentTheme);
+                        }
+                        else
+                        {
+                            _ = SetThemeVariantAsync(ThemeVariant);
+                            _ = SetThemeAsync(IsDarkMode);
+                        }
                         _ = SetSpellCheckAsync(IsSpellCheckEnabled);
                         if (IgnoredWords != null)
                         {
@@ -207,10 +272,10 @@ namespace QuickNote.Avalonia.Notion
                         // Capture before async dispatch
                         var contentToRestore = _pendingMarkdown ?? _currentMarkdown;
                         _pendingMarkdown = null;
-                        if (!string.IsNullOrEmpty(contentToRestore))
+                        if (contentToRestore != null)
                         {
                             // InvokeScript MUST run on UI thread
-                            Dispatcher.UIThread.Post(() => SendMarkdownToEditor(contentToRestore),
+                            Dispatcher.UIThread.Post(() => SendMarkdownToEditor(contentToRestore, force: true),
                                 DispatcherPriority.Normal);
                         }
                     }
@@ -221,6 +286,11 @@ namespace QuickNote.Avalonia.Notion
                             var markdown = mdProp.GetString() ?? string.Empty;
                             // Guard: ignore empty or whitespace-only markdown notification if host has non-empty content
                             if (string.IsNullOrWhiteSpace(markdown) && !string.IsNullOrWhiteSpace(_currentMarkdown))
+                            {
+                                return;
+                            }
+                            // Guard: diff check to avoid unnecessary UI thread dispatch if content is identical
+                            if (string.Equals(_currentMarkdown, markdown, StringComparison.Ordinal))
                             {
                                 return;
                             }
@@ -533,14 +603,24 @@ namespace QuickNote.Avalonia.Notion
                 }
             }
 
-            // 3. Fallback to standard OneDrive / MyDocuments locations
+            // 3. Fallback to standard OneDrive / MyDocuments locations dynamically
             var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-            var standardLocations = new[]
+            var standardLocations = new System.Collections.Generic.List<string>
             {
-                Path.Combine(userProfile, "OneDrive - BIM ADVANCED TECHNOLOGY SERVICES PTE. LTD", "QuickNote"),
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "QuickNote"),
-                Path.Combine(userProfile, "OneDrive", "QuickNote")
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "QuickNote")
             };
+
+            if (Directory.Exists(userProfile))
+            {
+                try
+                {
+                    foreach (var oneDriveDir in Directory.GetDirectories(userProfile, "OneDrive*"))
+                    {
+                        standardLocations.Add(Path.Combine(oneDriveDir, "QuickNote"));
+                    }
+                }
+                catch { }
+            }
 
             foreach (var loc in standardLocations)
             {
@@ -616,7 +696,7 @@ namespace QuickNote.Avalonia.Notion
             bool contentChanged = !string.Equals(_currentMarkdown, markdown, StringComparison.Ordinal);
             if (!force && !contentChanged) return;
             _currentMarkdown = markdown;
-            if (_isEditorReady)
+            if (_isEditorReady && IsVisible)
             {
                 _pendingMarkdown = null;
                 var targetMarkdown = _currentMarkdown;
@@ -660,11 +740,12 @@ namespace QuickNote.Avalonia.Notion
 
         private async void SendMarkdownToEditor(string markdown, bool force = false)
         {
-            var json = JsonSerializer.Serialize(markdown ?? string.Empty);
-            var forceArg = force ? "true" : "false";
-            System.Diagnostics.Debug.WriteLine($"[NotionEditorControl] Sending markdown len={json.Length} force={force}");
+            if (WebViewControl == null || !_isEditorReady) return;
             try
             {
+                var json = JsonSerializer.Serialize(markdown ?? string.Empty);
+                var forceArg = force ? "true" : "false";
+                System.Diagnostics.Debug.WriteLine($"[NotionEditorControl] Sending markdown len={json.Length} force={force}");
                 var result = await WebViewControl.InvokeScript(
                     $"(function(){{if(window.setMarkdown){{window.setMarkdown({json}, {forceArg});return 'ok';}}else{{window.__pendingMarkdown={json};return 'pending';}}}})()");
                 System.Diagnostics.Debug.WriteLine($"[NotionEditorControl] InvokeScript result={result}");

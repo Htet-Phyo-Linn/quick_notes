@@ -9,12 +9,15 @@ namespace QuickNote.Core.Models
         PendingUpload,
         PendingDownload,
         Conflict,
-        PendingDelete
+        PendingDelete,
+        PendingMove
     }
 
     public class SyncFileEntry
     {
+        public Guid? NoteId { get; set; }
         public string RelativePath { get; set; } = string.Empty;
+        public string? OldRelativePath { get; set; }
         public string LocalHash { get; set; } = string.Empty;
         public DateTime LocalLastModified { get; set; }
         public string RemoteId { get; set; } = string.Empty;

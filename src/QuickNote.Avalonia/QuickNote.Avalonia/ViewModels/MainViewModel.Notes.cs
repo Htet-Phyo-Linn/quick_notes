@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Threading;
+using QuickNote.Core.Markdown;
 using QuickNote.Core.Models;
 using QuickNote.Core.Utilities;
 
@@ -18,28 +19,112 @@ namespace QuickNote.Avalonia.ViewModels
             try
             {
                 StatusText = "Loading notes...";
-                await SyncAllFileNamesWithTitlesAsync();
-
-                var loadedNotes = await _noteRepository.GetAllNotesAsync();
-                Notes.Clear();
-                foreach (var note in loadedNotes.OrderByDescending(n => n.LastModified))
+                var cached = await _noteRepository.GetCachedNotesAsync();
+                if (cached != null && cached.Count > 0)
                 {
-                    Notes.Add(note);
-                    _searchEngine.IndexDocument(note);
+                    ApplyNotesList(cached);
+                    RefreshFolderTreeInMemory();
+
+                    if (CurrentNote == null && Notes.Count > 0 && !OperatingSystem.IsAndroid())
+                        SelectNote(Notes[0]);
+
+                    StatusText = "Ready";
+
+                    // Reconcile with physical disk in non-blocking background task
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await ReconcileWithDiskAsync();
+                        }
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"[ReconcileWithDiskAsync] Background error: {ex.Message}");
+                        }
+                    });
+                    return;
                 }
 
-                NotesCountText = $"{Notes.Count} notes";
-                await RefreshFolderTreeAsync();
-
-                if (CurrentNote == null && Notes.Count > 0)
-                    SelectNote(Notes[0]);
-
-                StatusText = "Ready";
+                await ReconcileWithDiskAsync();
             }
             catch (Exception ex)
             {
                 StatusText = $"Error: {ex.Message}";
             }
+        }
+
+        public async Task ReconcileWithDiskAsync()
+        {
+            var loadedNotes = (await _noteRepository.ReconcileDiskNotesAsync()).ToList();
+            await SyncAllFileNamesWithTitlesAsync(loadedNotes);
+
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                ApplyNotesList(loadedNotes);
+                RefreshFolderTreeInMemory();
+
+                if (CurrentNote == null && Notes.Count > 0 && !OperatingSystem.IsAndroid())
+                    SelectNote(Notes[0]);
+
+                StatusText = "Ready";
+            });
+        }
+
+        private void ApplyNotesList(IEnumerable<NoteDocument> loadedNotes)
+        {
+            var loadedList = loadedNotes.OrderByDescending(n => n.LastModified).ToList();
+            var loadedKeys = new HashSet<string>(loadedList.Select(n => n.FullPath), StringComparer.OrdinalIgnoreCase);
+
+            // In-place collection synchronization: prevents UI thread thrashing
+            for (int i = Notes.Count - 1; i >= 0; i--)
+            {
+                if (!loadedKeys.Contains(Notes[i].FullPath))
+                {
+                    Notes.RemoveAt(i);
+                }
+            }
+
+            for (int i = 0; i < loadedList.Count; i++)
+            {
+                var note = loadedList[i];
+                int existingIdx = -1;
+                for (int j = 0; j < Notes.Count; j++)
+                {
+                    if (string.Equals(Notes[j].FullPath, note.FullPath, StringComparison.OrdinalIgnoreCase))
+                    {
+                        existingIdx = j;
+                        break;
+                    }
+                }
+
+                if (existingIdx >= 0)
+                {
+                    var existing = Notes[existingIdx];
+                    if (existing.LastModified != note.LastModified || existing.Content != note.Content || existing.Title != note.Title || existing.Snippet != note.Snippet)
+                    {
+                        Notes[existingIdx] = note;
+                    }
+                    if (existingIdx != i && i < Notes.Count)
+                    {
+                        Notes.Move(existingIdx, i);
+                    }
+                }
+                else
+                {
+                    if (i <= Notes.Count)
+                        Notes.Insert(i, note);
+                    else
+                        Notes.Add(note);
+                }
+            }
+
+            _searchEngine.Clear();
+            foreach (var note in Notes)
+            {
+                _searchEngine.IndexDocument(note);
+            }
+
+            NotesCountText = $"{Notes.Count} notes";
         }
 
         // ── Create ───────────────────────────────────────────────────
@@ -147,6 +232,8 @@ namespace QuickNote.Avalonia.ViewModels
                 await RefreshFolderTreeAsync();
                 SelectNote(note);
                 FocusEditorRequested?.Invoke();
+                NotifyUserActivity();
+                RequestAutoSync(60000);
             }
             catch (Exception ex)
             {
@@ -179,34 +266,30 @@ namespace QuickNote.Avalonia.ViewModels
 
             if (targetNote == null && !_isModified && !needsRename) return;
 
-            // Safety guard: if existing note on disk has real content, do NOT overwrite with empty body
-            if (File.Exists(noteToSave.FullPath))
+            string? oldFullPath = null;
+            if (needsRename)
             {
-                try
+                oldFullPath = noteToSave.FullPath;
+                var dir = Path.GetDirectoryName(noteToSave.FullPath) ?? _notesRoot;
+                var targetPath = Path.Combine(dir, $"{cleanTitle}.md");
+                int counter = 1;
+                while (File.Exists(targetPath) && !string.Equals(targetPath, noteToSave.FullPath, StringComparison.OrdinalIgnoreCase))
                 {
-                    var diskText = File.ReadAllText(noteToSave.FullPath);
-                    var (_, diskBody) = SeparateTitleAndBody(diskText, noteToSave.Title);
-                    if (!string.IsNullOrWhiteSpace(diskBody) && diskBody.Length > 15 && string.IsNullOrWhiteSpace(bodyToSave))
-                    {
-                        System.Diagnostics.Debug.WriteLine($"[SaveNoteAsync] SAFETY GUARD: Blocked empty overwrite of '{noteToSave.FullPath}'");
-                        return;
-                    }
-
-                    // Auto-backup before saving
-                    var notesRoot = NotesRoot ?? Path.GetDirectoryName(noteToSave.FullPath);
-                    if (!string.IsNullOrEmpty(notesRoot))
-                    {
-                        var backupDir = Path.Combine(notesRoot, ".backups");
-                        if (!Directory.Exists(backupDir))
-                        {
-                            var d = Directory.CreateDirectory(backupDir);
-                            d.Attributes |= FileAttributes.Hidden;
-                        }
-                        var backupFile = Path.Combine(backupDir, $"{Path.GetFileNameWithoutExtension(noteToSave.FullPath)}_{DateTime.Now:yyyyMMdd_HHmmss}.bak");
-                        File.Copy(noteToSave.FullPath, backupFile, overwrite: true);
-                    }
+                    targetPath = Path.Combine(dir, $"{cleanTitle} ({counter}).md");
+                    counter++;
                 }
-                catch { }
+
+                noteToSave.FullPath     = targetPath;
+                noteToSave.FileName     = Path.GetFileName(targetPath);
+                noteToSave.RelativePath = Path.GetRelativePath(_notesRoot, targetPath);
+                UpdateTreeNodePathAndTitle(FolderNodes, oldFullPath, targetPath, noteToSave.Title);
+
+                var openTab = OpenTabs.FirstOrDefault(t =>
+                    t.Note != null && string.Equals(t.Note.FullPath, oldFullPath, StringComparison.OrdinalIgnoreCase));
+                if (openTab != null)
+                {
+                    openTab.NotifyPathChanged();
+                }
             }
 
             try
@@ -214,18 +297,29 @@ namespace QuickNote.Avalonia.ViewModels
                 StatusText            = "Saving...";
                 noteToSave.Title      = titleToSave;
                 noteToSave.Content    = CombineTitleAndBody(titleToSave, bodyToSave, noteToSave);
+                noteToSave.Snippet    = MarkdownParser.ComputeRenderText(noteToSave.Content, noteToSave.Title);
+                noteToSave.RenderText = noteToSave.Snippet;
                 noteToSave.LastModified = DateTime.Now;
 
-                bool renamed = RenameNoteFileToMatchTitle(noteToSave, titleToSave);
-                await _noteRepository.UpdateNoteAsync(noteToSave);
-                await _recoveryService.ClearDraftAsync(noteToSave.FullPath);
+                // Save fast: updates notes_index.json & in-memory immediately (~1ms), queues disk write to background!
+                await _noteRepository.SaveNoteFastAsync(noteToSave, oldFullPath);
+                _ = _recoveryService.ClearDraftAsync(noteToSave.FullPath);
                 _ = Task.Run(() =>
                 {
                     try { _searchEngine.IndexDocument(noteToSave); } catch { }
                 });
 
-                if (renamed)
-                    await RefreshFolderTreeAsync();
+                // Force note-card preview refresh: replace the note in the collection to trigger
+                // CollectionChanged → ApplyFilters() → MobileNoteItem.Refresh() → PrecomputeFields()
+                // Without this, the in-place mutated NoteDocument won't update the cached _snippet field.
+                var noteIdx = Notes.IndexOf(noteToSave);
+                if (noteIdx >= 0)
+                {
+                    Notes[noteIdx] = noteToSave;
+                }
+
+                if (needsRename)
+                    RefreshFolderTreeInMemory();
 
                 if (targetNote == null || targetNote == CurrentNote || (CurrentNote != null && string.Equals(CurrentNote.FullPath, noteToSave.FullPath, StringComparison.OrdinalIgnoreCase)))
                 {
@@ -237,6 +331,9 @@ namespace QuickNote.Avalonia.ViewModels
                             ? noteToSave.Title
                             : noteToSave.FileName;
                     }
+                    OnPropertyChanged(nameof(HasCurrentNoteLastModified));
+                    OnPropertyChanged(nameof(CurrentNoteLastModifiedText));
+                    OnPropertyChanged(nameof(CurrentNoteLastModifiedFullText));
                 }
 
                 if (targetNote == RightCurrentNote || (RightCurrentNote != null && string.Equals(RightCurrentNote.FullPath, noteToSave.FullPath, StringComparison.OrdinalIgnoreCase)))
@@ -249,20 +346,13 @@ namespace QuickNote.Avalonia.ViewModels
                             ? noteToSave.Title
                             : noteToSave.FileName;
                     }
+                    OnPropertyChanged(nameof(HasRightCurrentNoteLastModified));
+                    OnPropertyChanged(nameof(RightCurrentNoteLastModifiedText));
+                    OnPropertyChanged(nameof(RightCurrentNoteLastModifiedFullText));
                 }
                 StatusText = "Saved";
-                if (_cloudSyncService != null && _cloudSyncService.IsAuthenticated)
-                {
-                    _ = Task.Run(async () =>
-                    {
-                        try
-                        {
-                            await Task.Delay(1500);
-                            await _cloudSyncService.TriggerSyncAsync();
-                        }
-                        catch { }
-                    });
-                }
+                NotifyUserActivity();
+                RequestAutoSync(60000);
                 _ = Task.Delay(2500).ContinueWith(_ =>
                 {
                     Dispatcher.UIThread.Post(() =>
@@ -300,6 +390,8 @@ namespace QuickNote.Avalonia.ViewModels
 
                 await RefreshFolderTreeAsync();
                 StatusText = "Note moved to trash";
+                NotifyUserActivity();
+                RequestAutoSync(60000);
             }
             catch (Exception ex)
             {
@@ -337,7 +429,10 @@ namespace QuickNote.Avalonia.ViewModels
             try
             {
                 var oldPath = note.FullPath;
+                var oldRel = Path.GetRelativePath(_notesRoot, oldPath);
+                var newRel = Path.GetRelativePath(_notesRoot, targetPath);
                 File.Move(oldPath, targetPath);
+                _cloudSyncService?.RecordFileMoved(oldRel, newRel);
 
                 note.FullPath     = targetPath;
                 note.FileName     = Path.GetFileName(targetPath);
@@ -359,47 +454,52 @@ namespace QuickNote.Avalonia.ViewModels
             }
         }
 
-        public async Task SyncAllFileNamesWithTitlesAsync()
+        public async Task SyncAllFileNamesWithTitlesAsync(IEnumerable<NoteDocument>? existingNotes = null)
         {
             if (!Directory.Exists(_notesRoot)) return;
             try
             {
-                var files = Directory.GetFiles(_notesRoot, "*.md", SearchOption.AllDirectories);
-                foreach (var file in files)
+                var list = existingNotes ?? await _noteRepository.GetAllNotesAsync();
+                foreach (var note in list)
                 {
-                    var rel = Path.GetRelativePath(_notesRoot, file);
-                    if (rel.StartsWith(".") || rel.Contains(Path.DirectorySeparatorChar + "."))
+                    if (string.IsNullOrWhiteSpace(note.FullPath) || !File.Exists(note.FullPath))
                         continue;
 
-                    var currentBase = Path.GetFileNameWithoutExtension(file);
-                    string content;
-                    try   { content = await File.ReadAllTextAsync(file); }
-                    catch { continue; }
-
-                    var parsedDoc  = _markdownParser.Parse(file, content);
-                    var cleanTitle = SanitizeFileName(parsedDoc.Title);
+                    var currentBase = Path.GetFileNameWithoutExtension(note.FullPath);
+                    var cleanTitle = SanitizeFileName(note.Title);
 
                     if (!string.IsNullOrWhiteSpace(cleanTitle) &&
                         !cleanTitle.Equals("Untitled", StringComparison.OrdinalIgnoreCase) &&
                         !string.Equals(cleanTitle, currentBase, StringComparison.OrdinalIgnoreCase))
                     {
-                        var dir        = Path.GetDirectoryName(file) ?? _notesRoot;
+                        var dir = Path.GetDirectoryName(note.FullPath) ?? _notesRoot;
                         var targetPath = Path.Combine(dir, $"{cleanTitle}.md");
-                        int counter    = 1;
+                        int counter = 1;
                         while (File.Exists(targetPath) &&
-                               !string.Equals(targetPath, file, StringComparison.OrdinalIgnoreCase))
+                               !string.Equals(targetPath, note.FullPath, StringComparison.OrdinalIgnoreCase))
                         {
                             targetPath = Path.Combine(dir, $"{cleanTitle} ({counter}).md");
                             counter++;
                         }
 
-                        if (!string.Equals(targetPath, file, StringComparison.OrdinalIgnoreCase))
+                        if (!string.Equals(targetPath, note.FullPath, StringComparison.OrdinalIgnoreCase))
                         {
-                            try   { File.Move(file, targetPath); }
+                            try
+                            {
+                                var oldRel = Path.GetRelativePath(_notesRoot, note.FullPath);
+                                var newRel = Path.GetRelativePath(_notesRoot, targetPath);
+                                File.Move(note.FullPath, targetPath);
+                                _cloudSyncService?.RecordFileMoved(oldRel, newRel);
+
+                                note.FullPath = targetPath;
+                                note.FileName = Path.GetFileName(targetPath);
+                                note.RelativePath = Path.GetRelativePath(_notesRoot, targetPath);
+                                await _noteRepository.UpdateNoteAsync(note);
+                            }
                             catch (Exception ex)
                             {
                                 System.Diagnostics.Debug.WriteLine(
-                                    $"[MainViewModel] Sync rename failed {file}: {ex.Message}");
+                                    $"[MainViewModel] Sync rename failed {note.FullPath}: {ex.Message}");
                             }
                         }
                     }

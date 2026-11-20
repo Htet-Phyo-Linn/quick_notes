@@ -22,6 +22,7 @@
     <ProjectReference Include="..\..\src\QuickNote.Core\QuickNote.Core.csproj" />
     <ProjectReference Include="..\..\src\QuickNote.Infrastructure\QuickNote.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\QuickNote.App\QuickNote.App.csproj" />
+    <ProjectReference Include="..\..\src\QuickNote.Avalonia\QuickNote.Avalonia\QuickNote.Avalonia.csproj" />
   </ItemGroup>
 
 </Project>

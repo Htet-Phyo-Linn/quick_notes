@@ -458,6 +458,19 @@ namespace QuickNote.Avalonia.Views
             }
         }
 
+        private void OnTreeVersionHistoryClick(object? sender, RoutedEventArgs e)
+        {
+            var node = GetNodeFromMenuItem(sender) ?? _viewModel?.SelectedFolderNode;
+            if (node != null && !node.IsDirectory && _viewModel != null)
+            {
+                _ = OpenBackupHistoryWindowAsync(Path.GetFileNameWithoutExtension(node.Name));
+            }
+            else if (_viewModel != null)
+            {
+                _viewModel.OpenBackupHistory();
+            }
+        }
+
         private void OnOpenTrashBinClick(object? sender, RoutedEventArgs e)
         {
             if (_viewModel != null)

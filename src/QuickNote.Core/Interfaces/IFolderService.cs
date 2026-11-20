@@ -7,6 +7,7 @@ namespace QuickNote.Core.Interfaces
     {
         Task<FolderNode> BuildFolderTreeAsync(string rootPath);
         Task<FolderNode> BuildFolderTreeAsync(string rootPath, System.Collections.Generic.IDictionary<string, bool>? expandedStates);
+        FolderNode BuildFolderTreeFromNotes(string rootPath, System.Collections.Generic.IEnumerable<NoteDocument> notes, System.Collections.Generic.IDictionary<string, bool>? expandedStates = null);
         Task<string> CreateFolderAsync(string parentPath, string folderName);
         Task RenameFolderAsync(string folderPath, string newFolderName);
         Task DeleteFolderAsync(string folderPath);

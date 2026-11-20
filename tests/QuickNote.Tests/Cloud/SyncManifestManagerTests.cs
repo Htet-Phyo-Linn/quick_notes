@@ -126,5 +126,86 @@ namespace QuickNote.Tests.Cloud
             Assert.Contains("conflict", Path.GetFileName(conflictPath));
             Assert.Equal("Remote cloud modifications", File.ReadAllText(conflictPath));
         }
+
+        [Fact]
+        public void ScanLocalChanges_SkipsEmptyUntitledNotes_AndUploadsNonEmptyUntitledNotes()
+        {
+            // 1. Zero-byte Untitled note
+            var emptyUntitled = Path.Combine(_tempDir, "Untitled.md");
+            File.WriteAllText(emptyUntitled, "");
+
+            // 2. Whitespace-only Untitled note
+            var whitespaceUntitled = Path.Combine(_tempDir, "Untitled (1).md");
+            File.WriteAllText(whitespaceUntitled, "   \n\r\t   ");
+
+            // 3. Untitled note with real content
+            var realUntitled = Path.Combine(_tempDir, "Untitled (2).md");
+            File.WriteAllText(realUntitled, "This is real note content");
+
+            var pending = _manager.ScanLocalChanges(_tempDir);
+
+            // Empty untitled notes should be completely ignored from cloud upload
+            Assert.DoesNotContain("Untitled.md", pending);
+            Assert.DoesNotContain("Untitled (1).md", pending);
+
+            // Untitled note with real content must be uploaded
+            Assert.Contains("Untitled (2).md", pending);
+            Assert.Equal(SyncStatus.PendingUpload, _manager.Manifest.Entries["Untitled (2).md"].Status);
+        }
+
+        [Fact]
+        public void ScanLocalChanges_TracksDeletedUntitledNote_WhenPreviouslySynced()
+        {
+            var untitledPath = Path.Combine(_tempDir, "Untitled.md");
+            File.WriteAllText(untitledPath, "Initial content");
+
+            _manager.ScanLocalChanges(_tempDir);
+            _manager.RecordSuccessfulUpload("Untitled.md", "drive-id-123", "etag-1", DateTime.UtcNow,
+                _manager.Manifest.Entries["Untitled.md"].LocalHash, File.GetLastWriteTimeUtc(untitledPath));
+
+            Assert.Equal(SyncStatus.Synced, _manager.Manifest.Entries["Untitled.md"].Status);
+
+            // Delete the file locally
+            File.Delete(untitledPath);
+
+            var pending = _manager.ScanLocalChanges(_tempDir);
+            var deletions = _manager.GetPendingDeletions();
+
+            Assert.Contains(deletions, d => d.RelativePath == "Untitled.md" && d.RemoteId == "drive-id-123");
+            Assert.Equal(SyncStatus.PendingDelete, _manager.Manifest.Entries["Untitled.md"].Status);
+        }
+
+        [Fact]
+        public void RecordFileMoved_WhenPreviouslySynced_MarksOldForDeletionAndNewForUpload()
+        {
+            var oldPath = Path.Combine(_tempDir, "Cyber.md");
+            File.WriteAllText(oldPath, "# Cyber Note\nImportant content");
+
+            _manager.ScanLocalChanges(_tempDir);
+            _manager.RecordSuccessfulUpload("Cyber.md", "remote-drive-id-456", "etag-456", DateTime.UtcNow,
+                _manager.Manifest.Entries["Cyber.md"].LocalHash, File.GetLastWriteTimeUtc(oldPath));
+
+            Assert.Equal(SyncStatus.Synced, _manager.Manifest.Entries["Cyber.md"].Status);
+
+            // Move the file locally into a subfolder
+            var targetDir = Path.Combine(_tempDir, "Hell");
+            Directory.CreateDirectory(targetDir);
+            var newPath = Path.Combine(targetDir, "Cyber.md");
+            File.Move(oldPath, newPath);
+
+            // Record the move in manifest
+            _manager.RecordFileMoved("Cyber.md", "Hell/Cyber.md");
+
+            // Verify atomic move tracking preserves RemoteId and marks as PendingMove
+            Assert.True(_manager.Manifest.Entries.ContainsKey("Hell/Cyber.md"));
+            var entry = _manager.Manifest.Entries["Hell/Cyber.md"];
+            Assert.Equal(SyncStatus.PendingMove, entry.Status);
+            Assert.Equal("remote-drive-id-456", entry.RemoteId);
+            Assert.Equal("Cyber.md", entry.OldRelativePath);
+
+            // Verify GetPendingMoves includes the moved note
+            var pendingMoves = _manager.GetPendingMoves();
+            Assert.Contains(pendingMoves, m => m.RelativePath == "Hell/Cyber.md" && m.RemoteId == "remote-drive-id-456" && m.OldRelativePath == "Cyber.md");
+        }
     }
 }

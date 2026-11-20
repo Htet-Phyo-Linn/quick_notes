@@ -18,7 +18,10 @@ namespace QuickNote.Infrastructure.Recovery
             if (!Directory.Exists(_recoveryDirectory))
             {
                 var dirInfo = Directory.CreateDirectory(_recoveryDirectory);
-                dirInfo.Attributes |= FileAttributes.Hidden;
+                if (OperatingSystem.IsWindows())
+                {
+                    try { dirInfo.Attributes |= FileAttributes.Hidden; } catch { }
+                }
             }
         }
 

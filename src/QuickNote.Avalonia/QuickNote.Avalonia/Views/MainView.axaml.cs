@@ -40,7 +40,9 @@ namespace QuickNote.Avalonia.Views
                 _viewModel.RightMarkdownRenderRequested -= OnRightMarkdownRenderRequested;
                 _viewModel.ExportRequested           -= OnExportRequested;
                 _viewModel.FocusEditorRequested      -= OnFocusEditorRequested;
+                _viewModel.ThemeChangedRequested     -= OnThemeChangedRequested;
                 _viewModel.PropertyChanged           -= OnViewModelPropertyChanged;
+                _viewModel.IgnoredWords.CollectionChanged -= OnIgnoredWordsCollectionChanged;
             }
 
             _viewModel = DataContext as MainViewModel;
@@ -53,7 +55,9 @@ namespace QuickNote.Avalonia.Views
                 _viewModel.RightMarkdownRenderRequested += OnRightMarkdownRenderRequested;
                 _viewModel.ExportRequested           += OnExportRequested;
                 _viewModel.FocusEditorRequested      += OnFocusEditorRequested;
+                _viewModel.ThemeChangedRequested     += OnThemeChangedRequested;
                 _viewModel.PropertyChanged           += OnViewModelPropertyChanged;
+                _viewModel.IgnoredWords.CollectionChanged += OnIgnoredWordsCollectionChanged;
 
                 if (NotionEditor != null)
                 {
@@ -241,6 +245,18 @@ namespace QuickNote.Avalonia.Views
             }
         }
 
+        private void OnIgnoredWordsCollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+        {
+            global::Avalonia.Threading.Dispatcher.UIThread.Post(async () =>
+            {
+                if (_viewModel != null)
+                {
+                    if (NotionEditor != null) await NotionEditor.SetIgnoredWordsAsync(_viewModel.IgnoredWords);
+                    if (NotionEditorRight != null) await NotionEditorRight.SetIgnoredWordsAsync(_viewModel.IgnoredWords);
+                }
+            });
+        }
+
         // ── Property-change routing ─────────────────────────────────
         private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
@@ -295,11 +311,25 @@ namespace QuickNote.Avalonia.Views
                     _ = OpenSettingsWindowAsync();
                 }
             }
+            else if (e.PropertyName == nameof(MainViewModel.IsGoogleLoginDialogVisible))
+            {
+                if (_viewModel?.IsGoogleLoginDialogVisible == true)
+                {
+                    _ = OpenGoogleDriveLoginWindowAsync();
+                }
+            }
             else if (e.PropertyName == nameof(MainViewModel.IsTrashBinDialogVisible))
             {
                 if (_viewModel?.IsTrashBinDialogVisible == true)
                 {
                     _ = OpenTrashBinWindowAsync();
+                }
+            }
+            else if (e.PropertyName == nameof(MainViewModel.IsBackupHistoryDialogVisible))
+            {
+                if (_viewModel?.IsBackupHistoryDialogVisible == true)
+                {
+                    _ = OpenBackupHistoryWindowAsync();
                 }
             }
             else if (e.PropertyName == nameof(MainViewModel.IsMoveDialogVisible))
@@ -334,6 +364,17 @@ namespace QuickNote.Avalonia.Views
             _viewModel.IsTrashBinDialogVisible = false;
         }
 
+        private async Task OpenBackupHistoryWindowAsync(string? preferredNoteTitle = null)
+        {
+            var parentWindow = TopLevel.GetTopLevel(this) as Window;
+            if (parentWindow == null || _viewModel == null) return;
+
+            var title = preferredNoteTitle ?? _viewModel.BackupHistoryPreferredTitle ?? _viewModel.CurrentNote?.Title;
+            var window = new BackupHistoryWindow(_viewModel.BackupService, _viewModel, title);
+            await window.ShowDialog(parentWindow);
+            _viewModel.IsBackupHistoryDialogVisible = false;
+        }
+
         private async Task OpenSettingsWindowAsync()
         {
             var parentWindow = TopLevel.GetTopLevel(this) as Window;
@@ -347,15 +388,45 @@ namespace QuickNote.Avalonia.Views
             await settingsWindow.ShowDialog(parentWindow);
             _viewModel.IsProfileDialogVisible = false;
 
+            var currentTheme = QuickNote.Avalonia.Themes.ThemeManager.Instance.CurrentTheme;
             if (NotionEditor != null)
             {
+                if (currentTheme != null) await NotionEditor.SetThemeSchemaAsync(currentTheme);
+                else await NotionEditor.SetThemeAsync(_viewModel.IsDarkMode);
                 await NotionEditor.SetSpellCheckAsync(_viewModel.IsSpellCheckEnabled);
                 await NotionEditor.SetIgnoredWordsAsync(_viewModel.IgnoredWords);
             }
             if (NotionEditorRight != null)
             {
+                if (currentTheme != null) await NotionEditorRight.SetThemeSchemaAsync(currentTheme);
+                else await NotionEditorRight.SetThemeAsync(_viewModel.IsDarkMode);
                 await NotionEditorRight.SetSpellCheckAsync(_viewModel.IsSpellCheckEnabled);
                 await NotionEditorRight.SetIgnoredWordsAsync(_viewModel.IgnoredWords);
+            }
+        }
+
+        private async Task OpenGoogleDriveLoginWindowAsync()
+        {
+            var parentWindow = TopLevel.GetTopLevel(this) as Window;
+            if (parentWindow == null || _viewModel == null) return;
+
+            var loginWindow = new GoogleDriveLoginWindow(_viewModel.CloudSyncService, _viewModel);
+            await loginWindow.ShowDialog(parentWindow);
+            _viewModel.IsGoogleLoginDialogVisible = false;
+        }
+
+        private async void OnThemeChangedRequested(bool isDark)
+        {
+            var currentTheme = QuickNote.Avalonia.Themes.ThemeManager.Instance.CurrentTheme;
+            if (NotionEditor != null)
+            {
+                if (currentTheme != null) await NotionEditor.SetThemeSchemaAsync(currentTheme);
+                else await NotionEditor.SetThemeAsync(isDark);
+            }
+            if (NotionEditorRight != null)
+            {
+                if (currentTheme != null) await NotionEditorRight.SetThemeSchemaAsync(currentTheme);
+                else await NotionEditorRight.SetThemeAsync(isDark);
             }
         }
 
@@ -493,6 +564,11 @@ namespace QuickNote.Avalonia.Views
             else if (e.KeyModifiers == KeyModifiers.Control && (e.Key == Key.OemBackslash || e.Key == Key.Oem5))
             {
                 _viewModel?.ToggleSplitView();
+                e.Handled = true;
+            }
+            else if (e.KeyModifiers == (KeyModifiers.Control | KeyModifiers.Alt) && e.Key == Key.H)
+            {
+                _viewModel?.OpenBackupHistory();
                 e.Handled = true;
             }
             else if (e.KeyModifiers == KeyModifiers.Control && e.Key == Key.W)

@@ -9,6 +9,8 @@ using System.Threading.Tasks;
 using Microsoft.Win32;
 #endif
 using QuickNote.Core.Interfaces;
+using QuickNote.Core.Models;
+using QuickNote.Core.Utilities;
 using QuickNote.Infrastructure.Interfaces;
 
 namespace QuickNote.Infrastructure.Cloud
@@ -18,9 +20,28 @@ namespace QuickNote.Infrastructure.Cloud
         private readonly ISettingsService _settingsService;
         private readonly INoteRepository _noteRepository;
         private readonly IFileWatcher _fileWatcher;
+        private readonly GoogleCloudSyncEngine _googleSyncEngine;
         private CloudSyncStatus _currentStatus = new CloudSyncStatus();
 
         public event EventHandler<CloudSyncStatus>? SyncStatusChanged;
+
+        public bool IsAuthenticated => _settingsService.Settings.IsGoogleDriveSyncEnabled
+            ? _googleSyncEngine.IsAuthenticated
+            : true;
+
+        public bool IsSyncing => _googleSyncEngine?.IsSyncing ?? false;
+
+        public string? UserEmail => _settingsService.Settings.IsGoogleDriveSyncEnabled
+            ? _googleSyncEngine.UserEmail
+            : _settingsService.Settings.SelectedOneDriveAccountName;
+
+        public string? UserName => _settingsService.Settings.IsGoogleDriveSyncEnabled
+            ? _googleSyncEngine.UserName
+            : null;
+
+        public DateTime? LastSyncTime => _settingsService.Settings.IsGoogleDriveSyncEnabled
+            ? _googleSyncEngine.LastSyncTime
+            : _settingsService.Settings.LastCloudSyncTime;
 
         public OneDriveSyncService(
             ISettingsService settingsService,
@@ -31,7 +52,50 @@ namespace QuickNote.Infrastructure.Cloud
             _noteRepository = noteRepository ?? throw new ArgumentNullException(nameof(noteRepository));
             _fileWatcher = fileWatcher ?? throw new ArgumentNullException(nameof(fileWatcher));
 
+            _googleSyncEngine = new GoogleCloudSyncEngine(_noteRepository.NotesRoot, _settingsService);
+            if (_settingsService.Settings.IsGoogleDriveSyncEnabled &&
+                !string.IsNullOrWhiteSpace(_settingsService.Settings.GoogleDriveNotesPath) &&
+                Directory.Exists(_settingsService.Settings.GoogleDriveNotesPath))
+            {
+                _googleSyncEngine.UpdateNotesRoot(_settingsService.Settings.GoogleDriveNotesPath);
+            }
+            _googleSyncEngine.SyncStatusChanged += (s, e) =>
+            {
+                if (_settingsService.Settings.IsGoogleDriveSyncEnabled)
+                {
+                    _currentStatus = e;
+                    SyncStatusChanged?.Invoke(this, e);
+                }
+            };
+
             RefreshStatus();
+        }
+
+        public string GetAuthorizationUrl(out string codeVerifier)
+        {
+            return _googleSyncEngine.GetAuthorizationUrl(out codeVerifier);
+        }
+
+        public async Task<bool> CompleteSignInAsync(string code, string codeVerifier)
+        {
+            var success = await _googleSyncEngine.SignInWithCodeAsync(code, codeVerifier);
+            RefreshStatus();
+            return success;
+        }
+
+        public async Task SignOutAsync()
+        {
+            await _googleSyncEngine.SignOutAsync();
+            RefreshStatus();
+        }
+
+        public async Task<SyncResult> TriggerSyncAsync()
+        {
+            if (_settingsService.Settings.IsGoogleDriveSyncEnabled)
+            {
+                return await _googleSyncEngine.PerformSyncAsync();
+            }
+            return SyncResult.Ok(0, 0, 0);
         }
 
         public List<OneDriveAccountInfo> DetectOneDriveAccounts()
@@ -183,9 +247,7 @@ namespace QuickNote.Infrastructure.Cloud
         {
             if (string.IsNullOrWhiteSpace(localDocumentsNotesRoot))
             {
-                localDocumentsNotesRoot = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-                    "QuickNote");
+                localDocumentsNotesRoot = StoragePathHelper.GetDefaultLocalNotesPath();
             }
 
             if (!Directory.Exists(localDocumentsNotesRoot))
@@ -204,6 +266,40 @@ namespace QuickNote.Infrastructure.Cloud
             return true;
         }
 
+        public async Task<bool> EnableGoogleDriveSyncAsync(string targetPath, bool migrateExistingNotes, string currentNotesRoot)
+        {
+            if (string.IsNullOrWhiteSpace(targetPath))
+            {
+                targetPath = StoragePathHelper.GetDefaultGoogleDriveNotesPath();
+            }
+
+            if (!Directory.Exists(targetPath))
+            {
+                Directory.CreateDirectory(targetPath);
+            }
+
+            if (migrateExistingNotes && Directory.Exists(currentNotesRoot) &&
+                !string.Equals(Path.GetFullPath(currentNotesRoot).TrimEnd('\\', '/'),
+                               Path.GetFullPath(targetPath).TrimEnd('\\', '/'),
+                               StringComparison.OrdinalIgnoreCase))
+            {
+                await CopyDirectoryAsync(currentNotesRoot, targetPath);
+            }
+
+            _settingsService.Settings.IsGoogleDriveSyncEnabled = true;
+            _settingsService.Settings.IsOneDriveSyncEnabled = false;
+            _settingsService.Settings.GoogleDriveNotesPath = targetPath;
+            _settingsService.Settings.NotesRoot = targetPath;
+            await _settingsService.SaveSettingsAsync();
+
+            _noteRepository.UpdateNotesRoot(targetPath);
+            _fileWatcher.UpdateWatchDirectory(targetPath);
+            _googleSyncEngine.UpdateNotesRoot(targetPath);
+
+            RefreshStatus();
+            return true;
+        }
+
         public CloudSyncStatus GetSyncStatus()
         {
             RefreshStatus(raiseEvent: false);
@@ -212,13 +308,29 @@ namespace QuickNote.Infrastructure.Cloud
 
         private void RefreshStatus(bool raiseEvent = true)
         {
+            bool isGoogle = _settingsService.Settings.IsGoogleDriveSyncEnabled;
             bool isEnabled = _settingsService.Settings.IsOneDriveSyncEnabled;
             string? activePath = _settingsService.Settings.OneDriveNotesPath;
             string? accountName = _settingsService.Settings.SelectedOneDriveAccountName;
 
             CloudSyncStatus newStatus;
 
-            if (!isEnabled || string.IsNullOrWhiteSpace(activePath) || !Directory.Exists(activePath))
+            if (isGoogle)
+            {
+                var email = _settingsService.Settings.GoogleDriveUserEmail;
+                var gPath = _settingsService.Settings.GoogleDriveNotesPath ?? _noteRepository.NotesRoot;
+                newStatus = new CloudSyncStatus
+                {
+                    State = _googleSyncEngine.IsAuthenticated ? CloudSyncState.Synced : CloudSyncState.Warning,
+                    Message = _googleSyncEngine.IsAuthenticated
+                        ? $"Synced with Google Drive ({email ?? "Connected"})"
+                        : "Google Drive: Sign in required",
+                    ActiveNotesPath = gPath,
+                    AccountName = email ?? "Google Drive",
+                    LastSyncTime = _settingsService.Settings.LastGoogleDriveSyncTime
+                };
+            }
+            else if (!isEnabled || string.IsNullOrWhiteSpace(activePath) || !Directory.Exists(activePath))
             {
                 newStatus = new CloudSyncStatus
                 {

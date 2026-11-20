@@ -179,13 +179,85 @@ namespace QuickNote.App.Dialogs
                     HorizontalContentAlignment = HorizontalAlignment.Stretch
                 };
 
-                if (string.Equals(_settingsService.Settings.OneDriveNotesPath, acc.DefaultNotesPath, StringComparison.OrdinalIgnoreCase))
+                if (!_settingsService.Settings.IsGoogleDriveSyncEnabled &&
+                    string.Equals(_settingsService.Settings.OneDriveNotesPath, acc.DefaultNotesPath, StringComparison.OrdinalIgnoreCase))
                 {
                     item.IsSelected = true;
                 }
 
                 AccountsListBox.Items.Add(item);
             }
+
+            // Add Google Drive Account Option (Requirement 2)
+            var googleDrivePath = !string.IsNullOrWhiteSpace(_settingsService.Settings.GoogleDriveNotesPath)
+                ? _settingsService.Settings.GoogleDriveNotesPath
+                : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "QuickNote-GoogleDrive");
+
+            var googleEmail = _settingsService.Settings.GoogleDriveUserEmail;
+            var googleDisplay = !string.IsNullOrWhiteSpace(googleEmail)
+                ? $"Google Drive ({googleEmail})"
+                : (_cloudSyncService.IsAuthenticated ? "Google Drive (Connected)" : "Google Drive (Cloud Sync)");
+
+            var gGrid = new Grid();
+            gGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            gGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+            var gPath = new System.Windows.Shapes.Path
+            {
+                Data = (Geometry)FindResource("IconCloudGeometry"),
+                Fill = new SolidColorBrush(Color.FromRgb(0x38, 0xBD, 0xF8))
+            };
+            var gViewbox = new Viewbox
+            {
+                Width = 16,
+                Height = 16,
+                Margin = new Thickness(0, 2, 10, 0),
+                VerticalAlignment = VerticalAlignment.Top,
+                Child = gPath
+            };
+            Grid.SetColumn(gViewbox, 0);
+
+            var gInfoPanel = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+            var gNameBlock = new TextBlock
+            {
+                Text = googleDisplay,
+                FontWeight = FontWeights.SemiBold,
+                FontSize = 13,
+                Foreground = textPrimaryBrush,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                TextWrapping = TextWrapping.NoWrap,
+                ToolTip = googleDisplay
+            };
+            var gPathBlock = new TextBlock
+            {
+                Text = googleDrivePath,
+                FontSize = 11,
+                Foreground = textMutedBrush,
+                Margin = new Thickness(0, 2, 0, 0),
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                TextWrapping = TextWrapping.NoWrap,
+                ToolTip = googleDrivePath
+            };
+            gInfoPanel.Children.Add(gNameBlock);
+            gInfoPanel.Children.Add(gPathBlock);
+            Grid.SetColumn(gInfoPanel, 1);
+
+            gGrid.Children.Add(gViewbox);
+            gGrid.Children.Add(gInfoPanel);
+
+            var gItem = new ListBoxItem
+            {
+                Content = gGrid,
+                Tag = "GOOGLE_DRIVE",
+                HorizontalContentAlignment = HorizontalAlignment.Stretch
+            };
+
+            if (_settingsService.Settings.IsGoogleDriveSyncEnabled)
+            {
+                gItem.IsSelected = true;
+            }
+
+            AccountsListBox.Items.Add(gItem);
 
             if (AccountsListBox.SelectedItem == null && AccountsListBox.Items.Count > 0)
             {
@@ -195,50 +267,95 @@ namespace QuickNote.App.Dialogs
 
         private async void EnableSyncButton_Click(object sender, RoutedEventArgs e)
         {
-            if (AccountsListBox.SelectedItem is ListBoxItem selectedItem && selectedItem.Tag is OneDriveAccountInfo account)
+            if (AccountsListBox.SelectedItem is ListBoxItem selectedItem)
             {
                 bool migrate = MigrateCheckbox.IsChecked == true;
-                EnableSyncButton.IsEnabled = false;
-                EnableSyncButton.Content = "Configuring...";
-
-                try
+                if (selectedItem.Tag is string tag && tag == "GOOGLE_DRIVE")
                 {
-                    var success = await _cloudSyncService.EnableOneDriveSyncAsync(account, migrate, _currentNotesRoot);
-                    if (success)
+                    EnableSyncButton.IsEnabled = false;
+                    EnableSyncButton.Content = "Configuring...";
+                    try
                     {
-                        SyncSettingsChanged = true;
-                        ConfirmDialog.ShowMessage(
-                            this,
-                            "OneDrive Cloud Sync",
-                            $"OneDrive Synchronization has been enabled!\n\nYour notes are now synchronized with:\n{account.DefaultNotesPath}",
-                            "OK",
-                            _isDarkMode);
-                        DialogResult = true;
-                        Close();
+                        var googleDrivePath = !string.IsNullOrWhiteSpace(_settingsService.Settings.GoogleDriveNotesPath)
+                            ? _settingsService.Settings.GoogleDriveNotesPath
+                            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "QuickNote-GoogleDrive");
+
+                        var success = await _cloudSyncService.EnableGoogleDriveSyncAsync(googleDrivePath, migrate, _currentNotesRoot);
+                        if (success)
+                        {
+                            SyncSettingsChanged = true;
+                            if (_cloudSyncService.IsAuthenticated)
+                            {
+                                _ = _cloudSyncService.TriggerSyncAsync();
+                            }
+                            ConfirmDialog.ShowMessage(
+                                this,
+                                "Google Drive Cloud Sync",
+                                migrate
+                                    ? "Google Drive sync is enabled!\n\nExisting notes and attachments have been copied to:\n" + googleDrivePath
+                                    : "Google Drive sync is enabled!\n\nSynchronized with:\n" + googleDrivePath,
+                                "OK",
+                                _isDarkMode);
+                            DialogResult = true;
+                            Close();
+                        }
                     }
+                    catch (Exception ex)
+                    {
+                        ConfirmDialog.ShowMessage(this, "Sync Error", $"Failed to configure Google Drive sync:\n{ex.Message}", "OK", _isDarkMode);
+                    }
+                    finally
+                    {
+                        EnableSyncButton.IsEnabled = true;
+                        EnableSyncButton.Content = "Enable Sync";
+                    }
+                    return;
                 }
-                catch (Exception ex)
+
+                if (selectedItem.Tag is OneDriveAccountInfo account)
                 {
-                    ConfirmDialog.ShowMessage(this, "Sync Error", $"Failed to configure OneDrive sync:\n{ex.Message}", "OK", _isDarkMode);
-                }
-                finally
-                {
-                    EnableSyncButton.IsEnabled = true;
-                    EnableSyncButton.Content = "Enable Sync";
+                    EnableSyncButton.IsEnabled = false;
+                    EnableSyncButton.Content = "Configuring...";
+
+                    try
+                    {
+                        _settingsService.Settings.IsGoogleDriveSyncEnabled = false;
+                        var success = await _cloudSyncService.EnableOneDriveSyncAsync(account, migrate, _currentNotesRoot);
+                        if (success)
+                        {
+                            SyncSettingsChanged = true;
+                            ConfirmDialog.ShowMessage(
+                                this,
+                                "OneDrive Cloud Sync",
+                                $"OneDrive Synchronization has been enabled!\n\nYour notes are now synchronized with:\n{account.DefaultNotesPath}",
+                                "OK",
+                                _isDarkMode);
+                            DialogResult = true;
+                            Close();
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        ConfirmDialog.ShowMessage(this, "Sync Error", $"Failed to configure OneDrive sync:\n{ex.Message}", "OK", _isDarkMode);
+                    }
+                    finally
+                    {
+                        EnableSyncButton.IsEnabled = true;
+                        EnableSyncButton.Content = "Enable Sync";
+                    }
+                    return;
                 }
             }
-            else
-            {
-                ConfirmDialog.ShowMessage(this, "Select Account", "Please select a OneDrive account from the list.", "OK", _isDarkMode);
-            }
+
+            ConfirmDialog.ShowMessage(this, "Select Account", "Please select a storage account or profile from the list.", "OK", _isDarkMode);
         }
 
         private async void DisableSyncButton_Click(object sender, RoutedEventArgs e)
         {
             var confirm = ConfirmDialog.ShowConfirm(
                 this,
-                "Disconnect OneDrive Sync",
-                "Are you sure you want to disconnect OneDrive synchronization?\n\nYour notes will switch back to the local Documents\\QuickNote directory.",
+                "Disconnect Cloud Sync",
+                "Are you sure you want to disconnect cloud synchronization?\n\nYour notes will switch back to the local Documents\\QuickNote directory.",
                 "Disconnect",
                 "Cancel",
                 isDanger: true,
@@ -246,6 +363,7 @@ namespace QuickNote.App.Dialogs
 
             if (confirm)
             {
+                _settingsService.Settings.IsGoogleDriveSyncEnabled = false;
                 var defaultDocs = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "QuickNote");
                 await _cloudSyncService.DisableOneDriveSyncAsync(defaultDocs);
                 SyncSettingsChanged = true;

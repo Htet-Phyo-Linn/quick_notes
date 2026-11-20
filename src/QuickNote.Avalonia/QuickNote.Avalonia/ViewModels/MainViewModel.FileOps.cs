@@ -31,6 +31,8 @@ namespace QuickNote.Avalonia.ViewModels
 
                 await _folderService.CreateFolderAsync(parentDir, Path.GetFileName(targetDir));
                 await RefreshFolderTreeAsync();
+                NotifyUserActivity();
+                RequestAutoSync(60000);
             }
             catch (Exception ex)
             {
@@ -54,6 +56,8 @@ namespace QuickNote.Avalonia.ViewModels
                 await _folderService.CreateFolderAsync(_notesRoot, Path.GetFileName(targetDir));
                 await RefreshFolderTreeAsync();
                 StatusText = $"Created root folder '{Path.GetFileName(targetDir)}'";
+                NotifyUserActivity();
+                RequestAutoSync(60000);
             }
             catch (Exception ex)
             {
@@ -88,6 +92,8 @@ namespace QuickNote.Avalonia.ViewModels
 
                 await _folderService.CreateFolderAsync(parentDir, Path.GetFileName(targetDir));
                 await RefreshFolderTreeAsync();
+                NotifyUserActivity();
+                RequestAutoSync(60000);
             }
             catch (Exception ex)
             {
@@ -120,6 +126,8 @@ namespace QuickNote.Avalonia.ViewModels
                 {
                     await _trashBinService.MoveToTrashAsync(node.FullPath);
                     await RefreshFolderTreeAsync();
+                    NotifyUserActivity();
+                    RequestAutoSync(60000);
                 }
             }
             else
@@ -133,6 +141,8 @@ namespace QuickNote.Avalonia.ViewModels
                     }
                     await RefreshFolderTreeAsync();
                     StatusText = "Folder deleted";
+                    NotifyUserActivity();
+                    RequestAutoSync(60000);
                 }
                 catch (Exception)
                 {
@@ -141,6 +151,8 @@ namespace QuickNote.Avalonia.ViewModels
                         await _folderService.DeleteFolderAsync(node.FullPath);
                         await RefreshFolderTreeAsync();
                         StatusText = "Folder deleted";
+                        NotifyUserActivity();
+                        RequestAutoSync(60000);
                     }
                     catch (Exception ex2)
                     {
@@ -163,6 +175,8 @@ namespace QuickNote.Avalonia.ViewModels
             SelectedFolderNodes.Clear();
             SelectedFolderNode = null;
             StatusText = $"Deleted {nodes.Count} item(s)";
+            NotifyUserActivity();
+            RequestAutoSync(60000);
         }
 
         // ── Move ───────────────────────────────────────────────────
@@ -193,10 +207,15 @@ namespace QuickNote.Avalonia.ViewModels
                 else
                 {
                     UpdateMovedSingleNotePaths(sourcePath, destPath);
+                    var oldRel = Path.GetRelativePath(_notesRoot, sourcePath);
+                    var newRel = Path.GetRelativePath(_notesRoot, destPath);
+                    _cloudSyncService?.RecordFileMoved(oldRel, newRel);
                 }
 
                 await LoadAllAsync();
                 StatusText = "Item moved";
+                NotifyUserActivity();
+                RequestAutoSync(60000);
             }
             catch (Exception ex)
             {
@@ -320,6 +339,8 @@ namespace QuickNote.Avalonia.ViewModels
 
                 await RefreshFolderTreeAsync();
                 StatusText = $"Renamed to '{trimmed}'";
+                NotifyUserActivity();
+                RequestAutoSync(60000);
             }
             catch (Exception ex)
             {

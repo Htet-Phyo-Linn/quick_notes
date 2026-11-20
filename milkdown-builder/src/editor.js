@@ -443,6 +443,14 @@ try {
 }
 
 const ignoredWordsSet = new Set();
+if (typeof window !== 'undefined' && Array.isArray(window.__ignoredWords)) {
+  window.__ignoredWords.forEach((w) => {
+    if (w && typeof w === 'string') {
+      const clean = w.trim().toLowerCase();
+      if (clean) ignoredWordsSet.add(clean);
+    }
+  });
+}
 let isSpellCheckActive = true;
 const spellCheckPluginKey = new PluginKey('spellCheckPlugin');
 
@@ -808,6 +816,7 @@ async function init() {
 
   let contentChangedDebounceTimer = null;
   let pendingMarkdownToSend = null;
+  let lastSentMarkdown = null;
 
   function flushContentChanged() {
     if (contentChangedDebounceTimer) {
@@ -817,10 +826,13 @@ async function init() {
     if (pendingMarkdownToSend !== null) {
       const md = pendingMarkdownToSend;
       pendingMarkdownToSend = null;
-      sendMessage({
-        type: 'contentChanged',
-        markdown: md,
-      });
+      if (md !== lastSentMarkdown) {
+        lastSentMarkdown = md;
+        sendMessage({
+          type: 'contentChanged',
+          markdown: md,
+        });
+      }
     }
   }
 
@@ -848,10 +860,13 @@ async function init() {
         if (pendingMarkdownToSend !== null) {
           const md = pendingMarkdownToSend;
           pendingMarkdownToSend = null;
-          sendMessage({
-            type: 'contentChanged',
-            markdown: md,
-          });
+          if (md !== lastSentMarkdown) {
+            lastSentMarkdown = md;
+            sendMessage({
+              type: 'contentChanged',
+              markdown: md,
+            });
+          }
         }
       }, 150);
     });
@@ -908,6 +923,7 @@ async function init() {
 
     const cleanMd = (markdown || '').replace(/(!\[.*?\]\([^\n\r]*?\))\r?\n(?=!\[)/g, '$1\n\n');
     lastMarkdownFromHost = cleanMd;
+    lastSentMarkdown = cleanMd;
 
     // Pre-scan markdown for images to request them early from host
     const md = cleanMd || '';
@@ -1806,6 +1822,9 @@ let contextMenuCodeBlockEl = null;
 let lastPlainPasteTimestamp = 0;
 
 window.setIgnoredWords = (words) => {
+  if (typeof window !== 'undefined') {
+    window.__ignoredWords = Array.isArray(words) ? words : [];
+  }
   if (Array.isArray(words)) {
     ignoredWordsSet.clear();
     words.forEach((w) => {
@@ -1926,13 +1945,23 @@ function showSpellPopup(wordInfo, coords) {
     ignoreBtn.onclick = (e) => {
       e.preventDefault();
       e.stopPropagation();
-      const lower = wordInfo.word.toLowerCase();
-      ignoredWordsSet.add(lower);
-      const view = getEditorView();
-      if (view && view.state) {
-        view.dispatch(view.state.tr.setMeta(spellCheckPluginKey, { refresh: true }));
+      const raw = wordInfo.word || '';
+      const cleanWord = raw.trim().replace(/^['"-]+|['"-]+$/g, '');
+      if (cleanWord) {
+        const lower = cleanWord.toLowerCase();
+        ignoredWordsSet.add(lower);
+        if (typeof window !== 'undefined') {
+          if (!Array.isArray(window.__ignoredWords)) window.__ignoredWords = [];
+          if (!window.__ignoredWords.some((w) => typeof w === 'string' && w.toLowerCase() === lower)) {
+            window.__ignoredWords.push(cleanWord);
+          }
+        }
+        const view = getEditorView();
+        if (view && view.state) {
+          view.dispatch(view.state.tr.setMeta(spellCheckPluginKey, { refresh: true }));
+        }
+        sendMessage({ type: 'ignoreWord', word: cleanWord });
       }
-      sendMessage({ type: 'ignoreWord', word: wordInfo.word });
       hideSpellPopup();
     };
   }
@@ -2861,13 +2890,30 @@ function executeAction(action) {
     case 'inline-code':
       toggleMark('code_inline', inlineCodeSchema);
       break;
-    case 'ignore-word':
+    case 'ignore-word': {
       const ignoreBtn = document.getElementById('menu-ignore-word');
       const wordToIgnore = (ignoreBtn && ignoreBtn.dataset.word) || (window.getSelection() ? window.getSelection().toString().trim() : '');
       if (wordToIgnore) {
-        sendMessage({ type: 'ignoreWord', word: wordToIgnore });
+        const cleanWord = wordToIgnore.trim().replace(/^['"-]+|['"-]+$/g, '');
+        if (cleanWord) {
+          const lower = cleanWord.toLowerCase();
+          ignoredWordsSet.add(lower);
+          if (typeof window !== 'undefined') {
+            if (!Array.isArray(window.__ignoredWords)) window.__ignoredWords = [];
+            if (!window.__ignoredWords.some((w) => typeof w === 'string' && w.toLowerCase() === lower)) {
+              window.__ignoredWords.push(cleanWord);
+            }
+          }
+          const view = getEditorView();
+          if (view && view.state) {
+            view.dispatch(view.state.tr.setMeta(spellCheckPluginKey, { refresh: true }));
+          }
+          sendMessage({ type: 'ignoreWord', word: cleanWord });
+        }
+        hideContextMenu();
       }
       break;
+    }
   }
 }
 

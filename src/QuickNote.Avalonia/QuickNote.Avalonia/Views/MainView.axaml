@@ -7,7 +7,7 @@
              xmlns:notion="using:QuickNote.Avalonia.Notion"
              x:Class="QuickNote.Avalonia.Views.MainView"
              x:DataType="vm:MainViewModel"
-             Background="#191919">
+             Background="{DynamicResource AppBackground}">
 
     <UserControl.Resources>
         <StreamGeometry x:Key="IconBolt">M11 21h-1l1-7H7.5c-.88 0-.33-.75-.31-.78C8.48 10.94 10.42 7.54 13 3h1l-1 7h3.5c.49 0 .56.33.47.51l-5.97 10.49z</StreamGeometry>
@@ -42,26 +42,28 @@
         <StreamGeometry x:Key="IconSettings">M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z</StreamGeometry>
         <StreamGeometry x:Key="IconSpellCheck">M12.45 16h2.09L9.43 3H7.57L2.46 16h2.09l1.12-3h5.66l1.12 3zm-6.01-4.72L8.5 5.88l2.06 5.4H6.44zM21.5 9l-7 7-3.5-3.5 1.41-1.41L14.5 13.17l5.59-5.59L21.5 9z</StreamGeometry>
         <StreamGeometry x:Key="IconKeyboard">M20 5H4c-1.1 0-1.99.9-1.99 2L2 17c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-9 3h2v2h-2V8zm0 3h2v2h-2v-2zM8 8h2v2H8V8zm0 3h2v2H8v-2zm-1 2H5v-2h2v2zm0-3H5V8h2v2zm9 7H8v-2h8v2zm0-4h-2v-2h2v2zm0-3h-2V8h2v2zm3 3h-2v-2h2v2zm0-3h-2V8h2v2z</StreamGeometry>
+        <StreamGeometry x:Key="IconHistory">M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.896 8.896 0 0 0 13 21a9 9 0 0 0 0-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z</StreamGeometry>
+        <StreamGeometry x:Key="IconClock">M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z</StreamGeometry>
     </UserControl.Resources>
 
     <UserControl.Styles>
         <Style Selector="Border.tab-item">
-            <Setter Property="Background" Value="#1c1c1c" />
-            <Setter Property="BorderBrush" Value="#2d2d2d" />
+            <Setter Property="Background" Value="{DynamicResource AppInactiveTab}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource AppBorder}" />
             <Setter Property="Cursor" Value="Hand" />
         </Style>
         <Style Selector="Border.tab-item:pointerover">
-            <Setter Property="Background" Value="#262626" />
+            <Setter Property="Background" Value="{DynamicResource AppHover}" />
         </Style>
         <Style Selector="Border.tab-active">
-            <Setter Property="Background" Value="#252525" />
-            <Setter Property="BorderBrush" Value="#3b82f6" />
+            <Setter Property="Background" Value="{DynamicResource AppActiveTab}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Accent}" />
         </Style>
         <Style Selector="TextBlock.tab-title">
-            <Setter Property="Foreground" Value="#9ca3af" />
+            <Setter Property="Foreground" Value="{DynamicResource AppTextSecondary}" />
         </Style>
         <Style Selector="TextBlock.tab-title-active">
-            <Setter Property="Foreground" Value="#ffffff" />
+            <Setter Property="Foreground" Value="{DynamicResource AppTextPrimary}" />
             <Setter Property="FontWeight" Value="SemiBold" />
         </Style>
         <Style Selector="ScrollViewer.tab-scroll-viewer ScrollBar:horizontal">
@@ -77,13 +79,13 @@
 
     <Grid RowDefinitions="Auto,*,Auto">
         <!-- 1. TOP TOOLBAR -->
-        <Border Grid.Row="0" Background="#202020" BorderBrush="#2d2d2d" BorderThickness="0,0,0,1" Padding="10,6">
+        <Border Grid.Row="0" Background="{DynamicResource AppHeaderBackground}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="0,0,0,1" Padding="10,6">
             <Grid ColumnDefinitions="Auto,*,Auto">
                 <!-- Left: App Title / Brand & Quick Creation Actions -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="5" HorizontalAlignment="Left" VerticalAlignment="Center">
                     <Button Command="{Binding ToggleLeftSidebarCommand}"
                             Background="Transparent"
-                            Foreground="#9ca3af"
+                            Foreground="{DynamicResource AppTextSecondary}"
                             CornerRadius="6"
                             Padding="6,5"
                             ToolTip.Tip="Toggle Left Sidebar (Ctrl+B)">
@@ -91,19 +93,19 @@
                     </Button>
 
                     <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center" Margin="0,0,2,0">
-                        <PathIcon Data="{StaticResource IconBolt}" Width="15" Height="15" Foreground="#3b82f6" VerticalAlignment="Center" />
-                        <TextBlock Text="QuickNote" FontSize="14" FontWeight="SemiBold" Foreground="#f3f4f6" VerticalAlignment="Center" />
+                        <PathIcon Data="{StaticResource IconBolt}" Width="15" Height="15" Foreground="{DynamicResource Accent}" VerticalAlignment="Center" />
+                        <TextBlock Text="QuickNote" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource AppTextPrimary}" VerticalAlignment="Center" />
                     </StackPanel>
 
-                    <Button Command="{Binding NewNoteCommand}" Background="#2563eb" Foreground="White" CornerRadius="6" Padding="7,5" ToolTip.Tip="New Note (Ctrl+N)">
+                    <Button Command="{Binding NewNoteCommand}" Background="{DynamicResource Accent}" Foreground="{DynamicResource AccentForeground}" CornerRadius="6" Padding="7,5" ToolTip.Tip="New Note (Ctrl+N)">
                         <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                            <PathIcon Data="{StaticResource IconPlus}" Width="11" Height="11" Foreground="White" VerticalAlignment="Center" />
+                            <PathIcon Data="{StaticResource IconPlus}" Width="11" Height="11" Foreground="{DynamicResource AccentForeground}" VerticalAlignment="Center" />
                             <TextBlock Text="Note" FontSize="12" FontWeight="Medium" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
-                    <Button Command="{Binding NewFolderCommand}" Background="#2f333a" Foreground="#e5e7eb" CornerRadius="6" Padding="7,5" ToolTip.Tip="New Folder (Ctrl+Shift+N)">
+                    <Button Command="{Binding NewFolderCommand}" Background="{DynamicResource AppButtonBackground}" Foreground="{DynamicResource AppTextPrimary}" CornerRadius="6" Padding="7,5" ToolTip.Tip="New Folder (Ctrl+Shift+N)">
                         <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                            <PathIcon Data="{StaticResource IconFolder}" Width="12" Height="12" Foreground="#e5e7eb" VerticalAlignment="Center" />
+                            <PathIcon Data="{StaticResource IconFolder}" Width="12" Height="12" Foreground="{DynamicResource AppTextPrimary}" VerticalAlignment="Center" />
                             <TextBlock Text="Folder" FontSize="12" FontWeight="Medium" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
@@ -111,13 +113,13 @@
 
                 <!-- Center: Search Bar (Responsive flex column, MaxWidth 380, never crushed) -->
                 <Grid Grid.Column="1" HorizontalAlignment="Stretch" MaxWidth="380" MinWidth="130" Margin="8,0" VerticalAlignment="Center">
-                    <PathIcon Data="{StaticResource IconSearch}" Width="13" Height="13" Foreground="#6b7280" Margin="10,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Center" IsHitTestVisible="False" />
+                    <PathIcon Data="{StaticResource IconSearch}" Width="13" Height="13" Foreground="{DynamicResource AppTextMuted}" Margin="10,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Center" IsHitTestVisible="False" />
                     <TextBox x:Name="SearchBox"
                              Text="{Binding SearchQuery, Mode=TwoWay}"
                              PlaceholderText="Search notes (#tag, :folder, text)..."
-                             Background="#2a2a2a"
-                             Foreground="#e5e7eb"
-                             BorderBrush="#374151"
+                             Background="{DynamicResource AppInputBackground}"
+                             Foreground="{DynamicResource AppTextPrimary}"
+                             BorderBrush="{DynamicResource AppBorder}"
                              CornerRadius="6"
                              Padding="30,5,28,5"
                              MinHeight="0"
@@ -131,26 +133,26 @@
                             VerticalAlignment="Center"
                             Background="Transparent"
                             BorderThickness="0"
-                            Foreground="#9ca3af"
+                            Foreground="{DynamicResource AppTextSecondary}"
                             Margin="0,0,4,0"
                             Padding="6,2" />
                 </Grid>
 
                 <!-- Right: Action Icons & Unified Mode/Export Dropdown Menu -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="5" HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <Button Command="{Binding RefreshCommand}" Background="#2f333a" Foreground="#e5e7eb" CornerRadius="6" Padding="7,5" ToolTip.Tip="Refresh Notes">
-                        <PathIcon Data="{StaticResource IconRefresh}" Width="13" Height="13" Foreground="#9ca3af" />
+                    <Button Command="{Binding RefreshCommand}" Background="{DynamicResource AppButtonBackground}" Foreground="{DynamicResource AppTextPrimary}" CornerRadius="6" Padding="7,5" ToolTip.Tip="Refresh Notes">
+                        <PathIcon Data="{StaticResource IconRefresh}" Width="13" Height="13" Foreground="{DynamicResource AppTextSecondary}" />
                     </Button>
-                    <Button Command="{Binding DeleteCommand}" Background="#2f333a" Foreground="#ef4444" CornerRadius="6" Padding="7,5" ToolTip.Tip="Delete Note (Move to Trash)">
+                    <Button Command="{Binding DeleteCommand}" Background="{DynamicResource AppButtonBackground}" Foreground="#ef4444" CornerRadius="6" Padding="7,5" ToolTip.Tip="Delete Note (Move to Trash)">
                         <PathIcon Data="{StaticResource IconTrash}" Width="13" Height="13" Foreground="#ef4444" />
                     </Button>
 
-                    <Rectangle Width="1" Height="16" Fill="#374151" Margin="2,0" />
+                    <Rectangle Width="1" Height="16" Fill="{DynamicResource AppDivider}" Margin="2,0" />
 
                     <!-- Unified Editor Mode & Export Dropdown Menu -->
-                    <Button Background="#262626"
-                            Foreground="#e5e7eb"
-                            BorderBrush="#374151"
+                    <Button Background="{DynamicResource AppButtonBackground}"
+                            Foreground="{DynamicResource AppTextPrimary}"
+                            BorderBrush="{DynamicResource AppBorder}"
                             BorderThickness="1"
                             CornerRadius="6"
                             Padding="7,5"
@@ -159,35 +161,35 @@
                             <MenuFlyout Placement="BottomEdgeAlignedRight">
                                 <MenuItem Header="Visual Editor" Command="{Binding SetNotionModeCommand}">
                                     <MenuItem.Icon>
-                                        <PathIcon Data="{StaticResource IconVisualEdit}" Width="13" Height="13" Foreground="#3b82f6" />
+                                        <PathIcon Data="{StaticResource IconVisualEdit}" Width="13" Height="13" Foreground="{DynamicResource Accent}" />
                                     </MenuItem.Icon>
                                 </MenuItem>
                                 <MenuItem Header="Normal Editor" Command="{Binding SetNormalEditorModeCommand}">
                                     <MenuItem.Icon>
-                                        <PathIcon Data="{StaticResource IconMarkdown}" Width="13" Height="13" Foreground="#9ca3af" />
+                                        <PathIcon Data="{StaticResource IconMarkdown}" Width="13" Height="13" Foreground="{DynamicResource AppTextSecondary}" />
                                     </MenuItem.Icon>
                                 </MenuItem>
                                 <MenuItem Header="Split View" Command="{Binding ToggleSplitViewCommand}">
                                     <MenuItem.Icon>
-                                        <PathIcon Data="{StaticResource IconSplit}" Width="13" Height="13" Foreground="#9ca3af" />
+                                        <PathIcon Data="{StaticResource IconSplit}" Width="13" Height="13" Foreground="{DynamicResource AppTextSecondary}" />
                                     </MenuItem.Icon>
                                 </MenuItem>
                                 <MenuItem Header="Reading View" Command="{Binding SetPreviewModeCommand}">
                                     <MenuItem.Icon>
-                                        <PathIcon Data="{StaticResource IconReading}" Width="13" Height="13" Foreground="#9ca3af" />
+                                        <PathIcon Data="{StaticResource IconReading}" Width="13" Height="13" Foreground="{DynamicResource AppTextSecondary}" />
                                     </MenuItem.Icon>
                                 </MenuItem>
 
-                                <Separator Background="#374151" Margin="4,2" />
+                                <Separator Background="{DynamicResource AppDivider}" Margin="4,2" />
 
                                 <MenuItem Header="Export as Markdown (.md)" Command="{Binding ExportAsMarkdownCommand}">
                                     <MenuItem.Icon>
-                                        <PathIcon Data="{StaticResource IconMarkdown}" Width="13" Height="13" Foreground="#38bdf8" />
+                                        <PathIcon Data="{StaticResource IconMarkdown}" Width="13" Height="13" Foreground="{DynamicResource Accent}" />
                                     </MenuItem.Icon>
                                 </MenuItem>
                                 <MenuItem Header="Export as Word (.docx)" Command="{Binding ExportAsWordCommand}">
                                     <MenuItem.Icon>
-                                        <PathIcon Data="{StaticResource IconWord}" Width="13" Height="13" Foreground="#3b82f6" />
+                                        <PathIcon Data="{StaticResource IconWord}" Width="13" Height="13" Foreground="{DynamicResource Accent}" />
                                     </MenuItem.Icon>
                                 </MenuItem>
                                 <MenuItem Header="Export as PDF (.pdf)" Command="{Binding ExportAsPdfCommand}">
@@ -198,32 +200,52 @@
                             </MenuFlyout>
                         </Button.Flyout>
                         <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
-                            <PathIcon Data="{StaticResource IconVisualEdit}" Width="13" Height="13" Foreground="#3b82f6" IsVisible="{Binding IsNotionMode}" VerticalAlignment="Center" />
-                            <PathIcon Data="{StaticResource IconMarkdown}" Width="13" Height="13" Foreground="#9ca3af" IsVisible="{Binding !IsNotionMode}" VerticalAlignment="Center" />
+                            <PathIcon Data="{StaticResource IconVisualEdit}" Width="13" Height="13" Foreground="{DynamicResource Accent}" IsVisible="{Binding IsNotionMode}" VerticalAlignment="Center" />
+                            <PathIcon Data="{StaticResource IconMarkdown}" Width="13" Height="13" Foreground="{DynamicResource AppTextSecondary}" IsVisible="{Binding !IsNotionMode}" VerticalAlignment="Center" />
                             <TextBlock Text="{Binding CurrentModeDisplayName}" FontSize="12" FontWeight="Medium" VerticalAlignment="Center" />
-                            <PathIcon Data="{StaticResource IconChevronDown}" Width="9" Height="9" Foreground="#6b7280" Margin="2,1,0,0" VerticalAlignment="Center" />
+                            <PathIcon Data="{StaticResource IconChevronDown}" Width="9" Height="9" Foreground="{DynamicResource AppTextMuted}" Margin="2,1,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
 
-                    <Rectangle Width="1" Height="16" Fill="#374151" Margin="2,0" />
+                    <Rectangle Width="1" Height="16" Fill="{DynamicResource AppDivider}" Margin="2,0" />
 
                     <!-- Toggle Right Sidebar (Outline) Button -->
                     <Button Command="{Binding ToggleRightSidebarCommand}"
                             Background="Transparent"
-                            Foreground="#9ca3af"
+                            Foreground="{DynamicResource AppTextSecondary}"
                             CornerRadius="6"
                             Padding="6,5"
                             ToolTip.Tip="Toggle Outline Sidebar">
                         <PathIcon Data="{StaticResource IconSidebarRight}" Width="15" Height="15" />
                     </Button>
 
-                    <!-- Settings & Profiles Button -->
-                    <Button Command="{Binding ShowProfileDialogCommand}"
+                    <!-- Toggle Dark / Light Theme Button -->
+                    <Button Command="{Binding ToggleThemeCommand}"
                             Background="Transparent"
-                            Foreground="#9ca3af"
+                            Foreground="{DynamicResource AppTextSecondary}"
                             CornerRadius="6"
                             Padding="6,5"
-                            ToolTip.Tip="Settings, Storage Profiles &amp; Dictionary">
+                            ToolTip.Tip="Toggle Dark / Light Theme (Ctrl+T)">
+                        <PathIcon Data="{Binding ThemeIconGeometry}" Width="15" Height="15" />
+                    </Button>
+
+                    <!-- Version History & Backups Button -->
+                    <Button Command="{Binding OpenBackupHistoryCommand}"
+                            Background="Transparent"
+                            Foreground="{DynamicResource AppTextSecondary}"
+                            CornerRadius="6"
+                            Padding="6,5"
+                            ToolTip.Tip="Version History &amp; Backups (Ctrl+Alt+H)">
+                        <PathIcon Data="{StaticResource IconHistory}" Width="15" Height="15" />
+                    </Button>
+
+                    <!-- Settings, Themes & Profiles Button -->
+                    <Button Command="{Binding OpenSettingsCommand}"
+                            Background="Transparent"
+                            Foreground="{DynamicResource AppTextSecondary}"
+                            CornerRadius="6"
+                            Padding="6,5"
+                            ToolTip.Tip="Settings, Themes &amp; Profiles">
                         <PathIcon Data="{StaticResource IconSettings}" Width="15" Height="15" />
                     </Button>
                 </StackPanel>
@@ -233,31 +255,31 @@
         <!-- 2. MAIN 3-COLUMN WORKSPACE -->
         <Grid x:Name="MainWorkspaceGrid" Grid.Row="1" ColumnDefinitions="240,Auto,*,Auto,220">
             <!-- COLUMN 0: SIDEBAR (Notes & Folders) -->
-            <Border x:Name="LeftSidebarBorder" Grid.Column="0" Background="#1e1e1e" BorderBrush="#2d2d2d" BorderThickness="0,0,1,0" IsVisible="{Binding IsLeftSidebarVisible}">
+            <Border x:Name="LeftSidebarBorder" Grid.Column="0" Background="{DynamicResource AppSidebarBackground}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="0,0,1,0" IsVisible="{Binding IsLeftSidebarVisible}">
                 <Grid RowDefinitions="Auto,*,Auto">
                     <!-- Sidebar Header with Quick Action Buttons -->
-                    <Border Grid.Row="0" Padding="12,8" BorderBrush="#2d2d2d" BorderThickness="0,0,0,1">
+                    <Border Grid.Row="0" Padding="12,8" BorderBrush="{DynamicResource AppBorder}" BorderThickness="0,0,0,1">
                         <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto">
-                            <TextBlock Grid.Column="0" Text="EXPLORER" FontSize="11" FontWeight="Bold" Foreground="#9ca3af" LetterSpacing="1" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="0" Text="EXPLORER" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource AppTextSecondary}" LetterSpacing="1" VerticalAlignment="Center" />
                             <Button Grid.Column="1" Classes="action-btn" Width="24" Height="24" Margin="2,0" Padding="4"
                                     Background="Transparent" BorderThickness="0" CornerRadius="4"
                                     ToolTip.Tip="New Note (Ctrl+N)" Command="{Binding NewNoteCommand}">
-                                <PathIcon Data="{StaticResource IconPlus}" Width="12" Height="12" Foreground="#9ca3af" />
+                                <PathIcon Data="{StaticResource IconPlus}" Width="12" Height="12" Foreground="{DynamicResource AppTextSecondary}" />
                             </Button>
                             <Button Grid.Column="2" Classes="action-btn" Width="24" Height="24" Margin="2,0" Padding="4"
                                     Background="Transparent" BorderThickness="0" CornerRadius="4"
                                     ToolTip.Tip="New Root Folder" Command="{Binding NewRootFolderCommand}">
-                                <PathIcon Data="{StaticResource IconFolderPlus}" Width="12" Height="12" Foreground="#9ca3af" />
+                                <PathIcon Data="{StaticResource IconFolderPlus}" Width="12" Height="12" Foreground="{DynamicResource AppTextSecondary}" />
                             </Button>
                             <Button Grid.Column="3" Classes="action-btn" Width="24" Height="24" Margin="2,0" Padding="4"
                                     Background="Transparent" BorderThickness="0" CornerRadius="4"
                                     ToolTip.Tip="Refresh Explorer" Command="{Binding RefreshCommand}">
-                                <PathIcon Data="{StaticResource IconRefresh}" Width="12" Height="12" Foreground="#9ca3af" />
+                                <PathIcon Data="{StaticResource IconRefresh}" Width="12" Height="12" Foreground="{DynamicResource AppTextSecondary}" />
                             </Button>
                             <Button Grid.Column="4" Classes="action-btn" Width="24" Height="24" Margin="2,0" Padding="4"
                                     Background="Transparent" BorderThickness="0" CornerRadius="4"
                                     ToolTip.Tip="Collapse Sidebar (Ctrl+B)" Command="{Binding ToggleLeftSidebarCommand}">
-                                <PathIcon Data="{StaticResource IconChevronLeft}" Width="12" Height="12" Foreground="#9ca3af" />
+                                <PathIcon Data="{StaticResource IconChevronLeft}" Width="12" Height="12" Foreground="{DynamicResource AppTextSecondary}" />
                             </Button>
                         </Grid>
                     </Border>
@@ -272,8 +294,8 @@
                         <ListBox.ItemTemplate>
                             <DataTemplate DataType="models:SearchResult">
                                 <StackPanel Spacing="3" Margin="0,4">
-                                    <TextBlock Text="{Binding NoteTitle}" FontWeight="SemiBold" Foreground="#f3f4f6" FontSize="13" />
-                                    <TextBlock Text="{Binding Snippet}" Foreground="#9ca3af" FontSize="11" TextTrimming="CharacterEllipsis" MaxLines="2" />
+                                    <TextBlock Text="{Binding NoteTitle}" FontWeight="SemiBold" Foreground="{DynamicResource AppTextPrimary}" FontSize="13" />
+                                    <TextBlock Text="{Binding Snippet}" Foreground="{DynamicResource AppTextSecondary}" FontSize="11" TextTrimming="CharacterEllipsis" MaxLines="2" />
                                 </StackPanel>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
@@ -293,12 +315,12 @@
                             <ContextMenu>
                                 <MenuItem Header="New Note" Click="OnEmptyNewNoteClick">
                                     <MenuItem.Icon>
-                                        <PathIcon Data="{StaticResource IconNewNote}" Width="12" Height="12" Foreground="#3b82f6" />
+                                        <PathIcon Data="{StaticResource IconNewNote}" Width="12" Height="12" Foreground="{DynamicResource Accent}" />
                                     </MenuItem.Icon>
                                 </MenuItem>
                                 <MenuItem Header="New Root Folder" Click="OnEmptyNewFolderClick">
                                     <MenuItem.Icon>
-                                        <PathIcon Data="{StaticResource IconFolderPlus}" Width="12" Height="12" Foreground="#9ca3af" />
+                                        <PathIcon Data="{StaticResource IconFolderPlus}" Width="12" Height="12" Foreground="{DynamicResource AppTextSecondary}" />
                                     </MenuItem.Icon>
                                 </MenuItem>
                                 <MenuItem Header="Paste" Click="OnEmptyPasteClick">
@@ -315,7 +337,7 @@
                                 <Separator />
                                 <MenuItem Header="Refresh" Click="OnEmptyRefreshClick">
                                     <MenuItem.Icon>
-                                        <PathIcon Data="{StaticResource IconRefresh}" Width="12" Height="12" Foreground="#9ca3af" />
+                                        <PathIcon Data="{StaticResource IconRefresh}" Width="12" Height="12" Foreground="{DynamicResource AppTextSecondary}" />
                                     </MenuItem.Icon>
                                 </MenuItem>
                             </ContextMenu>
@@ -330,18 +352,18 @@
                                         <!-- Folder Only -->
                                         <MenuItem Header="New Note Here" Click="OnTreeNewNoteClick" IsVisible="{Binding IsDirectory}">
                                             <MenuItem.Icon>
-                                                <PathIcon Data="{StaticResource IconNewNote}" Width="12" Height="12" Foreground="#3b82f6" />
+                                                <PathIcon Data="{StaticResource IconNewNote}" Width="12" Height="12" Foreground="{DynamicResource Accent}" />
                                             </MenuItem.Icon>
                                         </MenuItem>
                                         <MenuItem Header="New Subfolder" Click="OnTreeNewSubfolderClick" IsVisible="{Binding IsDirectory}">
                                             <MenuItem.Icon>
-                                                <PathIcon Data="{StaticResource IconNewFolder}" Width="12" Height="12" Foreground="#9ca3af" />
+                                                <PathIcon Data="{StaticResource IconNewFolder}" Width="12" Height="12" Foreground="{DynamicResource AppTextSecondary}" />
                                             </MenuItem.Icon>
                                         </MenuItem>
                                         <!-- Note Only -->
                                         <MenuItem Header="Open Note" Click="OnTreeOpenNoteClick" IsVisible="{Binding !IsDirectory}">
                                             <MenuItem.Icon>
-                                                <PathIcon Data="{StaticResource IconDocument}" Width="12" Height="12" Foreground="#3b82f6" />
+                                                <PathIcon Data="{StaticResource IconDocument}" Width="12" Height="12" Foreground="{DynamicResource Accent}" />
                                             </MenuItem.Icon>
                                         </MenuItem>
                                         <Separator />
@@ -353,7 +375,7 @@
                                         </MenuItem>
                                         <MenuItem Header="Move To..." Click="OnTreeMoveToClick">
                                             <MenuItem.Icon>
-                                                <PathIcon Data="{StaticResource IconFolder}" Width="12" Height="12" Foreground="#3b82f6" />
+                                                <PathIcon Data="{StaticResource IconFolder}" Width="12" Height="12" Foreground="{DynamicResource Accent}" />
                                             </MenuItem.Icon>
                                         </MenuItem>
                                         <MenuItem Header="Cut" Click="OnTreeCutClick">
@@ -367,6 +389,11 @@
                                             </MenuItem.Icon>
                                         </MenuItem>
                                         <Separator />
+                                        <MenuItem Header="Version History..." Click="OnTreeVersionHistoryClick" IsVisible="{Binding !IsDirectory}">
+                                            <MenuItem.Icon>
+                                                <PathIcon Data="{StaticResource IconHistory}" Width="12" Height="12" Foreground="#38bdf8" />
+                                            </MenuItem.Icon>
+                                        </MenuItem>
                                         <MenuItem Header="Delete" Click="OnTreeDeleteClick">
                                             <MenuItem.Icon>
                                                 <PathIcon Data="{StaticResource IconTrash}" Width="12" Height="12" Foreground="#ef4444" />
@@ -380,7 +407,7 @@
                                         <Separator />
                                         <MenuItem Header="Open Trash Bin..." Click="OnOpenTrashBinClick">
                                             <MenuItem.Icon>
-                                                <PathIcon Data="{StaticResource IconTrash}" Width="12" Height="12" Foreground="#9ca3af" />
+                                                <PathIcon Data="{StaticResource IconTrash}" Width="12" Height="12" Foreground="{DynamicResource AppTextSecondary}" />
                                             </MenuItem.Icon>
                                         </MenuItem>
                                     </ContextMenu>
@@ -392,10 +419,10 @@
                                 <Grid Background="Transparent" Height="24" VerticalAlignment="Center" DoubleTapped="OnFolderNodeDoubleTapped">
                                     <!-- Normal Display Mode -->
                                     <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Height="24" IsVisible="{Binding !IsEditing}">
-                                        <PathIcon Data="{StaticResource IconFolder}" Width="13" Height="13" Foreground="#9ca3af" IsVisible="{Binding IsDirectory}" VerticalAlignment="Center" />
-                                        <PathIcon Data="{StaticResource IconDocument}" Width="13" Height="13" Foreground="#9ca3af" IsVisible="{Binding !IsDirectory}" VerticalAlignment="Center" />
+                                        <PathIcon Data="{StaticResource IconFolder}" Width="13" Height="13" Foreground="{DynamicResource AppTextSecondary}" IsVisible="{Binding IsDirectory}" VerticalAlignment="Center" />
+                                        <PathIcon Data="{StaticResource IconDocument}" Width="13" Height="13" Foreground="{DynamicResource AppTextSecondary}" IsVisible="{Binding !IsDirectory}" VerticalAlignment="Center" />
                                         <TextBlock Text="{Binding DisplayName}"
-                                                   Foreground="#e5e7eb"
+                                                   Foreground="{DynamicResource AppTextPrimary}"
                                                    FontSize="13"
                                                    VerticalAlignment="Center"
                                                    DoubleTapped="OnTreeItemTextDoubleTapped"
@@ -404,8 +431,8 @@
 
                                     <!-- Inline Rename Mode -->
                                     <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Height="24" IsVisible="{Binding IsEditing}">
-                                        <PathIcon Data="{StaticResource IconFolder}" Width="13" Height="13" Foreground="#3b82f6" IsVisible="{Binding IsDirectory}" VerticalAlignment="Center" />
-                                        <PathIcon Data="{StaticResource IconDocument}" Width="13" Height="13" Foreground="#3b82f6" IsVisible="{Binding !IsDirectory}" VerticalAlignment="Center" />
+                                        <PathIcon Data="{StaticResource IconFolder}" Width="13" Height="13" Foreground="{DynamicResource Accent}" IsVisible="{Binding IsDirectory}" VerticalAlignment="Center" />
+                                        <PathIcon Data="{StaticResource IconDocument}" Width="13" Height="13" Foreground="{DynamicResource Accent}" IsVisible="{Binding !IsDirectory}" VerticalAlignment="Center" />
                                         <TextBox x:Name="InlineRenameBox"
                                                  Text="{Binding EditingText, Mode=TwoWay}"
                                                  FontSize="13"
@@ -415,9 +442,9 @@
                                                  Margin="-2,0,0,0"
                                                  MinWidth="100"
                                                  MaxWidth="220"
-                                                 Background="#1c2128"
-                                                 Foreground="#f3f4f6"
-                                                 BorderBrush="#388bfd"
+                                                 Background="{DynamicResource AppInputBackground}"
+                                                 Foreground="{DynamicResource AppTextPrimary}"
+                                                 BorderBrush="{DynamicResource Accent}"
                                                  BorderThickness="1"
                                                  CornerRadius="3"
                                                  VerticalAlignment="Center"
@@ -434,22 +461,22 @@
                                                 <Style Selector="TextBox /template/ Border#PART_BorderElement">
                                                     <Setter Property="MinHeight" Value="0" />
                                                     <Setter Property="BorderThickness" Value="1" />
-                                                    <Setter Property="BorderBrush" Value="#388bfd" />
-                                                    <Setter Property="Background" Value="#1c2128" />
+                                                    <Setter Property="BorderBrush" Value="{DynamicResource Accent}" />
+                                                    <Setter Property="Background" Value="{DynamicResource AppInputBackground}" />
                                                     <Setter Property="CornerRadius" Value="3" />
                                                 </Style>
                                                 <Style Selector="TextBox:focus /template/ Border#PART_BorderElement">
                                                     <Setter Property="MinHeight" Value="0" />
                                                     <Setter Property="BorderThickness" Value="1" />
-                                                    <Setter Property="BorderBrush" Value="#58a6ff" />
-                                                    <Setter Property="Background" Value="#161b22" />
+                                                    <Setter Property="BorderBrush" Value="{DynamicResource Accent}" />
+                                                    <Setter Property="Background" Value="{DynamicResource AppInputBackground}" />
                                                     <Setter Property="CornerRadius" Value="3" />
                                                 </Style>
                                                 <Style Selector="TextBox:pointerover /template/ Border#PART_BorderElement">
                                                     <Setter Property="MinHeight" Value="0" />
                                                     <Setter Property="BorderThickness" Value="1" />
-                                                    <Setter Property="BorderBrush" Value="#58a6ff" />
-                                                    <Setter Property="Background" Value="#1c2128" />
+                                                    <Setter Property="BorderBrush" Value="{DynamicResource Accent}" />
+                                                    <Setter Property="Background" Value="{DynamicResource AppInputBackground}" />
                                                     <Setter Property="CornerRadius" Value="3" />
                                                 </Style>
                                             </TextBox.Styles>
@@ -461,19 +488,19 @@
                     </TreeView>
 
                     <!-- Sidebar Footer -->
-                    <Border Grid.Row="2" Padding="10,6" BorderBrush="#2d2d2d" BorderThickness="0,1,0,0" Background="#1a1a1a">
+                    <Border Grid.Row="2" Padding="10,6" BorderBrush="{DynamicResource AppBorder}" BorderThickness="0,1,0,0" Background="{DynamicResource AppHeaderBackground}">
                         <Grid ColumnDefinitions="*,Auto">
-                            <TextBlock Grid.Column="0" Text="{Binding NotesCountText}" Foreground="#6b7280" FontSize="12" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Grid.Column="0" Text="{Binding NotesCountText}" Foreground="{DynamicResource AppTextMuted}" FontSize="12" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                             <Button Grid.Column="1"
                                     Command="{Binding OpenTrashBinCommand}"
                                     Background="Transparent"
-                                    Foreground="#9ca3af"
+                                    Foreground="{DynamicResource AppTextSecondary}"
                                     CornerRadius="4"
                                     Padding="6,4"
                                     ToolTip.Tip="Trash Bin (View &amp; Restore Deleted Notes)">
                                 <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                                    <PathIcon Data="{StaticResource IconTrash}" Width="12" Height="12" Foreground="#9ca3af" VerticalAlignment="Center" />
-                                    <TextBlock Text="Trash" FontSize="11" Foreground="#9ca3af" VerticalAlignment="Center" />
+                                    <PathIcon Data="{StaticResource IconTrash}" Width="12" Height="12" Foreground="{DynamicResource AppTextSecondary}" VerticalAlignment="Center" />
+                                    <TextBlock Text="Trash" FontSize="11" Foreground="{DynamicResource AppTextSecondary}" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Button>
                         </Grid>
@@ -482,7 +509,7 @@
             </Border>
 
             <!-- SPLITTER 1 -->
-            <GridSplitter x:Name="LeftGridSplitter" Grid.Column="1" Width="3" Background="#2d2d2d" ResizeDirection="Columns" IsVisible="{Binding IsLeftSidebarVisible}" />
+            <GridSplitter x:Name="LeftGridSplitter" Grid.Column="1" Width="3" Background="{DynamicResource AppBorder}" ResizeDirection="Columns" IsVisible="{Binding IsLeftSidebarVisible}" />
 
             <!-- COLUMN 2: CENTER EDITOR WORKSPACE (VISUAL EDITORS OR NORMAL EDITOR) -->
             <Grid Grid.Column="2">
@@ -498,10 +525,10 @@
                     </Grid.ColumnDefinitions>
 
                     <!-- === LEFT VISUAL EDITOR PANE === -->
-                    <Border Grid.Column="0" Background="#191919">
-                        <Grid RowDefinitions="Auto,Auto,Auto,*">
+                    <Border Grid.Column="0" Background="{DynamicResource AppBackground}">
+                        <Grid RowDefinitions="Auto,Auto,Auto,Auto,*">
                             <!-- Left Tab Strip -->
-                            <Border Grid.Row="0" Background="#1c1c1c" BorderBrush="#2d2d2d" BorderThickness="0,0,0,1" Padding="4,3,4,0">
+                            <Border Grid.Row="0" Background="{DynamicResource AppSidebarBackground}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="0,0,0,1" Padding="4,3,4,0">
                                 <Grid ColumnDefinitions="*,Auto">
                                     <ScrollViewer x:Name="LeftTabScrollViewer"
                                                   Classes="tab-scroll-viewer"
@@ -562,14 +589,14 @@
                             </Border>
 
                             <!-- Left Note Title Input -->
-                            <Border Grid.Row="1" Padding="28,14,28,4" Background="#191919" BorderBrush="#2d2d2d" BorderThickness="0,0,0,0">
+                            <Border Grid.Row="1" Padding="28,14,28,4" Background="{DynamicResource AppBackground}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="0,0,0,0">
                     <TextBox x:Name="TitleBox"
                              Text="{Binding NoteTitle, Mode=TwoWay}"
                              PlaceholderText="Untitled Note"
                              FontSize="24"
                              FontWeight="Bold"
                              Background="Transparent"
-                             Foreground="#f9fafb"
+                             Foreground="{DynamicResource AppTextPrimary}"
                              BorderThickness="0"
                              Padding="0,4"
                              KeyDown="TitleBox_KeyDown">
@@ -593,12 +620,15 @@
                     </TextBox>
                 </Border>
 
-                <!-- Tags Row (Modern Notion/GitHub Pill Chips) -->
-                <Border Grid.Row="2" Padding="28,4,28,10" Background="#191919" BorderBrush="#262626" BorderThickness="0,0,0,1" IsVisible="{Binding HasCurrentNote}">
-                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <!-- Tags Row (Row 2 - Modern Notion/GitHub Pill Chips) -->
+                <Border Grid.Row="2" Padding="28,4,28,4" Background="{DynamicResource AppBackground}" IsVisible="{Binding HasCurrentNote}">
+                    <ScrollViewer HorizontalScrollBarVisibility="Hidden"
+                                  VerticalScrollBarVisibility="Disabled"
+                                  PointerWheelChanged="TabScrollViewer_PointerWheelChanged">
+                        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                         <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center" Margin="0,0,2,0">
-                            <PathIcon Data="{StaticResource IconTag}" Width="12" Height="12" Foreground="#6b7280" VerticalAlignment="Center" />
-                            <TextBlock Text="Tags" Foreground="#6b7280" FontSize="12" VerticalAlignment="Center" />
+                            <PathIcon Data="{StaticResource IconTag}" Width="12" Height="12" Foreground="{DynamicResource AppTextMuted}" VerticalAlignment="Center" />
+                            <TextBlock Text="Tags" Foreground="{DynamicResource AppTextMuted}" FontSize="12" VerticalAlignment="Center" />
                         </StackPanel>
                         <ItemsControl ItemsSource="{Binding CurrentNoteTags}">
                             <ItemsControl.ItemsPanel>
@@ -610,8 +640,8 @@
                                 <DataTemplate DataType="vm:TagItemViewModel">
                                     <Panel VerticalAlignment="Center">
                                         <!-- 1. STATIC BADGE (when NOT editing) -->
-                                        <Border Background="#21262d"
-                                                BorderBrush="#30363d"
+                                        <Border Background="{DynamicResource AppButtonBackground}"
+                                                BorderBrush="{DynamicResource AppBorder}"
                                                 BorderThickness="1"
                                                 CornerRadius="12"
                                                 Height="24"
@@ -622,14 +652,14 @@
                                                 ToolTip.Tip="Double-click to edit tag"
                                                 VerticalAlignment="Center">
                                             <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                                                <TextBlock Text="#" Foreground="#58a6ff" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" />
-                                                <TextBlock Text="{Binding Name}" Foreground="#c9d1d9" FontSize="11" VerticalAlignment="Center" />
+                                                <TextBlock Text="#" Foreground="{DynamicResource Accent}" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                                <TextBlock Text="{Binding Name}" Foreground="{DynamicResource AppTextPrimary}" FontSize="11" VerticalAlignment="Center" />
                                                 <Button Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).RemoveTagItemCommand}"
                                                         CommandParameter="{Binding}"
                                                         Content="✕"
                                                         Background="Transparent"
                                                         BorderThickness="0"
-                                                        Foreground="#6e7681"
+                                                        Foreground="{DynamicResource AppTextSecondary}"
                                                         FontSize="9"
                                                         Height="18"
                                                         Padding="2,0"
@@ -641,8 +671,8 @@
                                         </Border>
 
                                         <!-- 2. INLINE EDITING PILL (replaces badge in-place when editing) -->
-                                        <Border Background="#161b22"
-                                                BorderBrush="#388bfd"
+                                        <Border Background="{DynamicResource AppInputBackground}"
+                                                BorderBrush="{DynamicResource Accent}"
                                                 BorderThickness="1"
                                                 CornerRadius="12"
                                                 Height="24"
@@ -650,7 +680,7 @@
                                                 IsVisible="{Binding IsEditing}"
                                                 VerticalAlignment="Center">
                                             <StackPanel Orientation="Horizontal" Spacing="3" VerticalAlignment="Center">
-                                                <TextBlock Text="#" Foreground="#58a6ff" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" Margin="2,0,0,0" />
+                                                <TextBlock Text="#" Foreground="{DynamicResource Accent}" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" Margin="2,0,0,0" />
                                                 <TextBox Text="{Binding EditText, Mode=TwoWay}"
                                                          PlaceholderText="tag..."
                                                          FontSize="11"
@@ -658,7 +688,7 @@
                                                          Height="20"
                                                          Padding="2,0"
                                                          Background="Transparent"
-                                                         Foreground="#f0f6fc"
+                                                         Foreground="{DynamicResource AppTextPrimary}"
                                                          BorderThickness="0"
                                                          MinWidth="50"
                                                          MaxWidth="160"
@@ -707,7 +737,7 @@
                                                         Content="✕"
                                                         Background="Transparent"
                                                         BorderThickness="0"
-                                                        Foreground="#8b949e"
+                                                        Foreground="{DynamicResource AppTextSecondary}"
                                                         FontSize="9"
                                                         Height="18"
                                                         Padding="2,0"
@@ -728,11 +758,11 @@
                                 IsVisible="{Binding !IsAddingTag}"
                                 Content="+ Add tag"
                                 Background="Transparent"
-                                BorderBrush="#30363d"
+                                BorderBrush="{DynamicResource AppBorder}"
                                 BorderThickness="1"
                                 CornerRadius="12"
                                 Height="24"
-                                Foreground="#8b949e"
+                                Foreground="{DynamicResource AppTextSecondary}"
                                 FontSize="11"
                                 Padding="8,0"
                                 VerticalAlignment="Center"
@@ -740,8 +770,8 @@
                                 Cursor="Hand" />
 
                         <!-- Inline Pill Input for Adding a NEW Tag -->
-                        <Border Background="#161b22"
-                                BorderBrush="#388bfd"
+                        <Border Background="{DynamicResource AppInputBackground}"
+                                BorderBrush="{DynamicResource Accent}"
                                 BorderThickness="1"
                                 CornerRadius="12"
                                 Height="24"
@@ -749,7 +779,7 @@
                                 IsVisible="{Binding IsAddingTag}"
                                 VerticalAlignment="Center">
                             <StackPanel Orientation="Horizontal" Spacing="3" VerticalAlignment="Center">
-                                <TextBlock Text="#" Foreground="#58a6ff" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" Margin="2,0,0,0" />
+                                <TextBlock Text="#" Foreground="{DynamicResource Accent}" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" Margin="2,0,0,0" />
                                 <TextBox x:Name="TagInputBox"
                                          Text="{Binding NewTagText, Mode=TwoWay}"
                                          PlaceholderText="tag..."
@@ -758,7 +788,7 @@
                                          Height="20"
                                          Padding="2,0"
                                          Background="Transparent"
-                                         Foreground="#f0f6fc"
+                                         Foreground="{DynamicResource AppTextPrimary}"
                                          BorderThickness="0"
                                          MinWidth="60"
                                          MaxWidth="160"
@@ -804,7 +834,7 @@
                                         Content="✕"
                                         Background="Transparent"
                                         BorderThickness="0"
-                                        Foreground="#8b949e"
+                                        Foreground="{DynamicResource AppTextMuted}"
                                         FontSize="9"
                                         Height="18"
                                         Padding="2,0"
@@ -814,35 +844,57 @@
                             </StackPanel>
                         </Border>
                     </StackPanel>
-                </Border>
+                </ScrollViewer>
+            </Border>
 
-                            <!-- Left Visual Editor Canvas -->
-                            <notion:NotionEditorControl x:Name="NotionEditor"
-                                                        Grid.Row="3"
-                                                        IsVisible="{Binding !IsRenameDialogVisible}"
-                                                        HorizontalAlignment="Stretch"
-                                                        VerticalAlignment="Stretch" />
-                        </Grid>
-                    </Border>
+            <!-- Last Modified Property Row (Row 3 - Notion Stacked Property Style) -->
+            <Border Grid.Row="3" Padding="28,2,28,8" Background="{DynamicResource AppBackground}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="0,0,0,1" IsVisible="{Binding HasCurrentNote}">
+                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center" Margin="0,0,2,0">
+                        <PathIcon Data="{StaticResource IconClock}" Width="12" Height="12" Foreground="{DynamicResource AppTextMuted}" VerticalAlignment="Center" />
+                        <TextBlock Text="Updated" Foreground="{DynamicResource AppTextMuted}" FontSize="12" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <Button Command="{Binding OpenBackupHistoryCommand}"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Padding="4,2"
+                            CornerRadius="6"
+                            VerticalAlignment="Center"
+                            Cursor="Hand"
+                            IsVisible="{Binding HasCurrentNoteLastModified}"
+                            ToolTip.Tip="{Binding CurrentNoteLastModifiedFullText}">
+                        <TextBlock Text="{Binding CurrentNoteLastModifiedText}" Foreground="{DynamicResource AppTextSecondary}" FontSize="12" VerticalAlignment="Center" />
+                    </Button>
+                </StackPanel>
+            </Border>
+
+            <!-- Left Visual Editor Canvas (Row 4) -->
+            <notion:NotionEditorControl x:Name="NotionEditor"
+                                        Grid.Row="4"
+                                        IsVisible="{Binding !IsRenameDialogVisible}"
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Stretch" />
+        </Grid>
+    </Border>
 
                     <!-- === SPLITTER BETWEEN LEFT & RIGHT === -->
                     <GridSplitter x:Name="VisualSplitter"
                                   Grid.Column="1"
                                   Width="3"
-                                  Background="#2d2d2d"
+                                  Background="{DynamicResource AppBorder}"
                                   ResizeDirection="Columns"
                                   IsVisible="{Binding IsSplitViewActive}" />
 
                     <!-- === RIGHT VISUAL EDITOR PANE === -->
                     <Border x:Name="RightEditorPane"
                             Grid.Column="2"
-                            Background="#191919"
-                            BorderBrush="#2d2d2d"
+                            Background="{DynamicResource AppBackground}"
+                            BorderBrush="{DynamicResource AppBorder}"
                             BorderThickness="1,0,0,0"
                             IsVisible="{Binding IsSplitViewActive}">
-                        <Grid RowDefinitions="Auto,Auto,Auto,*">
+                        <Grid RowDefinitions="Auto,Auto,Auto,Auto,*">
                             <!-- Right Tab Strip -->
-                            <Border Grid.Row="0" Background="#1c1c1c" BorderBrush="#2d2d2d" BorderThickness="0,0,0,1" Padding="4,3,4,0">
+                            <Border Grid.Row="0" Background="{DynamicResource AppSidebarBackground}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="0,0,0,1" Padding="4,3,4,0">
                                 <Grid ColumnDefinitions="*,Auto">
                                     <ScrollViewer x:Name="RightTabScrollViewer"
                                                   Classes="tab-scroll-viewer"
@@ -875,7 +927,7 @@
                                                                     Content="✕"
                                                                     Background="Transparent"
                                                                     BorderThickness="0"
-                                                                    Foreground="#9ca3af"
+                                                                    Foreground="{DynamicResource AppTextSecondary}"
                                                                     FontSize="10"
                                                                     Padding="4,2"
                                                                     Margin="4,0,0,0"
@@ -897,20 +949,20 @@
                                             CornerRadius="4"
                                             VerticalAlignment="Center"
                                             ToolTip.Tip="Close Split Editor">
-                                        <PathIcon Data="{StaticResource IconClose}" Width="10" Height="10" Foreground="#9ca3af" />
+                                        <PathIcon Data="{StaticResource IconClose}" Width="10" Height="10" Foreground="{DynamicResource AppTextSecondary}" />
                                     </Button>
                                 </Grid>
                             </Border>
 
                             <!-- Right Note Title Input -->
-                            <Border Grid.Row="1" Padding="28,14,28,4" Background="#191919" BorderBrush="#2d2d2d" BorderThickness="0,0,0,0">
+                            <Border Grid.Row="1" Padding="28,14,28,4" Background="{DynamicResource AppBackground}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="0,0,0,0">
                                 <TextBox x:Name="RightTitleBox"
                                          Text="{Binding RightNoteTitle, Mode=TwoWay}"
                                          PlaceholderText="Untitled Note"
                                          FontSize="24"
                                          FontWeight="Bold"
                                          Background="Transparent"
-                                         Foreground="#f9fafb"
+                                         Foreground="{DynamicResource AppTextPrimary}"
                                          BorderThickness="0"
                                          Padding="0,4"
                                          KeyDown="RightTitleBox_KeyDown">
@@ -934,42 +986,67 @@
                                 </TextBox>
                             </Border>
 
-                            <!-- Right Tags Row (Pill Chips) -->
-                            <Border Grid.Row="2" Padding="28,4,28,10" Background="#191919" BorderBrush="#262626" BorderThickness="0,0,0,1" IsVisible="{Binding HasRightCurrentNote}">
+                            <!-- Right Tags Row (Row 2 - Modern Notion/GitHub Pill Chips) -->
+                            <Border Grid.Row="2" Padding="28,4,28,4" Background="{DynamicResource AppBackground}" IsVisible="{Binding HasRightCurrentNote}">
+                                <ScrollViewer HorizontalScrollBarVisibility="Hidden"
+                                              VerticalScrollBarVisibility="Disabled"
+                                              PointerWheelChanged="TabScrollViewer_PointerWheelChanged">
+                                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                        <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center" Margin="0,0,2,0">
+                                            <PathIcon Data="{StaticResource IconTag}" Width="12" Height="12" Foreground="{DynamicResource AppTextMuted}" VerticalAlignment="Center" />
+                                            <TextBlock Text="Tags" Foreground="{DynamicResource AppTextMuted}" FontSize="12" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                        <ItemsControl ItemsSource="{Binding RightCurrentNoteTags}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <StackPanel Orientation="Horizontal" Spacing="6" />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate DataType="vm:TagItemViewModel">
+                                                    <Border Background="{DynamicResource AppButtonBackground}"
+                                                            BorderBrush="{DynamicResource AppBorder}"
+                                                            BorderThickness="1"
+                                                            CornerRadius="12"
+                                                            Height="24"
+                                                            Padding="8,0"
+                                                            VerticalAlignment="Center">
+                                                        <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                                            <TextBlock Text="#" Foreground="{DynamicResource Accent}" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                                            <TextBlock Text="{Binding Name}" Foreground="{DynamicResource AppTextPrimary}" FontSize="11" VerticalAlignment="Center" />
+                                                        </StackPanel>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </Border>
+
+                            <!-- Right Last Modified Property Row (Row 3 - Notion Stacked Property Style) -->
+                            <Border Grid.Row="3" Padding="28,2,28,8" Background="{DynamicResource AppBackground}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="0,0,0,1" IsVisible="{Binding HasRightCurrentNote}">
                                 <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                                     <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center" Margin="0,0,2,0">
-                                        <PathIcon Data="{StaticResource IconTag}" Width="12" Height="12" Foreground="#6b7280" VerticalAlignment="Center" />
-                                        <TextBlock Text="Tags" Foreground="#6b7280" FontSize="12" VerticalAlignment="Center" />
+                                        <PathIcon Data="{StaticResource IconClock}" Width="12" Height="12" Foreground="{DynamicResource AppTextMuted}" VerticalAlignment="Center" />
+                                        <TextBlock Text="Updated" Foreground="{DynamicResource AppTextMuted}" FontSize="12" VerticalAlignment="Center" />
                                     </StackPanel>
-                                    <ItemsControl ItemsSource="{Binding RightCurrentNoteTags}">
-                                        <ItemsControl.ItemsPanel>
-                                            <ItemsPanelTemplate>
-                                                <StackPanel Orientation="Horizontal" Spacing="6" />
-                                            </ItemsPanelTemplate>
-                                        </ItemsControl.ItemsPanel>
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate DataType="vm:TagItemViewModel">
-                                                <Border Background="#21262d"
-                                                        BorderBrush="#30363d"
-                                                        BorderThickness="1"
-                                                        CornerRadius="12"
-                                                        Height="24"
-                                                        Padding="8,0"
-                                                        VerticalAlignment="Center">
-                                                    <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                                                        <TextBlock Text="#" Foreground="#58a6ff" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" />
-                                                        <TextBlock Text="{Binding Name}" Foreground="#c9d1d9" FontSize="11" VerticalAlignment="Center" />
-                                                    </StackPanel>
-                                                </Border>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
+                                    <Button Command="{Binding OpenRightBackupHistoryCommand}"
+                                            Background="Transparent"
+                                            BorderThickness="0"
+                                            Padding="4,2"
+                                            CornerRadius="6"
+                                            VerticalAlignment="Center"
+                                            Cursor="Hand"
+                                            IsVisible="{Binding HasRightCurrentNoteLastModified}"
+                                            ToolTip.Tip="{Binding RightCurrentNoteLastModifiedFullText}">
+                                        <TextBlock Text="{Binding RightCurrentNoteLastModifiedText}" Foreground="{DynamicResource AppTextSecondary}" FontSize="12" VerticalAlignment="Center" />
+                                    </Button>
                                 </StackPanel>
                             </Border>
 
-                            <!-- Right Visual Editor Canvas -->
+                            <!-- Right Visual Editor Canvas (Row 4) -->
                             <notion:NotionEditorControl x:Name="NotionEditorRight"
-                                                        Grid.Row="3"
+                                                        Grid.Row="4"
                                                         IsVisible="{Binding !IsRenameDialogVisible}"
                                                         HorizontalAlignment="Stretch"
                                                         VerticalAlignment="Stretch" />
@@ -980,7 +1057,7 @@
                 <!-- 2. RAW MARKDOWN / NORMAL EDITOR MODE -->
                 <Grid x:Name="EditorWorkspaceGrid" IsVisible="{Binding !IsNotionMode}" RowDefinitions="Auto,Auto,*">
                     <!-- Normal Editor Tab Strip -->
-                    <Border Grid.Row="0" Background="#1c1c1c" BorderBrush="#2d2d2d" BorderThickness="0,0,0,1" Padding="4,3,4,0">
+                    <Border Grid.Row="0" Background="{DynamicResource AppSidebarBackground}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="0,0,0,1" Padding="4,3,4,0">
                         <ScrollViewer Classes="tab-scroll-viewer"
                                       HorizontalScrollBarVisibility="Auto"
                                       VerticalScrollBarVisibility="Disabled"
@@ -1011,7 +1088,7 @@
                                                         Content="✕"
                                                         Background="Transparent"
                                                         BorderThickness="0"
-                                                        Foreground="#9ca3af"
+                                                        Foreground="{DynamicResource AppTextSecondary}"
                                                         FontSize="10"
                                                         Padding="4,2"
                                                         Margin="4,0,0,0"
@@ -1024,16 +1101,34 @@
                         </ScrollViewer>
                     </Border>
 
-                    <!-- Normal Editor Title Input -->
-                    <Border Grid.Row="1" Padding="28,14,28,4" Background="#191919" BorderBrush="#2d2d2d" BorderThickness="0,0,0,0">
-                        <TextBox Text="{Binding NoteTitle, Mode=TwoWay}"
-                                 PlaceholderText="Untitled Note"
-                                 FontSize="24"
-                                 FontWeight="Bold"
-                                 Background="Transparent"
-                                 Foreground="#f9fafb"
-                                 BorderThickness="0"
-                                 Padding="0,4" />
+                    <!-- Normal Editor Title Input & Metadata -->
+                    <Border Grid.Row="1" Padding="28,14,28,4" Background="{DynamicResource AppBackground}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="0,0,0,0">
+                        <Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center">
+                            <TextBox Grid.Column="0" Text="{Binding NoteTitle, Mode=TwoWay}"
+                                     PlaceholderText="Untitled Note"
+                                     FontSize="24"
+                                     FontWeight="Bold"
+                                     Background="Transparent"
+                                     Foreground="{DynamicResource AppTextPrimary}"
+                                     BorderThickness="0"
+                                     Padding="0,4" />
+                            <Button Grid.Column="1"
+                                    Command="{Binding OpenBackupHistoryCommand}"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    Padding="6,3"
+                                    Margin="12,0,0,0"
+                                    CornerRadius="6"
+                                    VerticalAlignment="Center"
+                                    Cursor="Hand"
+                                    IsVisible="{Binding HasCurrentNoteLastModified}"
+                                    ToolTip.Tip="{Binding CurrentNoteLastModifiedFullText}">
+                                <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                                    <PathIcon Data="{StaticResource IconClock}" Width="12" Height="12" Foreground="{DynamicResource AppTextMuted}" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding CurrentNoteLastModifiedText}" Foreground="{DynamicResource AppTextMuted}" FontSize="12" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                        </Grid>
                     </Border>
 
                     <!-- TextEditor and Preview Grid -->
@@ -1051,8 +1146,8 @@
                                          WordWrap="True"
                                          FontFamily="Cascadia Code, Consolas, Courier New, monospace"
                                          FontSize="14"
-                                         Background="#191919"
-                                         Foreground="#e5e7eb"
+                                         Background="{DynamicResource AppBackground}"
+                                         Foreground="{DynamicResource AppTextPrimary}"
                                          HorizontalScrollBarVisibility="Auto"
                                          VerticalScrollBarVisibility="Visible"
                                          Padding="12,8" />
@@ -1061,13 +1156,13 @@
                         <GridSplitter x:Name="EditorSplitter"
                                       Grid.Column="1"
                                       Width="3"
-                                      Background="#2d2d2d"
+                                      Background="{DynamicResource AppBorder}"
                                       ResizeDirection="Columns" />
 
                         <!-- Native Markdig Live Preview -->
                         <ScrollViewer x:Name="PreviewScrollViewer"
                                       Grid.Column="2"
-                                      Background="#1e1e1e"
+                                      Background="{DynamicResource AppBackground}"
                                       HorizontalScrollBarVisibility="Disabled"
                                       VerticalScrollBarVisibility="Auto">
                             <Border x:Name="PreviewContainer"
@@ -1080,19 +1175,19 @@
             </Grid>
 
             <!-- SPLITTER 2 -->
-            <GridSplitter x:Name="RightGridSplitter" Grid.Column="3" Width="3" Background="#2d2d2d" ResizeDirection="Columns" IsVisible="{Binding IsRightSidebarVisible}" />
+            <GridSplitter x:Name="RightGridSplitter" Grid.Column="3" Width="3" Background="{DynamicResource AppBorder}" ResizeDirection="Columns" IsVisible="{Binding IsRightSidebarVisible}" />
 
             <!-- COLUMN 4: DOCUMENT OUTLINE (TABLE OF CONTENTS) -->
-            <Border x:Name="RightSidebarBorder" Grid.Column="4" Background="#1e1e1e" BorderBrush="#2d2d2d" BorderThickness="1,0,0,0" IsVisible="{Binding IsRightSidebarVisible}">
+            <Border x:Name="RightSidebarBorder" Grid.Column="4" Background="{DynamicResource AppSidebarBackground}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="1,0,0,0" IsVisible="{Binding IsRightSidebarVisible}">
                 <Grid RowDefinitions="Auto,*">
                     <!-- Outline Header -->
-                    <Border Grid.Row="0" Padding="12,8" BorderBrush="#2d2d2d" BorderThickness="0,0,0,1">
+                    <Border Grid.Row="0" Padding="12,8" BorderBrush="{DynamicResource AppBorder}" BorderThickness="0,0,0,1">
                         <Grid ColumnDefinitions="*,Auto">
-                            <TextBlock Grid.Column="0" Text="OUTLINE" FontSize="11" FontWeight="Bold" Foreground="#9ca3af" LetterSpacing="1" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="0" Text="OUTLINE" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource AppTextSecondary}" LetterSpacing="1" VerticalAlignment="Center" />
                             <Button Grid.Column="1" Classes="action-btn" Width="24" Height="24" Margin="2,0" Padding="4"
                                     Background="Transparent" BorderThickness="0" CornerRadius="4"
                                     ToolTip.Tip="Collapse Outline" Command="{Binding ToggleRightSidebarCommand}">
-                                <PathIcon Data="{StaticResource IconChevronRight}" Width="12" Height="12" Foreground="#9ca3af" />
+                                <PathIcon Data="{StaticResource IconChevronRight}" Width="12" Height="12" Foreground="{DynamicResource AppTextSecondary}" />
                             </Button>
                         </Grid>
                     </Border>
@@ -1112,14 +1207,14 @@
                             <TreeDataTemplate DataType="models:Heading" ItemsSource="{Binding Children}">
                                 <Border Padding="2,3" Cursor="Hand" PointerPressed="OnOutlineItemPointerPressed">
                                     <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                        <Border CornerRadius="3" Padding="4,1" Background="#2d333b">
+                                        <Border CornerRadius="3" Padding="4,1" Background="{DynamicResource AppButtonBackground}">
                                             <TextBlock Text="{Binding Level, StringFormat='H{0}'}"
                                                        FontSize="10"
                                                        FontWeight="Bold"
-                                                       Foreground="#60a5fa" />
+                                                       Foreground="{DynamicResource Accent}" />
                                         </Border>
                                         <TextBlock Text="{Binding Text}"
-                                                   Foreground="#d1d5db"
+                                                   Foreground="{DynamicResource AppTextPrimary}"
                                                    FontSize="12"
                                                    VerticalAlignment="Center"
                                                    TextTrimming="CharacterEllipsis" />
@@ -1133,24 +1228,24 @@
         </Grid>
 
         <!-- 3. BOTTOM STATUS BAR -->
-        <Border Grid.Row="2" Background="#181818" BorderBrush="#2d2d2d" BorderThickness="0,1,0,0" Padding="16,6">
+        <Border Grid.Row="2" Background="{DynamicResource AppStatusBarBackground}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="0,1,0,0" Padding="16,6">
             <Grid ColumnDefinitions="Auto,*,Auto,Auto">
-                <TextBlock Grid.Column="0" Text="{Binding StatusText}" Foreground="#9ca3af" FontSize="12" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="0" Text="{Binding StatusText}" Foreground="{DynamicResource AppTextSecondary}" FontSize="12" VerticalAlignment="Center" />
 
-                <!-- Center/Right: OneDrive Cloud Sync Status Badge & Switcher Button -->
-                <Button Grid.Column="1" Command="{Binding ShowProfileDialogCommand}"
+                <!-- Center/Right: Cloud Sync Status Badge & Switcher Button -->
+                <Button Grid.Column="1" Command="{Binding CloudStatusClickCommand}"
                         Background="Transparent" BorderThickness="0" Padding="6,2" Cursor="Hand"
                         HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,24,0"
                         ToolTip.Tip="{Binding CloudSyncTooltip}">
                     <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                        <PathIcon Data="{StaticResource IconCloud}" Width="13" Height="13" Foreground="#3b82f6" VerticalAlignment="Center" />
-                        <TextBlock Text="{Binding CloudSyncStatusText}" Foreground="#9ca3af" FontSize="12" VerticalAlignment="Center" />
+                        <PathIcon Data="{StaticResource IconCloud}" Width="13" Height="13" Foreground="{DynamicResource Accent}" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding CloudSyncStatusText}" Foreground="{DynamicResource AppTextSecondary}" FontSize="12" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
 
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
-                    <TextBlock Text="{Binding WordCountText}" Foreground="#6b7280" FontSize="12" />
-                    <TextBlock Text="{Binding LineCountText}" Foreground="#6b7280" FontSize="12" />
+                    <TextBlock Text="{Binding WordCountText}" Foreground="{DynamicResource AppTextMuted}" FontSize="12" />
+                    <TextBlock Text="{Binding LineCountText}" Foreground="{DynamicResource AppTextMuted}" FontSize="12" />
                 </StackPanel>
             </Grid>
         </Border>
@@ -1158,17 +1253,17 @@
         <!-- 5. MODAL DIALOG OVERLAYS -->
         <!-- Rename Dialog -->
         <Grid Grid.Row="0" Grid.RowSpan="4" Background="#80000000" IsVisible="{Binding IsRenameDialogVisible}">
-            <Border Width="380" Background="#242424" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="8" Padding="20" HorizontalAlignment="Center" VerticalAlignment="Center">
+            <Border Width="380" Background="{DynamicResource AppCardBackground}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="1" CornerRadius="8" Padding="20" HorizontalAlignment="Center" VerticalAlignment="Center">
                 <StackPanel Spacing="14">
-                    <TextBlock Text="{Binding RenameDialogTitle}" FontWeight="SemiBold" FontSize="15" Foreground="#f3f4f6" />
+                    <TextBlock Text="{Binding RenameDialogTitle}" FontWeight="SemiBold" FontSize="15" Foreground="{DynamicResource AppTextPrimary}" />
                     <TextBox x:Name="RenameInputBox" Text="{Binding RenameDialogInput, Mode=TwoWay}"
                              KeyDown="RenameInputBox_KeyDown"
-                             Background="#1a1a1a" Foreground="#f3f4f6" BorderBrush="#3f3f46" BorderThickness="1" CornerRadius="4" Padding="8,6" FontSize="14" />
+                             Background="{DynamicResource AppInputBackground}" Foreground="{DynamicResource AppTextPrimary}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="1" CornerRadius="4" Padding="8,6" FontSize="14" />
                     <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
                         <Button Content="Cancel" Command="{Binding CancelRenameCommand}"
-                                Background="Transparent" Foreground="#9ca3af" BorderThickness="0" Padding="12,6" Cursor="Hand" />
+                                Background="Transparent" Foreground="{DynamicResource AppTextSecondary}" BorderThickness="0" Padding="12,6" Cursor="Hand" />
                         <Button Content="Rename" Command="{Binding ConfirmRenameCommand}"
-                                Background="#2563eb" Foreground="White" BorderThickness="0" CornerRadius="4" Padding="16,6" FontWeight="SemiBold" Cursor="Hand" />
+                                Background="{DynamicResource Accent}" Foreground="{DynamicResource AccentForeground}" BorderThickness="0" CornerRadius="4" Padding="16,6" FontWeight="SemiBold" Cursor="Hand" />
                     </StackPanel>
                 </StackPanel>
             </Border>

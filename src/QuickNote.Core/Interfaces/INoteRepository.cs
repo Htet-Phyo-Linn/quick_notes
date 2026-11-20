@@ -16,5 +16,9 @@ namespace QuickNote.Core.Interfaces
         Task UpdateNoteAsync(NoteDocument note);
         Task DeleteNoteAsync(Guid id);
         Task<bool> NoteExistsAsync(Guid id);
+        Task<List<NoteDocument>?> GetCachedNotesAsync();
+        Task SaveNoteFastAsync(NoteDocument note, string? oldFullPath = null);
+        Task FlushPendingWritesAsync();
+        Task<IEnumerable<NoteDocument>> ReconcileDiskNotesAsync();
     }
 }

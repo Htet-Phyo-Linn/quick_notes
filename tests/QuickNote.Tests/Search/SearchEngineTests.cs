@@ -83,5 +83,36 @@ namespace QuickNote.Tests.Search
             Assert.Single(results);
             Assert.Equal("Broker VM", results[0].NoteTitle);
         }
+
+        [Fact]
+        public void Search_DeduplicatesIdenticalFilePaths()
+        {
+            var doc1 = _parser.Parse("C:/Notes/Essentials CMD.md", "# Essentials CMD\nWindows command line tools.");
+            var doc2 = _parser.Parse("C:/Notes/Essentials CMD.md", "# Essentials CMD\nWindows command line tools copy.");
+
+            _engine.IndexDocument(doc1);
+            _engine.IndexDocument(doc2);
+
+            var results = _engine.Search("essentials cmd").ToList();
+
+            Assert.Single(results);
+            Assert.Equal("Essentials CMD", results[0].NoteTitle);
+        }
+
+        [Fact]
+        public void Clear_RemovesAllIndexedDocumentsAcrossProfileSwitch()
+        {
+            var doc1 = _parser.Parse("C:/OneDrive/Work/Note.md", "# Work Secret\nOnly in work profile.");
+            _engine.IndexDocument(doc1);
+
+            var beforeClear = _engine.Search("work secret").ToList();
+            Assert.Single(beforeClear);
+
+            // Simulate switching to Google Drive profile
+            _engine.Clear();
+
+            var afterClear = _engine.Search("work secret").ToList();
+            Assert.Empty(afterClear);
+        }
     }
 }

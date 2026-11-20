@@ -36,12 +36,14 @@ namespace QuickNote.Core.Interfaces
     {
         List<OneDriveAccountInfo> DetectOneDriveAccounts();
         Task<bool> EnableOneDriveSyncAsync(OneDriveAccountInfo account, bool migrateExistingNotes, string currentNotesRoot);
+        Task<bool> EnableGoogleDriveSyncAsync(string targetPath, bool migrateExistingNotes, string currentNotesRoot) => Task.FromResult(false);
         Task<bool> DisableOneDriveSyncAsync(string localDocumentsNotesRoot);
         CloudSyncStatus GetSyncStatus();
         event EventHandler<CloudSyncStatus>? SyncStatusChanged;
 
         // In-App Direct Cloud Sync & Microsoft Authentication
         bool IsAuthenticated => false;
+        bool IsSyncing => false;
         string? UserEmail => null;
         string? UserName => null;
         DateTime? LastSyncTime => null;
@@ -49,5 +51,7 @@ namespace QuickNote.Core.Interfaces
         Task<bool> CompleteSignInAsync(string code, string codeVerifier) => Task.FromResult(false);
         Task SignOutAsync() => Task.CompletedTask;
         Task<SyncResult> TriggerSyncAsync() => Task.FromResult(SyncResult.Ok(0, 0, 0));
+        void RecordFileMoved(string oldRelPath, string newRelPath) { }
+        void RecordFileDeleted(string relPath) { }
     }
 }

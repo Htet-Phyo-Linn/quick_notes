@@ -74,6 +74,9 @@ namespace QuickNote.Avalonia.ViewModels
         partial void OnRightCurrentNoteChanged(NoteDocument? oldValue, NoteDocument? newValue)
         {
             OnPropertyChanged(nameof(HasRightCurrentNote));
+            OnPropertyChanged(nameof(HasRightCurrentNoteLastModified));
+            OnPropertyChanged(nameof(RightCurrentNoteLastModifiedText));
+            OnPropertyChanged(nameof(RightCurrentNoteLastModifiedFullText));
 
             if (newValue == null)
             {
@@ -87,6 +90,15 @@ namespace QuickNote.Avalonia.ViewModels
             }
 
             _isRightInternalChange = true;
+            if (string.IsNullOrEmpty(newValue.Content) && !string.IsNullOrEmpty(newValue.FullPath) && System.IO.File.Exists(newValue.FullPath))
+            {
+                try
+                {
+                    newValue.Content = System.IO.File.ReadAllText(newValue.FullPath);
+                }
+                catch { }
+            }
+
             var (extractedTitle, bodyContent) = SeparateTitleAndBody(
                 newValue.Content ?? string.Empty, newValue.Title);
 
@@ -126,6 +138,7 @@ namespace QuickNote.Avalonia.ViewModels
         partial void OnRightNoteTitleChanged(string value)
         {
             if (_isRightInternalChange || RightCurrentNote == null) return;
+            NotifyUserActivity();
 
             RightCurrentNote.Title = value;
             if (RightActiveTab != null)
@@ -160,6 +173,7 @@ namespace QuickNote.Avalonia.ViewModels
         partial void OnRightEditorContentChanged(string value)
         {
             if (_isRightInternalChange || RightCurrentNote == null) return;
+            NotifyUserActivity();
 
             RightMarkdownRenderRequested?.Invoke(value);
             _isRightModified = true;

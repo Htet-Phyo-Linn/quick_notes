@@ -1,14 +1,18 @@
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
 using System.Threading.Tasks;
 using QuickNote.Core.Interfaces;
+using QuickNote.Infrastructure.FileSystem;
+using QuickNote.Infrastructure.Security;
 
 namespace QuickNote.Infrastructure.Configuration
 {
     public class JsonSettingsService : ISettingsService
     {
         private readonly string _settingsFilePath;
+        private readonly AtomicFileWriter _atomicFileWriter = new();
         private AppSettings _settings;
 
         public AppSettings Settings => _settings;
@@ -26,6 +30,35 @@ namespace QuickNote.Infrastructure.Configuration
             LoadSettingsSync(notesRoot);
         }
 
+        private void DecryptSensitiveTokens(AppSettings settings)
+        {
+            if (!string.IsNullOrEmpty(settings.GoogleDriveRefreshToken))
+                settings.GoogleDriveRefreshToken = SecureStorageHelper.Unprotect(settings.GoogleDriveRefreshToken);
+
+            if (!string.IsNullOrEmpty(settings.GoogleDriveClientSecret))
+                settings.GoogleDriveClientSecret = SecureStorageHelper.Unprotect(settings.GoogleDriveClientSecret);
+
+            if (!string.IsNullOrEmpty(settings.OneDriveRefreshToken))
+                settings.OneDriveRefreshToken = SecureStorageHelper.Unprotect(settings.OneDriveRefreshToken);
+        }
+
+        private AppSettings CreateEncryptedClone(AppSettings source)
+        {
+            var json = JsonSerializer.Serialize(source);
+            var clone = JsonSerializer.Deserialize<AppSettings>(json) ?? new AppSettings();
+
+            if (!string.IsNullOrEmpty(clone.GoogleDriveRefreshToken))
+                clone.GoogleDriveRefreshToken = SecureStorageHelper.Protect(clone.GoogleDriveRefreshToken);
+
+            if (!string.IsNullOrEmpty(clone.GoogleDriveClientSecret))
+                clone.GoogleDriveClientSecret = SecureStorageHelper.Protect(clone.GoogleDriveClientSecret);
+
+            if (!string.IsNullOrEmpty(clone.OneDriveRefreshToken))
+                clone.OneDriveRefreshToken = SecureStorageHelper.Protect(clone.OneDriveRefreshToken);
+
+            return clone;
+        }
+
         private void LoadSettingsSync(string fallbackNotesRoot)
         {
             try
@@ -36,6 +69,7 @@ namespace QuickNote.Infrastructure.Configuration
                     var loaded = JsonSerializer.Deserialize<AppSettings>(json);
                     if (loaded != null)
                     {
+                        DecryptSensitiveTokens(loaded);
                         _settings = loaded;
                     }
                 }
@@ -49,13 +83,17 @@ namespace QuickNote.Infrastructure.Configuration
                         var loaded = JsonSerializer.Deserialize<AppSettings>(json);
                         if (loaded != null)
                         {
+                            DecryptSensitiveTokens(loaded);
                             _settings = loaded;
-                            File.WriteAllText(_settingsFilePath, json);
+                            _ = SaveSettingsAsync();
                         }
                     }
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[JsonSettingsService] LoadSettingsSync error: {ex.Message}");
+            }
 
             if (string.IsNullOrWhiteSpace(_settings.NotesRoot))
             {
@@ -73,21 +111,29 @@ namespace QuickNote.Infrastructure.Configuration
                     var loaded = JsonSerializer.Deserialize<AppSettings>(json);
                     if (loaded != null)
                     {
+                        DecryptSensitiveTokens(loaded);
                         _settings = loaded;
                     }
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[JsonSettingsService] LoadSettingsAsync error: {ex.Message}");
+            }
         }
 
         public async Task SaveSettingsAsync()
         {
             try
             {
-                var json = JsonSerializer.Serialize(_settings, new JsonSerializerOptions { WriteIndented = true });
-                await File.WriteAllTextAsync(_settingsFilePath, json);
+                var encryptedCopy = CreateEncryptedClone(_settings);
+                var json = JsonSerializer.Serialize(encryptedCopy, new JsonSerializerOptions { WriteIndented = true });
+                await _atomicFileWriter.WriteAllTextAsync(_settingsFilePath, json);
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[JsonSettingsService] SaveSettingsAsync error: {ex.Message}");
+            }
         }
     }
 }

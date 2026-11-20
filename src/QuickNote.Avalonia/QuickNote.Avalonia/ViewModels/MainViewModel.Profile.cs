@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
 using QuickNote.Core.Interfaces;
+using QuickNote.Core.Utilities;
 
 namespace QuickNote.Avalonia.ViewModels
 {
@@ -22,7 +23,8 @@ namespace QuickNote.Avalonia.ViewModels
             foreach (var acc in detected)
             {
                 var targetPath = acc.DefaultNotesPath;
-                bool isActive = string.Equals(Path.GetFullPath(activePath).TrimEnd('\\', '/'),
+                bool isActive = !_settingsService.Settings.IsGoogleDriveSyncEnabled &&
+                                string.Equals(Path.GetFullPath(activePath).TrimEnd('\\', '/'),
                                               Path.GetFullPath(targetPath).TrimEnd('\\', '/'),
                                               StringComparison.OrdinalIgnoreCase);
 
@@ -33,18 +35,47 @@ namespace QuickNote.Avalonia.ViewModels
                     Path = targetPath,
                     IsBusiness = acc.IsBusiness,
                     IsLocal = false,
+                    IsGoogleDrive = false,
                     IsActive = isActive,
                     OneDriveAccount = acc
                 };
                 AvailableProfiles.Add(profile);
             }
 
-            // 2. Add Local Storage (My Documents\QuickNote)
-            var localDocumentsPath = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-                "QuickNote");
+            // 2. Add Google Drive Cloud Storage (Requirement 2)
+            var defaultGoogleDrivePath = !string.IsNullOrWhiteSpace(_settingsService.Settings.GoogleDriveNotesPath)
+                && !_settingsService.Settings.GoogleDriveNotesPath.Contains("OneDrive", StringComparison.OrdinalIgnoreCase)
+                ? _settingsService.Settings.GoogleDriveNotesPath
+                : StoragePathHelper.GetDefaultGoogleDriveNotesPath();
 
-            bool isLocalActive = string.Equals(Path.GetFullPath(activePath).TrimEnd('\\', '/'),
+            bool isGoogleActive = _settingsService.Settings.IsGoogleDriveSyncEnabled ||
+                                  string.Equals(Path.GetFullPath(activePath).TrimEnd('\\', '/'),
+                                                Path.GetFullPath(defaultGoogleDrivePath).TrimEnd('\\', '/'),
+                                                StringComparison.OrdinalIgnoreCase);
+
+            var googleEmail = _settingsService.Settings.GoogleDriveUserEmail;
+            var googleDisplay = !string.IsNullOrWhiteSpace(googleEmail)
+                ? $"Google Drive ({googleEmail})"
+                : (_cloudSyncService.IsAuthenticated ? "Google Drive (Connected)" : "Google Drive");
+
+            AvailableProfiles.Add(new ProfileItemViewModel
+            {
+                DisplayName = googleDisplay,
+                AccountType = "Google Drive (Cloud Sync)",
+                Path = defaultGoogleDrivePath,
+                IsBusiness = false,
+                IsLocal = false,
+                IsGoogleDrive = true,
+                IsActive = isGoogleActive,
+                IsSignedIn = _cloudSyncService.IsAuthenticated,
+                OneDriveAccount = null
+            });
+
+            // 3. Add Local Storage (Documents\QuickNote-Local)
+            var localDocumentsPath = StoragePathHelper.GetDefaultLocalNotesPath();
+
+            bool isLocalActive = !_settingsService.Settings.IsGoogleDriveSyncEnabled &&
+                                 string.Equals(Path.GetFullPath(activePath).TrimEnd('\\', '/'),
                                                Path.GetFullPath(localDocumentsPath).TrimEnd('\\', '/'),
                                                StringComparison.OrdinalIgnoreCase);
 
@@ -54,11 +85,12 @@ namespace QuickNote.Avalonia.ViewModels
             {
                 AvailableProfiles.Add(new ProfileItemViewModel
                 {
-                    DisplayName = "Local Storage (My Documents)",
+                    DisplayName = "Local Storage (Documents)",
                     AccountType = "Local (Offline)",
                     Path = localDocumentsPath,
                     IsBusiness = false,
                     IsLocal = true,
+                    IsGoogleDrive = false,
                     IsActive = isLocalActive,
                     OneDriveAccount = null
                 });
@@ -66,6 +98,7 @@ namespace QuickNote.Avalonia.ViewModels
 
             SelectedProfile = AvailableProfiles.FirstOrDefault(p => p.IsActive) ?? AvailableProfiles.FirstOrDefault();
             MigrateNotesOnSwitch = false;
+            ProfileDialogTabIndex = 1;
             IsProfileDialogVisible = true;
         }
 
@@ -92,9 +125,16 @@ namespace QuickNote.Avalonia.ViewModels
                               Path.GetFullPath(targetPath).TrimEnd('\\', '/'),
                               StringComparison.OrdinalIgnoreCase))
             {
-                // Already on this profile
-                IsProfileDialogVisible = false;
-                return;
+                bool isProviderChanging = (target.IsGoogleDrive && !_settingsService.Settings.IsGoogleDriveSyncEnabled) ||
+                                          (target.OneDriveAccount != null && !_settingsService.Settings.IsOneDriveSyncEnabled) ||
+                                          (target.IsLocal && (_settingsService.Settings.IsGoogleDriveSyncEnabled || _settingsService.Settings.IsOneDriveSyncEnabled));
+
+                if (!isProviderChanging)
+                {
+                    // Already on this profile and provider
+                    IsProfileDialogVisible = false;
+                    return;
+                }
             }
 
             IsProfileDialogVisible = false;
@@ -109,9 +149,41 @@ namespace QuickNote.Avalonia.ViewModels
                 }
 
                 // 2. Switch Cloud Sync / Local storage & migrate if requested
-                if (target.OneDriveAccount != null)
+                if (target.IsGoogleDrive)
                 {
-                    await _cloudSyncService.EnableOneDriveSyncAsync(target.OneDriveAccount, migrate, _notesRoot);
+                    if (migrate && Directory.Exists(_notesRoot) &&
+                        !string.Equals(Path.GetFullPath(_notesRoot).TrimEnd('\\', '/'),
+                                       Path.GetFullPath(targetPath).TrimEnd('\\', '/'),
+                                       StringComparison.OrdinalIgnoreCase))
+                    {
+                        await Task.Run(() => CopyDirectory(_notesRoot, targetPath));
+                    }
+
+                    _settingsService.Settings.IsGoogleDriveSyncEnabled = true;
+                    _settingsService.Settings.IsOneDriveSyncEnabled = false;
+                    _settingsService.Settings.GoogleDriveNotesPath = targetPath;
+                    await _cloudSyncService.EnableGoogleDriveSyncAsync(targetPath, false, _notesRoot);
+                    if (_cloudSyncService.IsAuthenticated)
+                    {
+                        _ = _cloudSyncService.TriggerSyncAsync();
+                    }
+                    else
+                    {
+                        OpenGoogleDriveLogin();
+                    }
+                }
+                else if (target.OneDriveAccount != null)
+                {
+                    if (migrate && Directory.Exists(_notesRoot) &&
+                        !string.Equals(Path.GetFullPath(_notesRoot).TrimEnd('\\', '/'),
+                                       Path.GetFullPath(targetPath).TrimEnd('\\', '/'),
+                                       StringComparison.OrdinalIgnoreCase))
+                    {
+                        await Task.Run(() => CopyDirectory(_notesRoot, targetPath));
+                    }
+
+                    _settingsService.Settings.IsGoogleDriveSyncEnabled = false;
+                    await _cloudSyncService.EnableOneDriveSyncAsync(target.OneDriveAccount, false, _notesRoot);
                 }
                 else
                 {
@@ -122,6 +194,8 @@ namespace QuickNote.Avalonia.ViewModels
                     {
                         await Task.Run(() => CopyDirectory(_notesRoot, targetPath));
                     }
+
+                    _settingsService.Settings.IsGoogleDriveSyncEnabled = false;
                     await _cloudSyncService.DisableOneDriveSyncAsync(targetPath);
                 }
 
@@ -134,6 +208,7 @@ namespace QuickNote.Avalonia.ViewModels
                 _noteRepository.UpdateNotesRoot(targetPath);
                 _fileWatcher.UpdateWatchDirectory(targetPath);
                 _trashBinService.UpdateNotesRoot(targetPath);
+                _backupService.UpdateNotesRoot(targetPath);
 
                 // 5. Clear active tab & reload workspace
                 OpenTabs.Clear();
@@ -186,6 +261,14 @@ namespace QuickNote.Avalonia.ViewModels
                     subDir.Name.Equals("bin", StringComparison.OrdinalIgnoreCase) ||
                     subDir.Name.Equals("obj", StringComparison.OrdinalIgnoreCase))
                 {
+                    continue;
+                }
+
+                if (subDir.Name.Equals("QuickNote", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Prevent recursive nesting of QuickNote inside QuickNote.
+                    // Copy children directly into targetDir instead of creating a nested QuickNote folder.
+                    CopyDirectory(subDir.FullName, targetDir);
                     continue;
                 }
 

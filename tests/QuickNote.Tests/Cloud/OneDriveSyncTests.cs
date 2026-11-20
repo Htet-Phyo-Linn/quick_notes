@@ -186,6 +186,10 @@ namespace QuickNote.Tests.Cloud
             public Task UpdateNoteAsync(NoteDocument note) => Task.CompletedTask;
             public Task DeleteNoteAsync(Guid id) => Task.CompletedTask;
             public Task<bool> NoteExistsAsync(Guid id) => Task.FromResult(false);
+            public Task<List<NoteDocument>?> GetCachedNotesAsync() => Task.FromResult<List<NoteDocument>?>(null);
+            public Task SaveNoteFastAsync(NoteDocument note, string? oldFullPath = null) => Task.CompletedTask;
+            public Task FlushPendingWritesAsync() => Task.CompletedTask;
+            public Task<IEnumerable<NoteDocument>> ReconcileDiskNotesAsync() => GetAllNotesAsync();
         }
 
         private class FakeFileWatcher : IFileWatcher

@@ -8,7 +8,7 @@
         Width="1050" Height="680"
         MinWidth="750" MinHeight="450"
         WindowStartupLocation="CenterScreen"
-        Background="#191919">
+        Background="{DynamicResource AppBackground}">
 
     <Window.KeyBindings>
         <KeyBinding Gesture="Ctrl+N" Command="{Binding NewNoteCommand}" />

@@ -2,12 +2,37 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="using:QuickNote.Avalonia"
              x:Class="QuickNote.Avalonia.App"
-             RequestedThemeVariant="Default">
-             <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
+             RequestedThemeVariant="Dark">
+             <!-- Dynamic theme resources managed at runtime by ThemeManager -->
 
     <Application.DataTemplates>
         <local:ViewLocator />
     </Application.DataTemplates>
+
+    <Application.Resources>
+        <!-- Dynamic Theme Tokens (Initialized to Android Dark / Liquid Space; overridable at runtime) -->
+        <SolidColorBrush x:Key="AppBackground">#0b0e14</SolidColorBrush>
+        <SolidColorBrush x:Key="AppHeaderBackground">#141a24</SolidColorBrush>
+        <SolidColorBrush x:Key="AppSidebarBackground">#111622</SolidColorBrush>
+        <SolidColorBrush x:Key="AppCardBackground">#161c26</SolidColorBrush>
+        <SolidColorBrush x:Key="AppBorder">#283548</SolidColorBrush>
+        <SolidColorBrush x:Key="AppBorderSubtle">#1e2634</SolidColorBrush>
+        <SolidColorBrush x:Key="AppTextPrimary">#f8fafc</SolidColorBrush>
+        <SolidColorBrush x:Key="AppTextSecondary">#8c97a8</SolidColorBrush>
+        <SolidColorBrush x:Key="AppTextMuted">#5a6678</SolidColorBrush>
+        <SolidColorBrush x:Key="AppInputBackground">#161c26</SolidColorBrush>
+        <SolidColorBrush x:Key="AppButtonBackground">#1e2634</SolidColorBrush>
+        <SolidColorBrush x:Key="AppHover">#1d2738</SolidColorBrush>
+        <SolidColorBrush x:Key="AppActiveTab">#161c26</SolidColorBrush>
+        <SolidColorBrush x:Key="AppInactiveTab">#0e131d</SolidColorBrush>
+        <SolidColorBrush x:Key="AppStatusBarBackground">#0d121b</SolidColorBrush>
+        <SolidColorBrush x:Key="AppDivider">#222d3e</SolidColorBrush>
+        <SolidColorBrush x:Key="AppSelectedBackground">#1a3454</SolidColorBrush>
+        <SolidColorBrush x:Key="Accent">#3390ec</SolidColorBrush>
+        <SolidColorBrush x:Key="AccentForeground">#ffffff</SolidColorBrush>
+        <SolidColorBrush x:Key="EditorBackground">#0b0e14</SolidColorBrush>
+        <SolidColorBrush x:Key="EditorForeground">#f8fafc</SolidColorBrush>
+    </Application.Resources>
 
     <Application.Styles>
         <FluentTheme />

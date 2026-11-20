@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using QuickNote.Core.Interfaces;
 using QuickNote.Core.Models;
+using QuickNote.Core.Utilities;
 using QuickNote.Infrastructure.Interfaces;
 
 namespace QuickNote.Infrastructure.Cloud
@@ -18,6 +19,7 @@ namespace QuickNote.Infrastructure.Cloud
         public event EventHandler<CloudSyncStatus>? SyncStatusChanged;
 
         public bool IsAuthenticated => _syncEngine.IsAuthenticated;
+        public bool IsSyncing => _syncEngine.IsSyncing;
         public string? UserEmail => _syncEngine.UserEmail;
         public string? UserName => _syncEngine.UserName;
         public DateTime? LastSyncTime => _syncEngine.LastSyncTime;
@@ -91,6 +93,74 @@ namespace QuickNote.Infrastructure.Cloud
             await _settingsService.SaveSettingsAsync();
             RefreshStatus();
             return true;
+        }
+
+        public async Task<bool> EnableGoogleDriveSyncAsync(string targetPath, bool migrateExistingNotes, string currentNotesRoot)
+        {
+            if (string.IsNullOrWhiteSpace(targetPath))
+            {
+                targetPath = StoragePathHelper.GetDefaultGoogleDriveNotesPath();
+            }
+
+            if (!Directory.Exists(targetPath))
+            {
+                Directory.CreateDirectory(targetPath);
+            }
+
+            if (migrateExistingNotes && Directory.Exists(currentNotesRoot) &&
+                !string.Equals(Path.GetFullPath(currentNotesRoot).TrimEnd('\\', '/'),
+                               Path.GetFullPath(targetPath).TrimEnd('\\', '/'),
+                               StringComparison.OrdinalIgnoreCase))
+            {
+                await Task.Run(() => CopyDirectory(currentNotesRoot, targetPath));
+            }
+
+            _settingsService.Settings.IsGoogleDriveSyncEnabled = true;
+            _settingsService.Settings.GoogleDriveNotesPath = targetPath;
+            _settingsService.Settings.NotesRoot = targetPath;
+            await _settingsService.SaveSettingsAsync();
+
+            _noteRepository.UpdateNotesRoot(targetPath);
+            _fileWatcher.UpdateWatchDirectory(targetPath);
+
+            RefreshStatus();
+            return true;
+        }
+
+        private static void CopyDirectory(string sourceDir, string targetDir)
+        {
+            var source = new DirectoryInfo(sourceDir);
+            var target = new DirectoryInfo(targetDir);
+            Directory.CreateDirectory(target.FullName);
+
+            foreach (var file in source.GetFiles())
+            {
+                if (file.Name.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase) ||
+                    file.Name.EndsWith(".draft", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                if (file.Name.StartsWith(".") && !string.Equals(source.Name, ".assets", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var dest = Path.Combine(target.FullName, file.Name);
+                if (!File.Exists(dest) || file.LastWriteTimeUtc > File.GetLastWriteTimeUtc(dest))
+                {
+                    file.CopyTo(dest, true);
+                }
+            }
+
+            foreach (var subDir in source.GetDirectories())
+            {
+                if (subDir.Name.Equals(".trash", StringComparison.OrdinalIgnoreCase) ||
+                    subDir.Name.Equals(".recovery", StringComparison.OrdinalIgnoreCase) ||
+                    subDir.Name.Equals(".git", StringComparison.OrdinalIgnoreCase) ||
+                    subDir.Name.Equals("bin", StringComparison.OrdinalIgnoreCase) ||
+                    subDir.Name.Equals("obj", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var nextTarget = target.CreateSubdirectory(subDir.Name);
+                CopyDirectory(subDir.FullName, nextTarget.FullName);
+            }
         }
 
         public async Task<bool> DisableOneDriveSyncAsync(string localDocumentsNotesRoot)

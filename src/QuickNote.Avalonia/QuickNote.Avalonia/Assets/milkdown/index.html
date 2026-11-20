@@ -39,31 +39,76 @@
           window.executeAction(action);
         }
       };
+      var currentStyleVariant = 'android';
+      window.setThemeVariant = function(variant) {
+        currentStyleVariant = (variant === 'windows') ? 'windows' : 'android';
+        window.setTheme(window.__currentTheme || (document.body.classList.contains('theme-light') ? 'light' : 'dark'));
+      };
+      window.setCustomThemeColors = function(bg, fg, accent) {
+        if (bg) {
+          document.documentElement.style.setProperty('--theme-bg', bg);
+          document.body.style.setProperty('background-color', bg, 'important');
+          var container = document.getElementById('editor-container');
+          if (container) container.style.setProperty('background-color', bg, 'important');
+        }
+        if (fg) {
+          document.documentElement.style.setProperty('--theme-fg', fg);
+          document.body.style.setProperty('color', fg, 'important');
+          var container = document.getElementById('editor-container');
+          if (container) container.style.setProperty('color', fg, 'important');
+        }
+        if (accent) {
+          document.documentElement.style.setProperty('--theme-accent', accent);
+          document.documentElement.style.setProperty('--crepe-color-primary', accent);
+        }
+      };
       window.setTheme = function(theme) {
+        window.__currentTheme = theme;
         var isLight = (theme === 'light');
         document.documentElement.setAttribute('data-theme', theme);
         document.documentElement.style.colorScheme = theme;
+        var isWindows = (currentStyleVariant === 'windows');
         if (isLight) {
           document.body.classList.remove('theme-dark');
           document.body.classList.add('theme-light');
-          document.body.style.backgroundColor = '#f0f4f9';
+          var bg = isWindows ? '#ffffff' : '#f0f4f9';
+          document.body.style.backgroundColor = bg;
           document.body.style.color = '#0f172a';
           var container = document.getElementById('editor-container');
           if (container) {
-            container.style.backgroundColor = '#f0f4f9';
+            container.style.backgroundColor = bg;
             container.style.color = '#0f172a';
           }
         } else {
           document.body.classList.remove('theme-light');
           document.body.classList.add('theme-dark');
-          document.body.style.backgroundColor = '#0b0e14';
-          document.body.style.color = '#f8fafc';
+          var bg = isWindows ? '#11141c' : '#0b0e14';
+          var fg = isWindows ? '#f1f5f9' : '#f8fafc';
+          document.body.style.backgroundColor = bg;
+          document.body.style.color = fg;
           var container = document.getElementById('editor-container');
           if (container) {
-            container.style.backgroundColor = '#0b0e14';
-            container.style.color = '#f8fafc';
+            container.style.backgroundColor = bg;
+            container.style.color = fg;
           }
         }
+      };
+      window.setSpellCheck = function(enabled) {
+        window.__spellCheckEnabled = !!enabled;
+        document.body.spellcheck = !!enabled;
+        var targets = document.querySelectorAll('#editor-container, .milkdown, [contenteditable], textarea, input');
+        targets.forEach(function(el) {
+          el.setAttribute('spellcheck', enabled ? 'true' : 'false');
+          el.spellcheck = !!enabled;
+        });
+        if (!enabled) {
+          document.documentElement.classList.add('no-spellcheck');
+        } else {
+          document.documentElement.classList.remove('no-spellcheck');
+        }
+      };
+      window.setIgnoredWords = function(words) {
+        window.__ignoredWords = Array.isArray(words) ? words : [];
       };
     })();
   </script>
@@ -91,19 +136,19 @@
     /* ── Theming Overrides for Milkdown & ProseMirror ── */
     /* Light Mode */
     html[data-theme="light"], body.theme-light {
-      background-color: #f0f4f9 !important;
-      color: #0f172a !important;
+      background-color: var(--theme-bg, #f0f4f9) !important;
+      color: var(--theme-fg, #0f172a) !important;
     }
     html[data-theme="light"] #editor-container,
     body.theme-light #editor-container {
-      background-color: #f0f4f9 !important;
-      color: #0f172a !important;
+      background-color: var(--theme-bg, #f0f4f9) !important;
+      color: var(--theme-fg, #0f172a) !important;
       scrollbar-color: #cbd5e1 transparent;
     }
     html[data-theme="light"] .milkdown,
     body.theme-light .milkdown {
-      --crepe-color-background: #f0f4f9 !important;
-      --crepe-color-on-background: #0f172a !important;
+      --crepe-color-background: var(--theme-bg, #f0f4f9) !important;
+      --crepe-color-on-background: var(--theme-fg, #0f172a) !important;
       --crepe-color-surface: #ffffff !important;
       --crepe-color-surface-low: #e2e8f0 !important;
       --crepe-color-on-surface: #1e293b !important;
@@ -328,19 +373,19 @@
 
     /* Dark Mode (Telegram Liquid Midnight) */
     html[data-theme="dark"], body.theme-dark {
-      background-color: #0b0e14 !important;
-      color: #f8fafc !important;
+      background-color: var(--theme-bg, #0b0e14) !important;
+      color: var(--theme-fg, #f8fafc) !important;
     }
     html[data-theme="dark"] #editor-container,
     body.theme-dark #editor-container {
-      background-color: #0b0e14 !important;
-      color: #f8fafc !important;
+      background-color: var(--theme-bg, #0b0e14) !important;
+      color: var(--theme-fg, #f8fafc) !important;
       scrollbar-color: #374151 transparent;
     }
     html[data-theme="dark"] .milkdown,
     body.theme-dark .milkdown {
-      --crepe-color-background: #0b0e14 !important;
-      --crepe-color-on-background: #f8fafc !important;
+      --crepe-color-background: var(--theme-bg, #0b0e14) !important;
+      --crepe-color-on-background: var(--theme-fg, #f8fafc) !important;
       --crepe-color-surface: #141a24 !important;
       --crepe-color-surface-low: #10151f !important;
       --crepe-color-on-surface: #e2e8f0 !important;

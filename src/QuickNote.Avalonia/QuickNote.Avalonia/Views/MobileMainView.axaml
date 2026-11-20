@@ -4,6 +4,7 @@
              xmlns:views="using:QuickNote.Avalonia.Views"
              xmlns:notion="using:QuickNote.Avalonia.Notion"
              xmlns:controls="using:Avalonia.Controls"
+             xmlns:models="using:QuickNote.Core.Models"
              x:Class="QuickNote.Avalonia.Views.MobileMainView"
              x:Name="Root"
              x:DataType="views:MobileMainView"
@@ -40,7 +41,12 @@
         <StreamGeometry x:Key="IconDotsVertical">M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z</StreamGeometry>
         <StreamGeometry x:Key="IconImage">M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z</StreamGeometry>
         <StreamGeometry x:Key="IconChevronUp">M12 8l-6 6 1.41 1.41L12 10.83l4.59 4.58L18 14z</StreamGeometry>
+        <StreamGeometry x:Key="IconChevronRight">M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z</StreamGeometry>
+        <StreamGeometry x:Key="IconHistory">M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0 0 13 21a9 9 0 0 0 0-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z</StreamGeometry>
+        <StreamGeometry x:Key="IconRestore">M14 12c0-1.1-.9-2-2-2s-2 .9-2 2 .9 2 2 2 2-.9 2-2zm-2-9a9 9 0 0 0-9 9H0l4 4 4-4H5c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7a6.97 6.97 0 0 1-5.06-2.2L5.5 17.2A8.96 8.96 0 0 0 12 21a9 9 0 0 0 0-18z</StreamGeometry>
+        <StreamGeometry x:Key="IconClock">M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z</StreamGeometry>
         <StreamGeometry x:Key="IconTerminal">M20 4H4c-1.11 0-2 .89-2 2v12c0 1.1.89 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.11-.89-2-2-2zm0 14H4V8h16v10zm-2-1h-6v-2h6v2zM7.5 17l-1.41-1.41L8.67 13l-2.58-2.59L7.5 9l4 4-4 4z</StreamGeometry>
+        <StreamGeometry x:Key="IconSpinner">M12 2 A 10 10 0 1 1 4.93 4.93 L 6.34 6.34 A 8 8 0 1 0 12 4 Z</StreamGeometry>
     </UserControl.Resources>
 
     <UserControl.Styles>
@@ -57,32 +63,104 @@
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Background" Value="Transparent" />
         </Style>
+        <!-- TreeView / ListBox Selection Card Styles -->
+        <Style Selector="Border.FolderNodeCard">
+            <Setter Property="Background" Value="{DynamicResource AppCardBackground}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource AppBorder}" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+        <Style Selector="Border.FolderNodeCard.NodeSelected">
+            <Setter Property="Background" Value="#1a2d48" />
+            <Setter Property="BorderBrush" Value="#3390ec" />
+            <Setter Property="BorderThickness" Value="1.5" />
+        </Style>
+        <Style Selector="Border.FlatNoteCard">
+            <Setter Property="Background" Value="{DynamicResource AppCardBackground}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource AppBorder}" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+        <Style Selector="Border.FlatNoteCard.Selected">
+            <Setter Property="Background" Value="#1a2d48" />
+            <Setter Property="BorderBrush" Value="#3390ec" />
+            <Setter Property="BorderThickness" Value="1.5" />
+        </Style>
     </UserControl.Styles>
 
     <Grid>
-        <!-- FLOATING TOAST NOTIFICATION CAPSULE (Issue 4) -->
+        <!-- FLOATING TOAST / SYNCING NOTIFICATION CARD (Top Pill Web-Style UX, Circular Spinner, Anti-Overflow, Dismissible) -->
         <Border x:Name="ToastCapsule"
                 IsVisible="False"
                 VerticalAlignment="Top"
                 HorizontalAlignment="Center"
-                Margin="0,18,0,0"
-                Padding="16,9"
-                CornerRadius="24"
-                Background="{Binding FloatingBarBackgroundBrush}"
-                BorderBrush="{Binding GlassBorderBrush}"
-                BorderThickness="1"
-                BoxShadow="0 8 32 #50000000"
-                ZIndex="1000">
+                MaxWidth="360"
+                Margin="16,64,16,0"
+                Padding="14,10"
+                CornerRadius="20"
+                Background="#F0141a24"
+                BorderBrush="{Binding AccentBrush}"
+                BorderThickness="1.5"
+                BoxShadow="0 8 28 #80000000"
+                ZIndex="4000">
             <Border.Transitions>
                 <Transitions>
-                    <DoubleTransition Property="Opacity" Duration="0:0:0.2" />
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.25" />
                 </Transitions>
             </Border.Transitions>
-            <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                <ProgressBar x:Name="ToastProgressBar" IsIndeterminate="True" Width="18" Height="18" VerticalAlignment="Center" IsVisible="False" />
-                <PathIcon x:Name="ToastIcon" Data="{StaticResource IconCheck}" Width="16" Height="16" Foreground="#10b981" VerticalAlignment="Center" />
-                <TextBlock x:Name="ToastMessageText" Text="Sync complete" FontSize="13" FontWeight="SemiBold" Foreground="{Binding TextPrimaryBrush}" VerticalAlignment="Center" />
-            </StackPanel>
+            <Grid ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
+                <!-- Left: Circular Spinner or Completion Icon -->
+                <Panel Grid.Column="0" Margin="0,0,10,0" VerticalAlignment="Center">
+                    <!-- Circular Spinner Ring (Rotating during sync) -->
+                    <Border x:Name="ToastSpinnerContainer" Width="24" Height="24" VerticalAlignment="Center" IsVisible="False">
+                        <PathIcon x:Name="ToastSpinnerIcon"
+                                  Data="{StaticResource IconSpinner}"
+                                  Width="18"
+                                  Height="18"
+                                  Foreground="{Binding AccentBrush}"
+                                  HorizontalAlignment="Center"
+                                  VerticalAlignment="Center"
+                                  RenderTransformOrigin="50%,50%" />
+                    </Border>
+
+                    <!-- Status Icon (Checkmark or Error Close) -->
+                    <Border x:Name="ToastIconContainer" Width="24" Height="24" CornerRadius="12" Background="#2010b981" VerticalAlignment="Center">
+                        <PathIcon x:Name="ToastIcon" Data="{StaticResource IconCheck}" Width="13" Height="13" Foreground="#10b981" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                </Panel>
+
+                <!-- Center: Status / Progress Text (Strictly bounded, wraps or trims) -->
+                <TextBlock Grid.Column="1"
+                           x:Name="ToastMessageText"
+                           Text="Sync complete"
+                           FontSize="12"
+                           FontWeight="SemiBold"
+                           Foreground="#f8fafc"
+                           TextWrapping="Wrap"
+                           MaxLines="2"
+                           TextTrimming="CharacterEllipsis"
+                           VerticalAlignment="Center"
+                           MinWidth="50" />
+
+                <!-- Right: Close Button to dismiss toast -->
+                <Button Grid.Column="2"
+                        Width="30"
+                        Height="30"
+                        Margin="8,0,0,0"
+                        Padding="0"
+                        Background="#25ffffff"
+                        BorderThickness="0"
+                        CornerRadius="15"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Center"
+                        Click="OnCloseToastClick"
+                        ToolTip.Tip="Close Notification">
+                    <PathIcon Data="{StaticResource IconClose}"
+                              Width="12"
+                              Height="12"
+                              Foreground="#ffffff"
+                              HorizontalAlignment="Center"
+                              VerticalAlignment="Center" />
+                </Button>
+            </Grid>
         </Border>
         <!-- SCREEN 1: GOOGLE KEEP STYLE NOTES FEED -->
         <Grid x:Name="NotesFeedScreen" RowDefinitions="Auto,Auto,*,Auto" Background="{Binding AppBackgroundBrush}" IsVisible="True">
@@ -104,7 +182,8 @@
                             Height="48"
                             Padding="12,0"
                             BoxShadow="0 4 20 #25000000">
-                        <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+                        <Panel>
+                            <Grid ColumnDefinitions="Auto,*,Auto,Auto">
                             <!-- Hamburger Menu Button (opens Left Sidebar) -->
                             <Button Grid.Column="0"
                                     x:Name="HamburgerButton"
@@ -175,8 +254,36 @@
                                               Height="15"
                                               Foreground="{Binding CloudSyncIconBrush}" />
                                 </Border>
+
+                                <!-- Settings & Dictionary Icon Button -->
+                                <Border Background="{Binding ChipUnselectedBackgroundBrush}"
+                                        CornerRadius="16"
+                                        Padding="7"
+                                        VerticalAlignment="Center"
+                                        Cursor="Hand"
+                                        Tapped="OnOpenSettingsModalClick"
+                                        ToolTip.Tip="Settings, Themes &amp; Dictionary">
+                                    <PathIcon Data="{StaticResource IconSettings}"
+                                              Width="15"
+                                              Height="15"
+                                              Foreground="{Binding TextSecondaryBrush}" />
+                                </Border>
                             </StackPanel>
                         </Grid>
+
+                        <!-- Modern Google Keep Style Hairline Sync Progress Line -->
+                        <ProgressBar x:Name="TopSyncProgressBar"
+                                     IsIndeterminate="True"
+                                     Height="2"
+                                     VerticalAlignment="Bottom"
+                                     HorizontalAlignment="Stretch"
+                                     Margin="14,0,14,0"
+                                     Foreground="{Binding AccentBrush}"
+                                     Background="Transparent"
+                                     BorderThickness="0"
+                                     CornerRadius="0,0,12,12"
+                                     IsVisible="False" />
+                        </Panel>
                     </Border>
 
                     <!-- Selection Mode: Contextual Action Top Bar -->
@@ -255,7 +362,13 @@
                     </StackPanel>
                 </Border>
 
-                <ScrollViewer Grid.Row="1" x:Name="NotesScrollViewer" Padding="14,4,14,14">
+                <!-- Notes Card Staggered Grid Feed (Visible in Grid View) -->
+                <ScrollViewer Grid.Row="1"
+                              x:Name="NotesScrollViewer"
+                              IsVisible="{Binding IsGridFeedVisible}"
+                              Padding="14,4,14,14"
+                              IsScrollInertiaEnabled="True"
+                              IsScrollChainingEnabled="False">
                     <ItemsControl ItemsSource="{Binding FilteredNotes}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
@@ -270,16 +383,11 @@
                                         BorderThickness="{Binding EffectiveBorderThickness}"
                                         Padding="14,12"
                                         ClipToBounds="True"
-                                        BoxShadow="0 2 12 #14000000"
                                         PointerPressed="OnNoteCardPointerPressed"
+                                        PointerMoved="OnNoteCardPointerMoved"
                                         PointerReleased="OnNoteCardPointerReleased"
                                         PointerCaptureLost="OnNoteCardPointerCaptureLost"
                                         Tapped="OnNoteCardTapped">
-                                    <Border.Transitions>
-                                        <Transitions>
-                                            <BrushTransition Property="BorderBrush" Duration="0:0:0.18" />
-                                        </Transitions>
-                                    </Border.Transitions>
                                     <Grid RowDefinitions="Auto,*,Auto,Auto">
                                         <!-- Header: Title + Category badge or Selection Checkmark -->
                                         <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,4">
@@ -345,8 +453,8 @@
                                             </ItemsControl.ItemsPanel>
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate>
-                                                    <Border Background="{Binding ElementName=Root, Path=ChipUnselectedBackgroundBrush}" CornerRadius="6" Padding="6,2" Margin="0,0,4,4">
-                                                        <TextBlock Text="{Binding StringFormat='#{0}'}" FontSize="10" Foreground="{Binding ElementName=Root, Path=ChipUnselectedTextBrush}" />
+                                                    <Border Background="{DynamicResource AppSelectedBackground}" CornerRadius="6" Padding="6,2" Margin="0,0,4,4">
+                                                        <TextBlock Text="{Binding StringFormat='#{0}'}" FontSize="10" Foreground="{DynamicResource AppTextSecondary}" />
                                                     </Border>
                                                 </DataTemplate>
                                             </ItemsControl.ItemTemplate>
@@ -364,6 +472,260 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                 </ScrollViewer>
+
+                <!-- Windows-Style Collapsible Folder Hierarchy & File List (Visible in List View) -->
+                <TreeView Grid.Row="1"
+                          x:Name="MobileFolderTreeView"
+                          ItemsSource="{Binding FolderNodes}"
+                          IsVisible="{Binding IsFolderTreeVisible}"
+                          Background="Transparent"
+                          Padding="14,4,14,14"
+                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                          ScrollViewer.VerticalScrollBarVisibility="Auto"
+                          ScrollViewer.IsScrollInertiaEnabled="True">
+                    <TreeView.Styles>
+                        <Style Selector="TreeViewItem" x:DataType="models:FolderNode">
+                            <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
+                            <Setter Property="MinHeight" Value="44" />
+                            <Setter Property="Padding" Value="0" />
+                            <Setter Property="Margin" Value="0,2,0,2" />
+                            <Setter Property="Background" Value="Transparent" />
+                            <Setter Property="BorderThickness" Value="0" />
+                        </Style>
+                        <Style Selector="TreeViewItem /template/ Border#PART_LayoutRoot">
+                            <Setter Property="Background" Value="Transparent" />
+                            <Setter Property="BorderThickness" Value="0" />
+                            <Setter Property="Padding" Value="0" />
+                            <Setter Property="MinHeight" Value="44" />
+                        </Style>
+                        <!-- Hide external chevron completely so cards span flush with symmetrical margins -->
+                        <Style Selector="TreeViewItem /template/ ToggleButton#PART_ExpandCollapseChevron">
+                            <Setter Property="IsVisible" Value="False" />
+                            <Setter Property="Width" Value="0" />
+                            <Setter Property="Height" Value="0" />
+                            <Setter Property="Margin" Value="0" />
+                        </Style>
+                        <!-- Remove default ugly TreeViewItem selected/focus highlight -->
+                        <Style Selector="TreeViewItem:selected /template/ Border#PART_LayoutRoot">
+                            <Setter Property="Background" Value="Transparent" />
+                            <Setter Property="BorderThickness" Value="0" />
+                        </Style>
+                        <Style Selector="TreeViewItem:pointerover /template/ Border#PART_LayoutRoot">
+                            <Setter Property="Background" Value="Transparent" />
+                            <Setter Property="BorderThickness" Value="0" />
+                        </Style>
+                        <Style Selector="TreeViewItem:focus /template/ Border#PART_LayoutRoot">
+                            <Setter Property="Background" Value="Transparent" />
+                            <Setter Property="BorderThickness" Value="0" />
+                        </Style>
+                        <!-- Rotate internal chevron when folder expands -->
+                        <Style Selector="TreeViewItem:expanded PathIcon.FolderChevron">
+                            <Setter Property="RenderTransform">
+                                <RotateTransform Angle="180" />
+                            </Setter>
+                        </Style>
+                    </TreeView.Styles>
+                    <TreeView.ItemTemplate>
+                        <TreeDataTemplate DataType="models:FolderNode" ItemsSource="{Binding Children}">
+                            <Border Classes="FolderNodeCard"
+                                    Classes.NodeSelected="{Binding IsSelected}"
+                                    CornerRadius="12"
+                                    MinHeight="48"
+                                    Margin="0,3,0,3"
+                                    Padding="12,8"
+                                    VerticalAlignment="Center"
+                                    Tapped="OnFolderNodeRowTapped"
+                                    PointerPressed="OnFolderNodePointerPressed"
+                                    PointerMoved="OnFolderNodePointerMoved"
+                                    PointerReleased="OnFolderNodePointerReleased"
+                                    PointerCaptureLost="OnFolderNodePointerCaptureLost">
+                                <Grid ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
+                                    <!-- Left Section: Folder Chevron + Icon Badge -->
+                                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="0,0,10,0">
+                                        <!-- Inline folder expand/collapse chevron -->
+                                        <Border Width="18" Height="18" VerticalAlignment="Center" IsVisible="{Binding IsDirectory}">
+                                            <PathIcon Classes="FolderChevron"
+                                                      Data="{StaticResource IconChevronUp}"
+                                                      Width="12"
+                                                      Height="12"
+                                                      Foreground="{DynamicResource AppTextSecondary}"
+                                                      VerticalAlignment="Center"
+                                                      HorizontalAlignment="Center"
+                                                      RenderTransformOrigin="50%,50%">
+                                                <PathIcon.RenderTransform>
+                                                    <RotateTransform Angle="90" />
+                                                </PathIcon.RenderTransform>
+                                            </PathIcon>
+                                        </Border>
+
+                                        <!-- Folder (amber) or Document (blue) Icon Badge -->
+                                        <Border Width="30" Height="30" CornerRadius="8" Background="#14f59e0b" IsVisible="{Binding IsDirectory}" VerticalAlignment="Center">
+                                            <PathIcon Data="{StaticResource IconFolder}"
+                                                      Width="18"
+                                                      Height="18"
+                                                      Foreground="#f59e0b"
+                                                      VerticalAlignment="Center"
+                                                      HorizontalAlignment="Center" />
+                                        </Border>
+                                        <Border Width="30" Height="30" CornerRadius="8" Background="#1438bdf8" IsVisible="{Binding !IsDirectory}" VerticalAlignment="Center">
+                                            <PathIcon Data="{StaticResource IconDocument}"
+                                                      Width="16"
+                                                      Height="16"
+                                                      Foreground="#38bdf8"
+                                                      VerticalAlignment="Center"
+                                                      HorizontalAlignment="Center" />
+                                        </Border>
+                                    </StackPanel>
+
+                                    <!-- Display Name (File Name or Folder Name) -->
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding DisplayName}"
+                                               FontSize="15"
+                                               FontWeight="SemiBold"
+                                               Foreground="{DynamicResource AppTextPrimary}"
+                                               VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis" />
+
+                                    <!-- Right Section: Folder Note Count Chip or Selection Checkbox -->
+                                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="6,0,0,0">
+                                        <!-- Folder note count chip (visible only for directories) -->
+                                        <Border IsVisible="{Binding IsDirectory}"
+                                                Background="#143b82f6"
+                                                CornerRadius="8"
+                                                Padding="7,2"
+                                                VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Children.Count, StringFormat='{}{0}'}"
+                                                       FontSize="11"
+                                                       FontWeight="Bold"
+                                                       Foreground="#60a5fa" />
+                                        </Border>
+
+                                        <!-- Selection Checkbox (visible in selection mode) -->
+                                        <Border IsVisible="{Binding $parent[views:MobileMainView].IsSelectionMode}"
+                                                Width="22"
+                                                Height="22"
+                                                CornerRadius="11"
+                                                VerticalAlignment="Center">
+                                            <Panel>
+                                                <!-- Unselected Circle Outline -->
+                                                <Border Width="22" Height="22" CornerRadius="11"
+                                                        BorderThickness="1.5"
+                                                        BorderBrush="#4b5563"
+                                                        Background="Transparent"
+                                                        IsVisible="{Binding !IsSelected}" />
+                                                <!-- Selected Filled Circle with Checkmark -->
+                                                <Border Width="22" Height="22" CornerRadius="11"
+                                                        Background="#3390ec"
+                                                        IsVisible="{Binding IsSelected}">
+                                                    <PathIcon Data="{StaticResource IconCheck}"
+                                                              Width="12"
+                                                              Height="12"
+                                                              Foreground="#ffffff"
+                                                              HorizontalAlignment="Center"
+                                                              VerticalAlignment="Center" />
+                                                </Border>
+                                            </Panel>
+                                        </Border>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </TreeDataTemplate>
+                    </TreeView.ItemTemplate>
+                </TreeView>
+
+                <!-- Flat File List when searching/filtering in List View (Virtualized) -->
+                <ListBox Grid.Row="1"
+                         x:Name="FlatFileListListBox"
+                         ItemsSource="{Binding FilteredNotes}"
+                         IsVisible="{Binding IsFlatFileListVisible}"
+                         Background="Transparent"
+                         Padding="14,4,14,14"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         ScrollViewer.VerticalScrollBarVisibility="Auto"
+                         ScrollViewer.IsScrollInertiaEnabled="True">
+                    <ListBox.Styles>
+                        <Style Selector="ListBoxItem">
+                            <Setter Property="Padding" Value="0" />
+                            <Setter Property="Margin" Value="0,0,0,8" />
+                            <Setter Property="Background" Value="Transparent" />
+                            <Setter Property="BorderThickness" Value="0" />
+                        </Style>
+                        <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+                            <Setter Property="Background" Value="Transparent" />
+                        </Style>
+                        <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
+                            <Setter Property="Background" Value="Transparent" />
+                        </Style>
+                    </ListBox.Styles>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="views:MobileNoteItem">
+                            <Border CornerRadius="12"
+                                    Classes="FlatNoteCard"
+                                    Classes.Selected="{Binding IsSelected}"
+                                    Padding="12,8"
+                                    MinHeight="48"
+                                    Margin="0,3,0,3"
+                                    Tapped="OnFlatFileNoteTapped"
+                                    PointerPressed="OnFlatFilePointerPressed"
+                                    PointerMoved="OnFlatFilePointerMoved"
+                                    PointerReleased="OnFlatFilePointerReleased"
+                                    PointerCaptureLost="OnFlatFilePointerCaptureLost">
+                                <Grid ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
+                                    <Border Grid.Column="0" Width="30" Height="30" CornerRadius="8" Background="#1438bdf8" Margin="0,0,10,0" VerticalAlignment="Center">
+                                        <PathIcon Data="{StaticResource IconDocument}"
+                                                  Width="16"
+                                                  Height="16"
+                                                  Foreground="#38bdf8"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center" />
+                                    </Border>
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding Title}"
+                                               FontSize="15"
+                                               FontWeight="SemiBold"
+                                               Foreground="{DynamicResource AppTextPrimary}"
+                                               VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis" />
+                                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                        <Border Background="{DynamicResource AppHover}"
+                                                CornerRadius="6"
+                                                Padding="6,2"
+                                                VerticalAlignment="Center"
+                                                IsVisible="{Binding HasFolderName}">
+                                            <TextBlock Text="{Binding FolderName}"
+                                                       FontSize="11"
+                                                       Foreground="{DynamicResource AppTextSecondary}" />
+                                        </Border>
+                                        <!-- Selection Checkbox -->
+                                        <Border IsVisible="{Binding $parent[views:MobileMainView].IsSelectionMode}"
+                                                Width="22"
+                                                Height="22"
+                                                CornerRadius="11"
+                                                VerticalAlignment="Center">
+                                            <Panel>
+                                                <Border Width="22" Height="22" CornerRadius="11"
+                                                        BorderThickness="1.5"
+                                                        BorderBrush="#4b5563"
+                                                        Background="Transparent"
+                                                        IsVisible="{Binding !IsSelected}" />
+                                                <Border Width="22" Height="22" CornerRadius="11"
+                                                        Background="#3390ec"
+                                                        IsVisible="{Binding IsSelected}">
+                                                    <PathIcon Data="{StaticResource IconCheck}"
+                                                              Width="12"
+                                                              Height="12"
+                                                              Foreground="#ffffff"
+                                                              HorizontalAlignment="Center"
+                                                              VerticalAlignment="Center" />
+                                                </Border>
+                                            </Panel>
+                                        </Border>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
 
                 <!-- Empty State (When no notes match) -->
                 <StackPanel IsVisible="{Binding IsNotesEmpty}"
@@ -479,43 +841,52 @@
                     </Grid>
 
                     <!-- Selection Mode: Move, Copy, Delete Actions -->
-                    <Grid IsVisible="{Binding IsSelectionMode}" ColumnDefinitions="*,*,*">
+                    <Grid IsVisible="{Binding IsSelectionMode}" ColumnDefinitions="*,*,*" VerticalAlignment="Center">
                         <!-- Move Action -->
                         <Button Grid.Column="0"
                                 Click="OnBatchMoveNotesClick"
-                                Background="Transparent"
-                                HorizontalAlignment="Center"
-                                Padding="12,4"
-                                CornerRadius="10">
+                                Background="#143b82f6"
+                                BorderBrush="#203b82f6"
+                                BorderThickness="1"
+                                HorizontalAlignment="Stretch"
+                                Margin="3,0"
+                                Padding="8,5"
+                                CornerRadius="16">
                             <StackPanel Orientation="Vertical" Spacing="2" HorizontalAlignment="Center">
-                                <PathIcon Data="{StaticResource IconFolder}" Width="18" Height="18" Foreground="{Binding AccentBrush}" HorizontalAlignment="Center" />
-                                <TextBlock Text="Move" FontSize="11" FontWeight="SemiBold" Foreground="{Binding TextPrimaryBrush}" HorizontalAlignment="Center" />
+                                <PathIcon Data="{StaticResource IconFolder}" Width="16" Height="16" Foreground="#3b82f6" HorizontalAlignment="Center" />
+                                <TextBlock Text="Move" FontSize="11" FontWeight="SemiBold" Foreground="#93c5fd" HorizontalAlignment="Center" />
                             </StackPanel>
                         </Button>
 
                         <!-- Copy Action -->
                         <Button Grid.Column="1"
                                 Click="OnBatchCopyNotesClick"
-                                Background="Transparent"
-                                HorizontalAlignment="Center"
-                                Padding="12,4"
-                                CornerRadius="10">
+                                Background="#148b5cf6"
+                                BorderBrush="#208b5cf6"
+                                BorderThickness="1"
+                                HorizontalAlignment="Stretch"
+                                Margin="3,0"
+                                Padding="8,5"
+                                CornerRadius="16">
                             <StackPanel Orientation="Vertical" Spacing="2" HorizontalAlignment="Center">
-                                <PathIcon Data="{StaticResource IconCopy}" Width="18" Height="18" Foreground="#a78bfa" HorizontalAlignment="Center" />
-                                <TextBlock Text="Copy" FontSize="11" FontWeight="SemiBold" Foreground="{Binding TextPrimaryBrush}" HorizontalAlignment="Center" />
+                                <PathIcon Data="{StaticResource IconCopy}" Width="16" Height="16" Foreground="#a78bfa" HorizontalAlignment="Center" />
+                                <TextBlock Text="Copy" FontSize="11" FontWeight="SemiBold" Foreground="#c4b5fd" HorizontalAlignment="Center" />
                             </StackPanel>
                         </Button>
 
                         <!-- Delete Action -->
                         <Button Grid.Column="2"
                                 Click="OnBatchDeleteNotesClick"
-                                Background="Transparent"
-                                HorizontalAlignment="Center"
-                                Padding="12,4"
-                                CornerRadius="10">
+                                Background="#14ef4444"
+                                BorderBrush="#20ef4444"
+                                BorderThickness="1"
+                                HorizontalAlignment="Stretch"
+                                Margin="3,0"
+                                Padding="8,5"
+                                CornerRadius="16">
                             <StackPanel Orientation="Vertical" Spacing="2" HorizontalAlignment="Center">
-                                <PathIcon Data="{StaticResource IconTrash}" Width="18" Height="18" Foreground="#ef4444" HorizontalAlignment="Center" />
-                                <TextBlock Text="Delete" FontSize="11" FontWeight="SemiBold" Foreground="#ef4444" HorizontalAlignment="Center" />
+                                <PathIcon Data="{StaticResource IconTrash}" Width="16" Height="16" Foreground="#ef4444" HorizontalAlignment="Center" />
+                                <TextBlock Text="Delete" FontSize="11" FontWeight="SemiBold" Foreground="#fca5a5" HorizontalAlignment="Center" />
                             </StackPanel>
                         </Button>
                     </Grid>
@@ -524,7 +895,7 @@
         </Grid>
 
         <!-- SCREEN 2: NATIVE ANDROID NOTE EDITOR -->
-        <Grid x:Name="NoteEditorScreen" RowDefinitions="Auto,Auto,*,Auto" Background="{Binding AppBackgroundBrush}" IsVisible="False">
+        <Grid x:Name="NoteEditorScreen" RowDefinitions="Auto,Auto,Auto,*,Auto" Background="{Binding AppBackgroundBrush}" IsVisible="False">
             <Grid.Transitions>
                 <Transitions>
                     <DoubleTransition Property="Opacity" Duration="0:0:0.15" />
@@ -550,13 +921,22 @@
                              x:Name="NoteTitleTextBox"
                              Text="{Binding ActiveNoteTitle, Mode=TwoWay}"
                              PlaceholderText="Note Title"
-                             FontSize="17"
+                             FontSize="22"
                              FontWeight="Bold"
                              Foreground="{Binding TextPrimaryBrush}"
                              Background="Transparent"
                              BorderThickness="0"
+                             MinHeight="38"
+                             MaxHeight="80"
+                             TextWrapping="Wrap"
+                             AcceptsReturn="False"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto"
+                             Padding="4,2"
                              VerticalAlignment="Center"
-                             Margin="4,0" />
+                             VerticalContentAlignment="Center"
+                             Margin="4,0"
+                             KeyDown="OnNoteTitleKeyDown" />
 
                     <!-- 3-Dots More Menu Button (Issue 6: Copy, Move, Delete) -->
                     <Button Grid.Column="2"
@@ -573,7 +953,7 @@
                 </Grid>
             </Border>
 
-            <!-- Tags Bar in Note Editor (like Windows software) -->
+            <!-- Tags Bar in Note Editor (Full width scrollable like Windows software) -->
             <Border Grid.Row="1" x:Name="EditorTagsBar" Background="{Binding GlassSurfaceBrush}" BorderBrush="{Binding GlassBorderBrush}" BorderThickness="0,0,0,1" Padding="12,6,12,6">
                 <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
                     <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
@@ -650,14 +1030,43 @@
                 </ScrollViewer>
             </Border>
 
+            <!-- Last Modified Property Row on Android (Dedicated New Line like Windows) -->
+            <Border Grid.Row="2"
+                    x:Name="EditorLastModifiedBar"
+                    Background="{Binding GlassSurfaceBrush}"
+                    BorderBrush="{Binding GlassBorderBrush}"
+                    BorderThickness="0,0,0,1"
+                    Padding="12,4,12,6"
+                    IsVisible="{Binding HasCurrentNoteLastModified}">
+                <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center" Margin="0,0,2,0">
+                        <PathIcon Data="{StaticResource IconClock}" Width="12" Height="12" Foreground="{Binding TextMutedBrush}" VerticalAlignment="Center" />
+                        <TextBlock Text="Updated" Foreground="{Binding TextMutedBrush}" FontSize="11" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <Button Click="OnEditorVersionHistoryClick"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Padding="4,2"
+                            CornerRadius="6"
+                            Cursor="Hand"
+                            ToolTip.Tip="{Binding CurrentNoteLastModifiedFullText}"
+                            VerticalAlignment="Center">
+                        <TextBlock Text="{Binding CurrentNoteLastModifiedText}"
+                                   FontSize="11"
+                                   Foreground="{Binding TextSecondaryBrush}"
+                                   VerticalAlignment="Center" />
+                    </Button>
+                </StackPanel>
+            </Border>
+
             <!-- Full-Screen Milkdown WYSIWYG Markdown Canvas -->
             <notion:NotionEditorControl x:Name="MobileNotionEditor"
-                                        Grid.Row="2"
+                                        Grid.Row="3"
                                         HorizontalAlignment="Stretch"
                                         VerticalAlignment="Stretch" />
 
             <!-- Material Mobile Formatting Toolbar (Floats above soft keyboard) -->
-            <Border Grid.Row="3"
+            <Border Grid.Row="4"
                     x:Name="FormattingBar"
                     Background="{Binding EditorToolbarBackgroundBrush}"
                     BorderBrush="{Binding GlassBorderBrush}"
@@ -705,10 +1114,11 @@
         </Grid>
 
         <!-- MODAL 1: GOOGLE DRIVE ACCOUNT & SYNC DETAILS -->
-        <Grid x:Name="GoogleDriveAccountModal" Background="#a0000000" IsVisible="False">
+        <Grid x:Name="GoogleDriveAccountModal" Background="#a0000000" IsVisible="False" PointerPressed="OnCloseAccountModalClick">
             <Border HorizontalAlignment="Center" VerticalAlignment="Center"
                     Background="{Binding ModalBackgroundBrush}" BorderBrush="{Binding GlassBorderBrush}" BorderThickness="1"
-                    CornerRadius="18" Padding="20" Width="340" BoxShadow="0 8 32 #50000000">
+                    CornerRadius="18" Padding="20" Width="340" BoxShadow="0 8 32 #50000000"
+                    PointerPressed="OnModalContentPointerPressed">
                 <StackPanel Spacing="16">
                     <!-- Modal Header -->
                     <Grid ColumnDefinitions="*,Auto">
@@ -814,7 +1224,7 @@
         </Grid>
 
         <!-- MODAL 3: CREATE NEW FOLDER -->
-        <Grid x:Name="NewFolderModal" Background="#a0000000" IsVisible="False">
+        <Grid x:Name="NewFolderModal" Background="#a0000000" IsVisible="False" PointerPressed="OnCancelNewFolderClick">
             <Border Background="{Binding ModalBackgroundBrush}"
                     BorderBrush="{Binding GlassBorderBrush}"
                     BorderThickness="1"
@@ -824,7 +1234,8 @@
                     VerticalAlignment="Center"
                     HorizontalAlignment="Center"
                     Padding="20"
-                    BoxShadow="0 8 32 #50000000">
+                    BoxShadow="0 8 32 #50000000"
+                    PointerPressed="OnModalContentPointerPressed">
                 <StackPanel Spacing="14">
                     <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                         <PathIcon Data="{StaticResource IconFolderPlus}" Width="22" Height="22" Foreground="#3b82f6" />
@@ -935,7 +1346,7 @@
                     Background="{Binding DrawerBackgroundBrush}"
                     BorderBrush="{Binding GlassBorderBrush}"
                     BorderThickness="0,0,1,0"
-                    BoxShadow="6 0 32 #50000000">
+                    BoxShadow="2 0 8 #25000000">
                 <Grid RowDefinitions="Auto,*,Auto" Margin="0,14,0,14">
                     <!-- Drawer Header -->
                     <Border Grid.Row="0" Padding="16,12,16,14" BorderBrush="{Binding GlassBorderBrush}" BorderThickness="0,0,0,1">
@@ -1003,7 +1414,10 @@
                     </Border>
 
                     <!-- Scrollable Navigation Items -->
-                    <ScrollViewer Grid.Row="1" Padding="12,12">
+                    <ScrollViewer Grid.Row="1"
+                                  Padding="12,12"
+                                  IsScrollInertiaEnabled="True"
+                                  IsScrollChainingEnabled="False">
                         <StackPanel Spacing="6">
                             <!-- All Notes Item -->
                             <Button Click="OnDrawerAllNotesClick"
@@ -1034,6 +1448,20 @@
                                     <Border Grid.Column="2" Background="{Binding ChipUnselectedBackgroundBrush}" CornerRadius="10" Padding="8,2">
                                         <TextBlock x:Name="DrawerTrashBadgeText" Text="0" FontSize="11" Foreground="#ef4444" />
                                     </Border>
+                                </Grid>
+                            </Button>
+
+                            <!-- Version History & Backups Item -->
+                            <Button Click="OnDrawerVersionHistoryClick"
+                                    Background="Transparent"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Stretch"
+                                    Padding="10,8"
+                                    CornerRadius="10">
+                                <Grid ColumnDefinitions="Auto,*,Auto">
+                                    <PathIcon Grid.Column="0" Data="{StaticResource IconHistory}" Width="18" Height="18" Foreground="{Binding AccentBrush}" Margin="0,0,10,0" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1" Text="Version History" FontSize="14" FontWeight="SemiBold" Foreground="{Binding TextPrimaryBrush}" VerticalAlignment="Center" />
+                                    <PathIcon Grid.Column="2" Data="{StaticResource IconChevronRight}" Width="14" Height="14" Foreground="{Binding TextMutedBrush}" VerticalAlignment="Center" />
                                 </Grid>
                             </Button>
 
@@ -1222,8 +1650,8 @@
         </Grid>
 
         <!-- MODAL 5: CONFIRM DELETE FOLDER -->
-        <Grid x:Name="ConfirmDeleteFolderModal" Background="#a0000000" IsVisible="False">
-            <Border Background="{Binding ModalBackgroundBrush}" BorderBrush="{Binding GlassBorderBrush}" BorderThickness="1" CornerRadius="16" Width="320" VerticalAlignment="Center" HorizontalAlignment="Center" Padding="20">
+        <Grid x:Name="ConfirmDeleteFolderModal" Background="#a0000000" IsVisible="False" PointerPressed="OnCancelDeleteFolderClick">
+            <Border Background="{Binding ModalBackgroundBrush}" BorderBrush="{Binding GlassBorderBrush}" BorderThickness="1" CornerRadius="16" Width="320" VerticalAlignment="Center" HorizontalAlignment="Center" Padding="20" PointerPressed="OnModalContentPointerPressed">
                 <StackPanel Spacing="16">
                     <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                         <PathIcon Data="{StaticResource IconTrash}" Width="22" Height="22" Foreground="#ef4444" />
@@ -1240,8 +1668,8 @@
         </Grid>
 
         <!-- MODAL 6: CONFIRM EMPTY TRASH -->
-        <Grid x:Name="ConfirmEmptyTrashModal" Background="#a0000000" IsVisible="False">
-            <Border Background="{Binding ModalBackgroundBrush}" BorderBrush="{Binding GlassBorderBrush}" BorderThickness="1" CornerRadius="16" Width="320" VerticalAlignment="Center" HorizontalAlignment="Center" Padding="20">
+        <Grid x:Name="ConfirmEmptyTrashModal" Background="#a0000000" IsVisible="False" PointerPressed="OnCancelEmptyTrashClick">
+            <Border Background="{Binding ModalBackgroundBrush}" BorderBrush="{Binding GlassBorderBrush}" BorderThickness="1" CornerRadius="16" Width="320" VerticalAlignment="Center" HorizontalAlignment="Center" Padding="20" PointerPressed="OnModalContentPointerPressed">
                 <StackPanel Spacing="16">
                     <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                         <PathIcon Data="{StaticResource IconTrash}" Width="22" Height="22" Foreground="#ef4444" />
@@ -1258,7 +1686,7 @@
         </Grid>
 
         <!-- MODAL 7: MOVE NOTES DESTINATION PICKER (Issue 1) -->
-        <Grid x:Name="MoveNotesModal" Background="#a0000000" IsVisible="False">
+        <Grid x:Name="MoveNotesModal" Background="#a0000000" IsVisible="False" PointerPressed="OnCancelMoveNotesClick">
             <Border Background="{Binding ModalBackgroundBrush}"
                     BorderBrush="{Binding GlassBorderBrush}"
                     BorderThickness="1"
@@ -1268,7 +1696,8 @@
                     VerticalAlignment="Center"
                     HorizontalAlignment="Center"
                     Padding="20"
-                    BoxShadow="0 8 32 #50000000">
+                    BoxShadow="0 8 32 #50000000"
+                    PointerPressed="OnModalContentPointerPressed">
                 <StackPanel Spacing="14">
                     <Grid ColumnDefinitions="*,Auto">
                         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
@@ -1309,7 +1738,7 @@
         </Grid>
 
         <!-- MODAL 8: MOVE FOLDERS DESTINATION PICKER (Issue 1) -->
-        <Grid x:Name="MoveFoldersModal" Background="#a0000000" IsVisible="False">
+        <Grid x:Name="MoveFoldersModal" Background="#a0000000" IsVisible="False" PointerPressed="OnCancelMoveFoldersClick">
             <Border Background="{Binding ModalBackgroundBrush}"
                     BorderBrush="{Binding GlassBorderBrush}"
                     BorderThickness="1"
@@ -1319,7 +1748,8 @@
                     VerticalAlignment="Center"
                     HorizontalAlignment="Center"
                     Padding="20"
-                    BoxShadow="0 8 32 #50000000">
+                    BoxShadow="0 8 32 #50000000"
+                    PointerPressed="OnModalContentPointerPressed">
                 <StackPanel Spacing="14">
                     <Grid ColumnDefinitions="*,Auto">
                         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
@@ -1360,8 +1790,8 @@
         </Grid>
 
         <!-- MODAL 9: CONFIRM BATCH DELETE FOLDERS (Issue 1) -->
-        <Grid x:Name="ConfirmBatchDeleteFoldersModal" Background="#a0000000" IsVisible="False">
-            <Border Background="{Binding ModalBackgroundBrush}" BorderBrush="{Binding GlassBorderBrush}" BorderThickness="1" CornerRadius="16" Width="320" VerticalAlignment="Center" HorizontalAlignment="Center" Padding="20">
+        <Grid x:Name="ConfirmBatchDeleteFoldersModal" Background="#a0000000" IsVisible="False" PointerPressed="OnCancelBatchDeleteFoldersClick">
+            <Border Background="{Binding ModalBackgroundBrush}" BorderBrush="{Binding GlassBorderBrush}" BorderThickness="1" CornerRadius="16" Width="320" VerticalAlignment="Center" HorizontalAlignment="Center" Padding="20" PointerPressed="OnModalContentPointerPressed">
                 <StackPanel Spacing="16">
                     <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                         <PathIcon Data="{StaticResource IconTrash}" Width="22" Height="22" Foreground="#ef4444" />
@@ -1377,68 +1807,528 @@
             </Border>
         </Grid>
 
-        <!-- MODAL 10: NOTE EDITOR 3-DOTS MORE MENU (Telegram Liquid Glass Style) -->
-        <Grid x:Name="NoteEditorMenuModal" Background="#60000000" IsVisible="False" PointerPressed="OnCloseNoteEditorMenuClick">
+        <!-- MODAL 10: NOTE EDITOR 3-DOTS MORE MENU (Modern Mobile Action Sheet) -->
+        <Grid x:Name="NoteEditorMenuModal" Background="#70000000" IsVisible="False" PointerPressed="OnCloseNoteEditorMenuClick">
             <Border Background="{Binding ModalBackgroundBrush}"
                     BorderBrush="{Binding GlassBorderBrush}"
-                    BorderThickness="1"
-                    CornerRadius="16"
-                    Width="250"
-                    VerticalAlignment="Top"
-                    HorizontalAlignment="Right"
-                    Margin="0,52,14,0"
-                    Padding="12,10"
-                    BoxShadow="0 12 36 #50000000"
+                    BorderThickness="1,1,1,0"
+                    CornerRadius="24,24,0,0"
+                    MaxWidth="450"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Bottom"
+                    Padding="20,12,20,28"
+                    BoxShadow="0 -8 32 #50000000"
                     PointerPressed="OnMenuModalContentPointerPressed">
-                <StackPanel Spacing="4">
-                    <Grid ColumnDefinitions="*,Auto" Margin="4,2,2,6">
-                        <TextBlock Text="Options" FontSize="13" FontWeight="Bold" Foreground="{Binding TextMutedBrush}" VerticalAlignment="Center" />
-                        <Button Grid.Column="1" Click="OnCloseNoteEditorMenuClick" Background="Transparent" Foreground="{Binding TextSecondaryBrush}" Padding="4">
-                            <PathIcon Data="{StaticResource IconClose}" Width="14" Height="14" Foreground="{Binding TextSecondaryBrush}" />
+                <StackPanel Spacing="10">
+                    <!-- Sheet Drag Handle -->
+                    <Border Width="36" Height="4" CornerRadius="2" Background="{Binding TextMutedBrush}" HorizontalAlignment="Center" Margin="0,0,0,8" Opacity="0.5" />
+
+                    <!-- Sheet Header -->
+                    <Grid ColumnDefinitions="*,Auto" Margin="4,0,2,6">
+                        <StackPanel Orientation="Vertical">
+                            <TextBlock Text="Note Options" FontSize="16" FontWeight="Bold" Foreground="{Binding TextPrimaryBrush}" />
+                            <TextBlock Text="{Binding ActiveNoteTitle}" FontSize="12" Foreground="{Binding TextSecondaryBrush}" TextTrimming="CharacterEllipsis" MaxWidth="280" />
+                        </StackPanel>
+                        <Button Grid.Column="1" Click="OnCloseNoteEditorMenuClick" Background="Transparent" Foreground="{Binding TextSecondaryBrush}" Padding="6" CornerRadius="16">
+                            <PathIcon Data="{StaticResource IconClose}" Width="16" Height="16" Foreground="{Binding TextSecondaryBrush}" />
                         </Button>
                     </Grid>
 
-                    <!-- Copy Note Option -->
+                    <!-- Duplicate Note Option -->
                     <Button Click="OnEditorCopyNoteClick"
-                            Background="Transparent"
+                            Background="{Binding GlassSurfaceBrush}"
+                            BorderBrush="{Binding GlassBorderBrush}"
+                            BorderThickness="1"
                             HorizontalAlignment="Stretch"
                             HorizontalContentAlignment="Stretch"
-                            Padding="10,8"
-                            CornerRadius="8">
-                        <Grid ColumnDefinitions="Auto,*">
-                            <PathIcon Grid.Column="0" Data="{StaticResource IconCopy}" Width="16" Height="16" Foreground="{Binding AccentBrush}" Margin="0,0,10,0" VerticalAlignment="Center" />
-                            <TextBlock Grid.Column="1" Text="Duplicate Note" FontSize="13" Foreground="{Binding TextPrimaryBrush}" VerticalAlignment="Center" />
+                            Padding="14,12"
+                            CornerRadius="12">
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Border Grid.Column="0" Width="36" Height="36" CornerRadius="18" Background="#1a3b82f6" Margin="0,0,12,0">
+                                <PathIcon Data="{StaticResource IconCopy}" Width="18" Height="18" Foreground="#3b82f6" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Duplicate Note" FontSize="14" FontWeight="SemiBold" Foreground="{Binding TextPrimaryBrush}" />
+                                <TextBlock Text="Create an exact copy in the same folder" FontSize="11" Foreground="{Binding TextSecondaryBrush}" />
+                            </StackPanel>
+                            <PathIcon Grid.Column="2" Data="{StaticResource IconChevronRight}" Width="12" Height="12" Foreground="{Binding TextMutedBrush}" VerticalAlignment="Center" />
                         </Grid>
                     </Button>
 
                     <!-- Move Note Option -->
                     <Button Click="OnEditorMoveNoteClick"
-                            Background="Transparent"
+                            Background="{Binding GlassSurfaceBrush}"
+                            BorderBrush="{Binding GlassBorderBrush}"
+                            BorderThickness="1"
                             HorizontalAlignment="Stretch"
                             HorizontalContentAlignment="Stretch"
-                            Padding="10,8"
-                            CornerRadius="8">
-                        <Grid ColumnDefinitions="Auto,*">
-                            <PathIcon Grid.Column="0" Data="{StaticResource IconFolder}" Width="16" Height="16" Foreground="{Binding AccentBrush}" Margin="0,0,10,0" VerticalAlignment="Center" />
-                            <TextBlock Grid.Column="1" Text="Move to Folder..." FontSize="13" Foreground="{Binding TextPrimaryBrush}" VerticalAlignment="Center" />
+                            Padding="14,12"
+                            CornerRadius="12">
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Border Grid.Column="0" Width="36" Height="36" CornerRadius="18" Background="#1af59e0b" Margin="0,0,12,0">
+                                <PathIcon Data="{StaticResource IconFolder}" Width="18" Height="18" Foreground="#f59e0b" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Move Note..." FontSize="14" FontWeight="SemiBold" Foreground="{Binding TextPrimaryBrush}" />
+                                <TextBlock Text="Organize into another folder or root" FontSize="11" Foreground="{Binding TextSecondaryBrush}" />
+                            </StackPanel>
+                            <PathIcon Grid.Column="2" Data="{StaticResource IconChevronRight}" Width="12" Height="12" Foreground="{Binding TextMutedBrush}" VerticalAlignment="Center" />
+                        </Grid>
+                    </Button>
+
+                    <!-- Version History Option -->
+                    <Button Click="OnEditorVersionHistoryClick"
+                            Background="{Binding GlassSurfaceBrush}"
+                            BorderBrush="{Binding GlassBorderBrush}"
+                            BorderThickness="1"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Stretch"
+                            Padding="14,12"
+                            CornerRadius="12">
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Border Grid.Column="0" Width="36" Height="36" CornerRadius="18" Background="#1a8b5cf6" Margin="0,0,12,0">
+                                <PathIcon Data="{StaticResource IconHistory}" Width="18" Height="18" Foreground="#8b5cf6" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Version History..." FontSize="14" FontWeight="SemiBold" Foreground="{Binding TextPrimaryBrush}" />
+                                <TextBlock Text="Inspect and restore previous revisions" FontSize="11" Foreground="{Binding TextSecondaryBrush}" />
+                            </StackPanel>
+                            <PathIcon Grid.Column="2" Data="{StaticResource IconChevronRight}" Width="12" Height="12" Foreground="{Binding TextMutedBrush}" VerticalAlignment="Center" />
+                        </Grid>
+                    </Button>
+
+                    <!-- Settings & Theme Option -->
+                    <Button Click="OnEditorOpenSettingsClick"
+                            Background="{Binding GlassSurfaceBrush}"
+                            BorderBrush="{Binding GlassBorderBrush}"
+                            BorderThickness="1"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Stretch"
+                            Padding="14,12"
+                            CornerRadius="12">
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Border Grid.Column="0" Width="36" Height="36" CornerRadius="18" Background="#1a10b981" Margin="0,0,12,0">
+                                <PathIcon Data="{StaticResource IconSettings}" Width="18" Height="18" Foreground="#10b981" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Settings &amp; Theme" FontSize="14" FontWeight="SemiBold" Foreground="{Binding TextPrimaryBrush}" />
+                                <TextBlock Text="Editor appearance, font and themes" FontSize="11" Foreground="{Binding TextSecondaryBrush}" />
+                            </StackPanel>
+                            <PathIcon Grid.Column="2" Data="{StaticResource IconChevronRight}" Width="12" Height="12" Foreground="{Binding TextMutedBrush}" VerticalAlignment="Center" />
                         </Grid>
                     </Button>
 
                     <Rectangle Height="1" Fill="{Binding GlassBorderBrush}" Margin="0,2" />
 
-                    <!-- Delete Note Option -->
+                    <!-- Delete Note Option (Destructive) -->
                     <Button Click="OnEditorDeleteNoteClick"
-                            Background="Transparent"
+                            Background="#18ef4444"
+                            BorderBrush="#40ef4444"
+                            BorderThickness="1"
                             HorizontalAlignment="Stretch"
                             HorizontalContentAlignment="Stretch"
-                            Padding="10,8"
-                            CornerRadius="8">
+                            Padding="14,12"
+                            CornerRadius="12">
                         <Grid ColumnDefinitions="Auto,*">
-                            <PathIcon Grid.Column="0" Data="{StaticResource IconTrash}" Width="16" Height="16" Foreground="#ef4444" Margin="0,0,10,0" VerticalAlignment="Center" />
-                            <TextBlock Grid.Column="1" Text="Delete Note" FontSize="13" Foreground="#ef4444" FontWeight="SemiBold" VerticalAlignment="Center" />
+                            <Border Grid.Column="0" Width="36" Height="36" CornerRadius="18" Background="#26ef4444" Margin="0,0,12,0">
+                                <PathIcon Data="{StaticResource IconTrash}" Width="18" Height="18" Foreground="#ef4444" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Delete Note" FontSize="14" FontWeight="Bold" Foreground="#ef4444" />
+                                <TextBlock Text="Move note to Trash Bin" FontSize="11" Foreground="#f87171" />
+                            </StackPanel>
                         </Grid>
                     </Button>
                 </StackPanel>
+            </Border>
+        </Grid>
+    
+
+        <!-- MODAL 11: SETTINGS, THEMES & DICTIONARY MODAL -->
+        <Grid x:Name="SettingsModal" Background="#70000000" IsVisible="False" PointerPressed="OnCloseSettingsModalClick">
+            <Border Background="{Binding ModalBackgroundBrush}"
+                    BorderBrush="{Binding GlassBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="16"
+                    Width="360"
+                    MaxHeight="620"
+                    VerticalAlignment="Center"
+                    HorizontalAlignment="Center"
+                    Padding="16"
+                    BoxShadow="0 12 36 #50000000"
+                    PointerPressed="OnSettingsModalContentPointerPressed">
+                <Grid RowDefinitions="Auto,Auto,*,Auto">
+                    <!-- Header (Row 0) -->
+                    <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,12">
+                        <PathIcon Grid.Column="0" Data="{StaticResource IconSettings}" Width="18" Height="18" Foreground="{Binding AccentBrush}" Margin="0,0,10,0" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="1" Text="Settings &amp; Preferences" FontSize="16" FontWeight="Bold" Foreground="{Binding TextPrimaryBrush}" VerticalAlignment="Center" />
+                        <Button Grid.Column="2" Click="OnCloseSettingsModalClick" Background="Transparent" Padding="4" CornerRadius="12">
+                            <PathIcon Data="{StaticResource IconClose}" Width="16" Height="16" Foreground="{Binding TextSecondaryBrush}" />
+                        </Button>
+                    </Grid>
+
+                    <!-- Segmented Tabs (Row 1): Themes | Dictionary -->
+                    <Border Grid.Row="1" Background="{Binding GlassSurfaceBrush}" BorderBrush="{Binding GlassBorderBrush}" BorderThickness="1" CornerRadius="10" Padding="3" Margin="0,0,0,12">
+                        <Grid ColumnDefinitions="*,*">
+                            <Border Grid.Column="0" Background="{Binding ThemeTabBackgroundBrush}" CornerRadius="8" Padding="0,6" Cursor="Hand" Tapped="OnSettingsTabThemesClick">
+                                <TextBlock Text="Themes" FontSize="13" FontWeight="SemiBold" Foreground="{Binding ThemeTabForegroundBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <Border Grid.Column="1" Background="{Binding DictionaryTabBackgroundBrush}" CornerRadius="8" Padding="0,6" Cursor="Hand" Tapped="OnSettingsTabDictionaryClick">
+                                <TextBlock Text="Dictionary" FontSize="13" FontWeight="SemiBold" Foreground="{Binding DictionaryTabForegroundBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                        </Grid>
+                    </Border>
+
+                    <!-- Tab Content (Row 2) -->
+                    <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+                            <!-- TAB 1: THEMES PANEL -->
+                            <StackPanel x:Name="SettingsThemesPanel" Spacing="14" IsVisible="True">
+                                <!-- Theme Style Section -->
+                                <TextBlock Text="THEME STYLE" FontSize="11" FontWeight="Bold" Foreground="{Binding TextMutedBrush}" LetterSpacing="0.8" />
+
+                                <!-- Android Theme Card (Liquid Glass) -->
+                                <Border x:Name="AndroidThemeCard"
+                                        Background="{Binding GlassSurfaceBrush}"
+                                        BorderBrush="{Binding AndroidCardBorderBrush}"
+                                        BorderThickness="{Binding AndroidCardBorderThickness}"
+                                        CornerRadius="14"
+                                        Padding="12,10"
+                                        Cursor="Hand"
+                                        Tapped="OnSelectAndroidThemeClick">
+                                    <Grid ColumnDefinitions="Auto,*,Auto">
+                                        <!-- Preview Circle -->
+                                        <Border Grid.Column="0" Width="36" Height="36" CornerRadius="18" Background="#0b0e14" BorderBrush="#3390ec" BorderThickness="2" Margin="0,0,12,0">
+                                            <Border Width="16" Height="16" CornerRadius="8" Background="#3390ec" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        </Border>
+
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock Text="Android Theme" FontSize="14" FontWeight="Bold" Foreground="{Binding TextPrimaryBrush}" />
+                                            <TextBlock Text="Telegram Liquid Glass with electric blue" FontSize="11" Foreground="{Binding TextSecondaryBrush}" Margin="0,2,0,0" />
+                                        </StackPanel>
+
+                                        <!-- Active Check -->
+                                        <PathIcon Grid.Column="2" Data="{StaticResource IconCheckCircle}" Width="18" Height="18" Foreground="{Binding AccentBrush}" IsVisible="{Binding IsAndroidThemeActive}" VerticalAlignment="Center" />
+                                    </Grid>
+                                </Border>
+
+                                <!-- Windows App Theme Card (Obsidian Slate) -->
+                                <Border x:Name="WindowsThemeCard"
+                                        Background="{Binding GlassSurfaceBrush}"
+                                        BorderBrush="{Binding WindowsCardBorderBrush}"
+                                        BorderThickness="{Binding WindowsCardBorderThickness}"
+                                        CornerRadius="14"
+                                        Padding="12,10"
+                                        Cursor="Hand"
+                                        Tapped="OnSelectWindowsThemeClick">
+                                    <Grid ColumnDefinitions="Auto,*,Auto">
+                                        <!-- Preview Circle -->
+                                        <Border Grid.Column="0" Width="36" Height="36" CornerRadius="18" Background="#11141c" BorderBrush="#2563eb" BorderThickness="2" Margin="0,0,12,0">
+                                            <Border Width="16" Height="16" CornerRadius="8" Background="#2563eb" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        </Border>
+
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock Text="Windows App Theme" FontSize="14" FontWeight="Bold" Foreground="{Binding TextPrimaryBrush}" />
+                                            <TextBlock Text="Classic dark slate &amp; cobalt blue from Desktop" FontSize="11" Foreground="{Binding TextSecondaryBrush}" Margin="0,2,0,0" />
+                                        </StackPanel>
+
+                                        <!-- Active Check -->
+                                        <PathIcon Grid.Column="2" Data="{StaticResource IconCheckCircle}" Width="18" Height="18" Foreground="{Binding AccentBrush}" IsVisible="{Binding IsWindowsThemeActive}" VerticalAlignment="Center" />
+                                    </Grid>
+                                </Border>
+
+                                <!-- Custom Imported Theme Button -->
+                                <Border Background="{Binding GlassSurfaceBrush}"
+                                        BorderBrush="{Binding GlassBorderBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="14"
+                                        Padding="12,10"
+                                        Cursor="Hand"
+                                        Tapped="OnImportThemeClick">
+                                    <Grid ColumnDefinitions="Auto,*,Auto">
+                                        <PathIcon Grid.Column="0" Data="{StaticResource IconPalette}" Width="18" Height="18" Foreground="{Binding AccentBrush}" Margin="0,0,12,0" VerticalAlignment="Center" />
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock Text="Import Theme (JSON)..." FontSize="14" FontWeight="Bold" Foreground="{Binding TextPrimaryBrush}" />
+                                            <TextBlock Text="Load custom color schema from config file" FontSize="11" Foreground="{Binding TextSecondaryBrush}" Margin="0,2,0,0" />
+                                        </StackPanel>
+                                        <PathIcon Grid.Column="2" Data="{StaticResource IconChevronRight}" Width="14" Height="14" Foreground="{Binding TextMutedBrush}" VerticalAlignment="Center" />
+                                    </Grid>
+                                </Border>
+
+                                <!-- Editor Consistency Notice -->
+                                <Border Background="{Binding ChipUnselectedBackgroundBrush}" CornerRadius="10" Padding="10,8">
+                                    <TextBlock Text="Changing theme updates note list, cards, dialogs, and the text editor background seamlessly."
+                                               FontSize="11" Foreground="{Binding TextSecondaryBrush}" TextWrapping="Wrap" />
+                                </Border>
+
+                                <!-- Mode Switch: Dark / Light -->
+                                <TextBlock Text="APPEARANCE" FontSize="11" FontWeight="Bold" Foreground="{Binding TextMutedBrush}" LetterSpacing="0.8" Margin="0,6,0,0" />
+                                <Border Background="{Binding GlassSurfaceBrush}" BorderBrush="{Binding GlassBorderBrush}" BorderThickness="1" CornerRadius="14" Padding="12,10">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding ThemeToggleText}" FontSize="13" FontWeight="SemiBold" Foreground="{Binding TextPrimaryBrush}" />
+                                            <TextBlock Text="Toggle Dark / Light canvas" FontSize="11" Foreground="{Binding TextSecondaryBrush}" Margin="0,2,0,0" />
+                                        </StackPanel>
+                                        <ToggleSwitch Grid.Column="1"
+                                                      IsChecked="{Binding IsDarkMode, Mode=TwoWay}"
+                                                      OnContent="Dark"
+                                                      OffContent="Light"
+                                                      VerticalAlignment="Center" />
+                                    </Grid>
+                                </Border>
+                            </StackPanel>
+
+                            <!-- TAB 2: DICTIONARY PANEL (Matching ss4) -->
+                            <StackPanel x:Name="SettingsDictionaryPanel" Spacing="14" IsVisible="False">
+                                <!-- Spell Check Card (Matching ss4) -->
+                                <Border Background="{Binding GlassSurfaceBrush}" BorderBrush="{Binding GlassBorderBrush}" BorderThickness="1" CornerRadius="14" Padding="14,12">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <StackPanel Grid.Column="0" Spacing="3" Margin="0,0,10,0">
+                                            <TextBlock Text="Editor Spell Check" FontSize="14" FontWeight="Bold" Foreground="{Binding TextPrimaryBrush}" />
+                                            <TextBlock Text="Show red wavy squiggles for misspelled words. Turn off to avoid underlines on technical terms (WinRM, LDAPS, PowerShell)."
+                                                       FontSize="11"
+                                                       Foreground="{Binding TextSecondaryBrush}"
+                                                       TextWrapping="Wrap" />
+                                        </StackPanel>
+                                        <ToggleSwitch Grid.Column="1"
+                                                      IsChecked="{Binding IsSpellCheckEnabled, Mode=TwoWay}"
+                                                      OnContent="Enabled"
+                                                      OffContent="Disabled"
+                                                      VerticalAlignment="Center" />
+                                    </Grid>
+                                </Border>
+
+                                <!-- Add Word Input Row (Matching ss4) -->
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBox x:Name="TxtAddIgnoredWord"
+                                             Grid.Column="0"
+                                             PlaceholderText="Add word or technical term (e.g. WinRM, ldaps, kubectl)..."
+                                             Background="{Binding GlassSurfaceBrush}"
+                                             BorderBrush="{Binding GlassBorderBrush}"
+                                             BorderThickness="1"
+                                             CornerRadius="12"
+                                             Padding="12,9"
+                                             Foreground="{Binding TextPrimaryBrush}"
+                                             FontSize="13"
+                                             Margin="0,0,8,0"
+                                             KeyDown="OnAddIgnoredWordKeyDown" />
+                                    <Button Grid.Column="1"
+                                            Click="OnAddIgnoredWordClick"
+                                            Background="{Binding AccentBrush}"
+                                            Foreground="#ffffff"
+                                            CornerRadius="12"
+                                            Padding="14,9"
+                                            FontWeight="SemiBold"
+                                            Cursor="Hand">
+                                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                            <PathIcon Data="{StaticResource IconPlus}" Width="12" Height="12" Foreground="#ffffff" />
+                                            <TextBlock Text="Add" FontSize="13" Foreground="#ffffff" />
+                                        </StackPanel>
+                                    </Button>
+                                </Grid>
+
+                                <!-- Custom Ignored Words Chips Section (Matching ss4) -->
+                                <Grid ColumnDefinitions="*,Auto" Margin="0,4,0,0">
+                                    <TextBlock Grid.Column="0" Text="CUSTOM IGNORED WORDS" FontSize="11" FontWeight="Bold" Foreground="{Binding TextMutedBrush}" LetterSpacing="0.8" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1" Text="{Binding IgnoredWordsCountText}" FontSize="11" Foreground="{Binding TextSecondaryBrush}" VerticalAlignment="Center" />
+                                </Grid>
+
+                                <!-- WrapPanel Chips Container -->
+                                <Border Background="{Binding GlassSurfaceBrush}" BorderBrush="{Binding GlassBorderBrush}" BorderThickness="1" CornerRadius="12" Padding="10" MinHeight="100" MaxHeight="220">
+                                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                        <WrapPanel x:Name="IgnoredWordsChipsPanel" />
+                                    </ScrollViewer>
+                                </Border>
+                            </StackPanel>
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <!-- Footer: Close Button -->
+                    <Grid Grid.Row="3" Margin="0,14,0,0">
+                        <Button Click="OnCloseSettingsModalClick"
+                                Content="Close"
+                                Background="{Binding AccentBrush}"
+                                Foreground="#ffffff"
+                                FontWeight="SemiBold"
+                                HorizontalAlignment="Right"
+                                Padding="24,8"
+                                CornerRadius="10" />
+                    </Grid>
+                </Grid>
+            </Border>
+        </Grid>
+
+<!-- MODAL 12: BACKUP & VERSION HISTORY MODAL (Telegram Liquid Glass Style) -->
+        <Grid x:Name="VersionHistoryModal" Background="#70000000" IsVisible="False" PointerPressed="OnCloseVersionHistoryClick">
+            <Border Background="{Binding ModalBackgroundBrush}"
+                    BorderBrush="{Binding GlassBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="16"
+                    MaxWidth="520"
+                    MaxHeight="680"
+                    VerticalAlignment="Center"
+                    HorizontalAlignment="Stretch"
+                    Margin="16"
+                    Padding="16"
+                    BoxShadow="0 16 48 #60000000"
+                    PointerPressed="OnVersionHistoryModalContentPointerPressed">
+                <Grid RowDefinitions="Auto,*">
+                    <!-- Modal Header -->
+                    <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto,Auto" Margin="0,0,0,12">
+                        <PathIcon Grid.Column="0" Data="{StaticResource IconHistory}" Width="18" Height="18" Foreground="{Binding AccentBrush}" Margin="0,0,10,0" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="1" Text="Version History" FontSize="17" FontWeight="Bold" Foreground="{Binding TextPrimaryBrush}" VerticalAlignment="Center" />
+
+                        <!-- Snapshot active note button -->
+                        <Button Grid.Column="2" Click="OnCreateManualSnapshotClick"
+                                Background="{Binding GlassSurfaceBrush}"
+                                BorderBrush="{Binding GlassBorderBrush}"
+                                BorderThickness="1"
+                                Padding="8,5"
+                                CornerRadius="8"
+                                Margin="0,0,8,0"
+                                ToolTip.Tip="Take a snapshot of current note">
+                            <StackPanel Orientation="Horizontal" Spacing="5">
+                                <PathIcon Data="{StaticResource IconSave}" Width="12" Height="12" Foreground="{Binding AccentBrush}" VerticalAlignment="Center" />
+                                <TextBlock Text="Snapshot" FontSize="11" FontWeight="SemiBold" Foreground="{Binding TextPrimaryBrush}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+
+                        <Button Grid.Column="3" Click="OnCloseVersionHistoryClick" Background="Transparent" Padding="4" CornerRadius="12">
+                            <PathIcon Data="{StaticResource IconClose}" Width="16" Height="16" Foreground="{Binding TextSecondaryBrush}" />
+                        </Button>
+                    </Grid>
+
+                    <!-- Content Container -->
+                    <Grid Grid.Row="1">
+                        <!-- VIEW A: Backups Note Files List -->
+                        <Grid x:Name="BackupFilesViewContainer" RowDefinitions="Auto,*" IsVisible="True">
+                            <!-- Search Bar -->
+                            <Border Grid.Row="0"
+                                    Background="{Binding GlassSurfaceBrush}"
+                                    BorderBrush="{Binding GlassBorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="10"
+                                    Padding="8,4"
+                                    Margin="0,0,0,10">
+                                <Grid ColumnDefinitions="Auto,*">
+                                    <PathIcon Grid.Column="0" Data="{StaticResource IconSearch}" Width="14" Height="14" Foreground="{Binding TextSecondaryBrush}" Margin="2,0,8,0" VerticalAlignment="Center" />
+                                    <TextBox Grid.Column="1"
+                                             x:Name="BackupSearchBox"
+                                             PlaceholderText="Search note files..."
+                                             Background="Transparent"
+                                             BorderThickness="0"
+                                             Foreground="{Binding TextPrimaryBrush}"
+                                             FontSize="13"
+                                             TextChanged="OnBackupSearchTextChanged" />
+                                </Grid>
+                            </Border>
+
+                            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                                <StackPanel>
+                                    <TextBlock x:Name="BackupNotesEmptyText"
+                                               Text="No backup versions found"
+                                               FontSize="13"
+                                               Foreground="{Binding TextSecondaryBrush}"
+                                               FontStyle="Italic"
+                                               HorizontalAlignment="Center"
+                                               Margin="0,24,0,0"
+                                               IsVisible="False" />
+                                    <StackPanel x:Name="BackupNotesListPanel" Spacing="4" />
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Grid>
+
+                        <!-- VIEW B: Note Versions & Content Preview -->
+                        <Grid x:Name="BackupVersionsViewContainer" RowDefinitions="Auto,*,Auto" IsVisible="False">
+                            <!-- Breadcrumb Header -->
+                            <Grid Grid.Row="0" ColumnDefinitions="Auto,*" Margin="0,0,0,10">
+                                <Button Grid.Column="0" Click="OnBackupBackToFilesClick"
+                                        Background="{Binding GlassSurfaceBrush}"
+                                        BorderBrush="{Binding GlassBorderBrush}"
+                                        BorderThickness="1"
+                                        Padding="8,5"
+                                        CornerRadius="8"
+                                        Margin="0,0,10,0">
+                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                        <PathIcon Data="{StaticResource IconChevronLeft}" Width="12" Height="12" Foreground="{Binding AccentBrush}" VerticalAlignment="Center" />
+                                        <TextBlock Text="Files" FontSize="11" FontWeight="SemiBold" Foreground="{Binding TextPrimaryBrush}" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock x:Name="BackupDetailNoteTitle" Text="Note Revisions" FontSize="14" FontWeight="Bold" Foreground="{Binding TextPrimaryBrush}" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock x:Name="BackupDetailNotePath" Text="" FontSize="11" Foreground="{Binding TextSecondaryBrush}" TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- Middle: Versions List & Content Preview -->
+                            <Grid Grid.Row="1" RowDefinitions="140,*">
+                                <!-- Revisions List -->
+                                <Border Grid.Row="0"
+                                        Background="{Binding GlassSurfaceBrush}"
+                                        BorderBrush="{Binding GlassBorderBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="10"
+                                        Padding="6"
+                                        Margin="0,0,0,8">
+                                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                        <StackPanel x:Name="BackupVersionsListPanel" Spacing="4" />
+                                    </ScrollViewer>
+                                </Border>
+
+                                <!-- Preview Pane -->
+                                <Border Grid.Row="1"
+                                        x:Name="BackupDetailViewContainer"
+                                        Background="{Binding GlassSurfaceBrush}"
+                                        BorderBrush="{Binding GlassBorderBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="10"
+                                        Padding="10">
+                                    <Grid RowDefinitions="Auto,*">
+                                        <TextBlock Grid.Row="0"
+                                                   x:Name="BackupPreviewMetaText"
+                                                   Text="Snapshot Preview"
+                                                   FontSize="11"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{Binding TextSecondaryBrush}"
+                                                   Margin="0,0,0,6" />
+                                        <TextBox Grid.Row="1"
+                                                 x:Name="BackupPreviewTextBox"
+                                                 IsReadOnly="True"
+                                                 AcceptsReturn="True"
+                                                 TextWrapping="Wrap"
+                                                 Background="Transparent"
+                                                 BorderThickness="0"
+                                                 Foreground="{Binding TextPrimaryBrush}"
+                                                 FontSize="12" />
+                                    </Grid>
+                                </Border>
+                            </Grid>
+
+                            <!-- Bottom Action Bar -->
+                            <Grid Grid.Row="2" ColumnDefinitions="*,Auto,Auto" Margin="0,10,0,0">
+                                <Button Grid.Column="1" Click="OnCopyVersionTextClick"
+                                        Content="Copy Text"
+                                        Background="{Binding GlassSurfaceBrush}"
+                                        BorderBrush="{Binding GlassBorderBrush}"
+                                        BorderThickness="1"
+                                        Foreground="{Binding TextPrimaryBrush}"
+                                        FontSize="12"
+                                        FontWeight="SemiBold"
+                                        Padding="14,8"
+                                        CornerRadius="10"
+                                        Margin="0,0,8,0" />
+                                <Button Grid.Column="2" Click="OnRestoreVersionClick"
+                                        Content="Restore Version"
+                                        Background="{Binding AccentBrush}"
+                                        Foreground="#ffffff"
+                                        FontSize="12"
+                                        FontWeight="Bold"
+                                        Padding="16,8"
+                                        CornerRadius="10" />
+                            </Grid>
+                        </Grid>
+                    </Grid>
+                </Grid>
             </Border>
         </Grid>
     </Grid>
