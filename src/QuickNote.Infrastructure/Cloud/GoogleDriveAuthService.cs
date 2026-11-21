@@ -66,15 +66,21 @@ namespace QuickNote.Infrastructure.Cloud
             var effectiveClientId = !string.IsNullOrWhiteSpace(clientId) ? clientId : DefaultClientId;
             var effectiveSecret = !string.IsNullOrWhiteSpace(clientSecret) ? clientSecret : DefaultClientSecret;
 
-            var content = new FormUrlEncodedContent(new[]
+            var parameters = new List<KeyValuePair<string, string>>
             {
                 new KeyValuePair<string, string>("client_id", effectiveClientId),
-                new KeyValuePair<string, string>("client_secret", effectiveSecret),
                 new KeyValuePair<string, string>("grant_type", "authorization_code"),
                 new KeyValuePair<string, string>("code", code),
                 new KeyValuePair<string, string>("redirect_uri", RedirectUri),
                 new KeyValuePair<string, string>("code_verifier", codeVerifier)
-            });
+            };
+
+            if (!string.IsNullOrWhiteSpace(effectiveSecret))
+            {
+                parameters.Add(new KeyValuePair<string, string>("client_secret", effectiveSecret));
+            }
+
+            var content = new FormUrlEncodedContent(parameters);
 
             using var response = await _httpClient.PostAsync(TokenEndpoint, content);
             var json = await response.Content.ReadAsStringAsync();
@@ -94,13 +100,19 @@ namespace QuickNote.Infrastructure.Cloud
             var effectiveClientId = !string.IsNullOrWhiteSpace(clientId) ? clientId : DefaultClientId;
             var effectiveSecret = !string.IsNullOrWhiteSpace(clientSecret) ? clientSecret : DefaultClientSecret;
 
-            var content = new FormUrlEncodedContent(new[]
+            var parameters = new List<KeyValuePair<string, string>>
             {
                 new KeyValuePair<string, string>("client_id", effectiveClientId),
-                new KeyValuePair<string, string>("client_secret", effectiveSecret),
                 new KeyValuePair<string, string>("grant_type", "refresh_token"),
                 new KeyValuePair<string, string>("refresh_token", refreshToken)
-            });
+            };
+
+            if (!string.IsNullOrWhiteSpace(effectiveSecret))
+            {
+                parameters.Add(new KeyValuePair<string, string>("client_secret", effectiveSecret));
+            }
+
+            var content = new FormUrlEncodedContent(parameters);
 
             using var response = await _httpClient.PostAsync(TokenEndpoint, content);
             var json = await response.Content.ReadAsStringAsync();

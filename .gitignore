@@ -46,6 +46,7 @@ EBWebView/
 **/EBWebView/
 *.WebView2/
 **/temp_edge_profile/
+**/temp_edge_profile*/
 
 # --------------------------------------------------
 # Visual Studio / Rider / IDEs
