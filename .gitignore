@@ -49,6 +49,14 @@ EBWebView/
 **/temp_edge_profile*/
 
 # --------------------------------------------------
+# Local Secrets & Credentials (NEVER commit to git)
+# --------------------------------------------------
+*Secrets.local.cs
+*.local.cs
+*secrets*.json
+client_secret*.json
+
+# --------------------------------------------------
 # Visual Studio / Rider / IDEs
 # --------------------------------------------------
 .vs/

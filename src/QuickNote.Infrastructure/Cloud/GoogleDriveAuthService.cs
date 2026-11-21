@@ -11,8 +11,8 @@ namespace QuickNote.Infrastructure.Cloud
 {
     public class GoogleDriveAuthService
     {
-        public const string DefaultClientId = "614992283073-sc1hivoo37bjt5rap571kuo7j1kjjv86.apps.googleusercontent.com";
-        public const string DefaultClientSecret = "";
+        public static string DefaultClientId => GoogleDriveSecrets.ClientId;
+        public static string DefaultClientSecret => GoogleDriveSecrets.ClientSecret;
         public const string RedirectUri = "http://localhost";
         public const string AuthorizeEndpoint = "https://accounts.google.com/o/oauth2/v2/auth";
         public const string TokenEndpoint = "https://oauth2.googleapis.com/token";
